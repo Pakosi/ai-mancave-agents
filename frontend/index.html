@@ -3,63 +3,214 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Mancave Status</title>
+  <title>WOYS Chat</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
+      background: #f8fafc;
       margin: 2rem;
       color: #1f2937;
     }
 
-    button {
-      cursor: pointer;
-      padding: 0.5rem 0.75rem;
+    main {
+      max-width: 42rem;
+      margin: 0 auto;
     }
 
-    pre {
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
+    h1 {
+      font-size: 1.75rem;
+      margin: 0 0 1rem;
+    }
+
+    form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    input {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      flex: 1;
+      font: inherit;
+      padding: 0.75rem;
+    }
+
+    button {
+      background: #2563eb;
+      border: 0;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      padding: 0.75rem 1rem;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .error {
+      color: #b91c1c;
+      min-height: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .messages {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .message {
+      align-self: flex-start;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      max-width: 85%;
       padding: 1rem;
-      max-width: 30rem;
-      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message-meta {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
+    .empty {
+      color: #64748b;
+      padding: 1rem 0;
     }
   </style>
 </head>
 <body>
-  <h1>Backend status</h1>
+  <main>
+    <h1>WOYS</h1>
 
-  <button id="refreshButton" type="button">Refresh status</button>
+    <form id="messageForm">
+      <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
+      <button id="sendButton" type="submit">Send</button>
+    </form>
 
-  <pre id="output">Loading...</pre>
+    <div id="error" class="error" role="status"></div>
+    <div id="messages" class="messages" aria-live="polite"></div>
+  </main>
 
   <script>
-    const output = document.getElementById("output");
-    const refreshButton = document.getElementById("refreshButton");
+    const API_BASE_URL = "http://localhost:3001";
 
-    function show(data) {
-      output.textContent = JSON.stringify(data, null, 2);
+    const error = document.getElementById("error");
+    const messageForm = document.getElementById("messageForm");
+    const messageInput = document.getElementById("messageInput");
+    const messages = document.getElementById("messages");
+    const sendButton = document.getElementById("sendButton");
+
+    function setError(message) {
+      error.textContent = message || "";
     }
 
-    function loadStatus() {
-      fetch("http://localhost:3001/api/status")
+    function formatTime(value) {
+      return new Date(value).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function renderMessages(items) {
+      messages.textContent = "";
+
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No messages yet.";
+        messages.appendChild(empty);
+        return;
+      }
+
+      items.forEach(item => {
+        const message = document.createElement("div");
+        message.className = "message";
+
+        const text = document.createElement("div");
+        text.textContent = item.message;
+
+        const meta = document.createElement("div");
+        meta.className = "message-meta";
+        meta.textContent = formatTime(item.createdAt);
+
+        message.append(text, meta);
+        messages.appendChild(message);
+      });
+    }
+
+    function fetchJson(url, options) {
+      return fetch(url, options)
         .then(res => {
           if (!res.ok) {
             throw new Error(`Request failed with status ${res.status}`);
           }
 
           return res.json();
-        })
-        .then(data => {
-          show(data);
-        })
-        .catch(err => {
-          console.error(err);
-          show({ error: err.message });
         });
     }
 
-    refreshButton.addEventListener("click", loadStatus);
-    loadStatus();
+    function loadMessages() {
+      return fetchJson(`${API_BASE_URL}/api/messages`)
+        .then(data => {
+          renderMessages(data.messages);
+          setError("");
+        })
+        .catch(err => {
+          console.error(err);
+          setError("Could not load messages.");
+        });
+    }
+
+    function sendMessage(message) {
+      sendButton.disabled = true;
+
+      fetchJson(`${API_BASE_URL}/api/message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      })
+        .then(() => {
+          messageInput.value = "";
+          return loadMessages();
+        })
+        .catch(err => {
+          console.error(err);
+          setError("Could not send message.");
+        })
+        .finally(() => {
+          sendButton.disabled = false;
+          messageInput.focus();
+        });
+    }
+
+    messageForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const message = messageInput.value.trim();
+
+      if (message === "") {
+        return;
+      }
+
+      sendMessage(message);
+    });
+
+    loadMessages();
+    setInterval(loadMessages, 2000);
   </script>
 </body>
 </html>
