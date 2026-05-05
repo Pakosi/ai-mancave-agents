@@ -1,38 +1,40 @@
-function getLatestAgentReference(agent, context) {
-  const messages = context.messages || [];
-  const previousAgentMessage = [...messages]
-    .reverse()
-    .find((item) => item.role === "agent" && item.agentId !== agent.id);
-
-  if (!previousAgentMessage) {
-    return "";
-  }
-
-  return ` Building on ${previousAgentMessage.agentId}'s note,`;
+function hasPriorUserContext(messages) {
+  return messages.some((item) => item.role === "user");
 }
 
-function getContextText(context) {
-  return (context.messages || [])
-    .slice(-5)
-    .map((item) => `${item.role}: ${item.message}`)
-    .join("; ");
+function hasPriorAgentContext(messages, agentId) {
+  return messages.some((item) => item.role === "agent" && item.agentId !== agentId);
+}
+
+function getContextCue(agent, context) {
+  const messages = context.messages || [];
+  const priorUserContext = hasPriorUserContext(messages);
+  const priorAgentContext = hasPriorAgentContext(messages, agent.id);
+
+  if (priorAgentContext) {
+    return "Building on the team's earlier thinking, ";
+  }
+
+  if (priorUserContext) {
+    return "Earlier you pointed us in a useful direction, so ";
+  }
+
+  return "";
 }
 
 function generateAgentReply({ agent, message, context = {} }) {
-  const recentContext = getContextText(context);
-  const agentReference = getLatestAgentReference(agent, context);
-  const contextText = recentContext ? ` Recent context: ${recentContext}.` : "";
+  const contextCue = getContextCue(agent, context);
   const systemPrompt = (agent.systemPrompt || "").toLowerCase();
 
   if (systemPrompt.includes("friendly")) {
-    return `${agentReference} glad you shared "${message}".${contextText}`;
+    return `${contextCue}let's keep this moving with one clear next step.`;
   }
 
   if (systemPrompt.includes("persuasive")) {
-    return `${agentReference} let's turn "${message}" into a concrete offer.${contextText}`;
+    return `${contextCue}there is a strong offer here if we frame the outcome clearly.`;
   }
 
-  return `${agentReference} I can help shape "${message}" into next steps.${contextText}`;
+  return `${contextCue}I would turn this into a short plan with one owner and one measurable next step.`;
 }
 
 module.exports = {

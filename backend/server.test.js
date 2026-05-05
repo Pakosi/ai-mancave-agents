@@ -439,6 +439,8 @@ test("POST /api/agents/:agentId/reply returns correct structure for each agent",
     assert.equal(response.body.agentId, agentId);
     assert.equal(typeof response.body.reply, "string");
     assert.notEqual(response.body.reply.length, 0);
+    assert.doesNotMatch(response.body.reply, /Recent context/);
+    assert.ok(response.body.reply.length < 180);
   }
 });
 
@@ -457,11 +459,11 @@ test("POST /api/agents/:agentId/reply works when no prior messages exist", async
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.agentId, "assistant");
-  assert.match(response.body.reply, /fresh topic/);
-  assert.doesNotMatch(response.body.reply, /Recent context:/);
+  assert.doesNotMatch(response.body.reply, /Recent context/);
+  assert.ok(response.body.reply.length < 180);
 });
 
-test("POST /api/agents/:agentId/reply references prior saved messages", async (t) => {
+test("POST /api/agents/:agentId/reply uses context without exposing raw messages", async (t) => {
   resetMessages();
 
   const server = await listen();
@@ -483,9 +485,11 @@ test("POST /api/agents/:agentId/reply references prior saved messages", async (t
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.agentId, "assistant");
-  assert.match(response.body.reply, /latest ask/);
-  assert.match(response.body.reply, /first context/);
-  assert.match(response.body.reply, /second context/);
+  assert.match(response.body.reply, /Earlier you pointed us|Building on the team's/);
+  assert.doesNotMatch(response.body.reply, /Recent context/);
+  assert.doesNotMatch(response.body.reply, /first context/);
+  assert.doesNotMatch(response.body.reply, /second context/);
+  assert.ok(response.body.reply.length < 180);
 });
 
 test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) => {
@@ -525,7 +529,8 @@ test("autonomous agent thought stores an agent message", () => {
   assert.equal(thought.sessionId, "default");
   assert.equal(thought.roomId, "main");
   assert.equal(typeof thought.agentId, "string");
-  assert.match(thought.message, /AI Mancave|business idea|next steps|offer/);
+  assert.doesNotMatch(thought.message, /Recent context/);
+  assert.ok(thought.message.length < 180);
 });
 
 test("autonomous agent thoughts can reference prior agent messages", () => {
@@ -536,7 +541,9 @@ test("autonomous agent thoughts can reference prior agent messages", () => {
   const secondThought = app.locals.createAgentThought();
 
   assert.equal(secondThought.role, "agent");
-  assert.match(secondThought.message, /Building on/);
+  assert.match(secondThought.message, /Building on the team's/);
+  assert.doesNotMatch(secondThought.message, /Recent context/);
+  assert.ok(secondThought.message.length < 180);
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
