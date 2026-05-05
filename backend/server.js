@@ -38,6 +38,16 @@ function getNextMessageId(messages) {
   return messages.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
 }
 
+function getValidMessage(body) {
+  const { message } = body || {};
+
+  if (typeof message !== "string" || message.trim() === "") {
+    return null;
+  }
+
+  return message.trim();
+}
+
 // test route
 app.get("/api/test", (req, res) => {
   res.json({ message: "Backend is alive" });
@@ -52,9 +62,9 @@ app.get("/api/messages", (req, res) => {
 });
 
 app.post("/api/message", (req, res) => {
-  const { message } = req.body || {};
+  const message = getValidMessage(req.body);
 
-  if (typeof message !== "string" || message.trim() === "") {
+  if (!message) {
     return res.status(400).json({ error: "message is required" });
   }
 
@@ -62,7 +72,7 @@ app.post("/api/message", (req, res) => {
 
   const storedMessage = {
     id: getNextMessageId(messages),
-    message: message.trim(),
+    message,
     createdAt: new Date().toISOString(),
   };
 
@@ -70,6 +80,18 @@ app.post("/api/message", (req, res) => {
   writeMessages(messages);
 
   return res.status(201).json(storedMessage);
+});
+
+app.post("/api/agent/reply", (req, res) => {
+  const message = getValidMessage(req.body);
+
+  if (!message) {
+    return res.status(400).json({ error: "message is required" });
+  }
+
+  return res.json({
+    reply: `Agent received: ${message}`,
+  });
 });
 
 app.get("/api/health", (req, res) => {

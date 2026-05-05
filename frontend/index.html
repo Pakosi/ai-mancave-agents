@@ -78,6 +78,12 @@
       word-break: break-word;
     }
 
+    .message.agent {
+      align-self: flex-end;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
     .message-meta {
       color: #64748b;
       font-size: 0.8rem;
@@ -110,6 +116,7 @@
     const messageInput = document.getElementById("messageInput");
     const messages = document.getElementById("messages");
     const sendButton = document.getElementById("sendButton");
+    const agentReplies = [];
 
     function setError(message) {
       error.textContent = message || "";
@@ -133,26 +140,33 @@
         return;
       }
 
-      items.forEach(item => {
-        const message = document.createElement("div");
-        message.className = "message";
+      items
+        .slice()
+        .sort((first, second) => new Date(first.createdAt) - new Date(second.createdAt))
+        .forEach(item => {
+          const message = document.createElement("div");
+          message.className = "message";
 
-        const text = document.createElement("div");
-        text.textContent = item.message;
+          if (item.source === "agent") {
+            message.classList.add("agent");
+          }
 
-        const meta = document.createElement("div");
-        meta.className = "message-meta";
-        meta.textContent = formatTime(item.createdAt);
+          const text = document.createElement("div");
+          text.textContent = item.message;
 
-        message.append(text, meta);
-        messages.appendChild(message);
-      });
+          const meta = document.createElement("div");
+          meta.className = "message-meta";
+          meta.textContent = formatTime(item.createdAt);
+
+          message.append(text, meta);
+          messages.appendChild(message);
+        });
     }
 
     function loadMessages() {
       return WOYSApp.loadMessages({
         onMessages(items) {
-          renderMessages(items);
+          renderMessages(items.concat(agentReplies));
           setError("");
         },
         onError(err) {
@@ -174,6 +188,22 @@
           setError("Could not send message.");
         },
       })
+        .then(() => {
+          return WOYSApp.getAgentReply(message, {
+            onReply(reply) {
+              agentReplies.push({
+                id: `agent-${Date.now()}`,
+                message: reply,
+                createdAt: new Date().toISOString(),
+                source: "agent",
+              });
+            },
+            onError(err) {
+              console.error(err);
+              setError("Could not get agent reply.");
+            },
+          }).catch(() => {});
+        })
         .then(() => {
           return loadMessages();
         })

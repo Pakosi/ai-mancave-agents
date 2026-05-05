@@ -253,3 +253,35 @@ test("messages persist through file storage", async (t) => {
   assert.equal(messages.statusCode, 200);
   assert.deepEqual(messages.body.messages, [created.body]);
 });
+
+test("POST /api/agent/reply returns a reply for a valid message", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/agent/reply", {
+    message: "   hello agent   ",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, {
+    reply: "Agent received: hello agent",
+  });
+});
+
+test("POST /api/agent/reply returns 400 for an invalid message", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/agent/reply", {
+    message: "",
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, { error: "message is required" });
+});

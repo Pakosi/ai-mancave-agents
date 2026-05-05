@@ -1,7 +1,12 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { fetchJson, loadMessages, sendMessage } = require("./app");
+const {
+  fetchJson,
+  getAgentReply,
+  loadMessages,
+  sendMessage,
+} = require("./app");
 
 function mockResponse(body, options = {}) {
   return {
@@ -111,6 +116,51 @@ test("sendMessage calls onError and rejects when fetch fails", async () => {
 
   await assert.rejects(
     sendMessage("Hello WOYS", {
+      fetch,
+      onError(err) {
+        errors.push(err);
+      },
+    }),
+    /network down/,
+  );
+
+  assert.deepEqual(errors, [fetchError]);
+});
+
+test("getAgentReply sends POST, correct body, and triggers onReply", async () => {
+  const calls = [];
+  const callbacks = [];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ reply: "Agent received: hello" }));
+  };
+
+  const reply = await getAgentReply("hello", {
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onReply(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.equal(reply, "Agent received: hello");
+  assert.deepEqual(callbacks, ["Agent received: hello"]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/agent/reply");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(calls[0].options.headers, {
+    "Content-Type": "application/json",
+  });
+  assert.equal(calls[0].options.body, JSON.stringify({ message: "hello" }));
+});
+
+test("getAgentReply calls onError and rejects when fetch fails", async () => {
+  const fetchError = new Error("network down");
+  const errors = [];
+  const fetch = () => Promise.reject(fetchError);
+
+  await assert.rejects(
+    getAgentReply("hello", {
       fetch,
       onError(err) {
         errors.push(err);

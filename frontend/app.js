@@ -67,8 +67,39 @@
       });
   }
 
+  function getAgentReply(message, options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(
+      `${apiBaseUrl}/api/agent/reply`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      },
+      options.fetch,
+    )
+      .then((data) => {
+        if (options.onReply) {
+          options.onReply(data.reply);
+        }
+
+        return data.reply;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   const api = {
     fetchJson,
+    getAgentReply,
     loadMessages,
     sendMessage,
   };
