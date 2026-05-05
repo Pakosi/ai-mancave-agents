@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WOYS Chat</title>
+  <title>WOYS Room</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,32 +11,206 @@
 
     body {
       font-family: Arial, sans-serif;
-      background: #f8fafc;
-      margin: 2rem;
-      color: #1f2937;
+      background: #eef2f7;
+      margin: 0;
+      color: #172033;
     }
 
     main {
-      max-width: 42rem;
+      max-width: 72rem;
       margin: 0 auto;
+      padding: 1.5rem;
     }
 
     h1 {
       font-size: 1.75rem;
-      margin: 0 0 1rem;
+      margin: 0;
+    }
+
+    .toolbar {
+      align-items: center;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .layout {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: minmax(0, 1fr) 20rem;
+    }
+
+    .room {
+      background: linear-gradient(#f8fafc 0 68%, #dbe7d4 68% 100%);
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      min-height: 31rem;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .room::before {
+      background: #e2e8f0;
+      content: "";
+      height: 1px;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 68%;
+    }
+
+    .table {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      bottom: 5.5rem;
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.12);
+      height: 7rem;
+      left: 50%;
+      position: absolute;
+      transform: translateX(-50%);
+      width: 58%;
+    }
+
+    .agent-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 13rem;
+    }
+
+    .speech {
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+      font-size: 0.88rem;
+      line-height: 1.35;
+      min-height: 4.25rem;
+      padding: 0.7rem;
+    }
+
+    .avatar-row {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 0.6rem;
+    }
+
+    .avatar {
+      align-items: center;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      color: #334155;
+      display: flex;
+      font-weight: 700;
+      height: 3.5rem;
+      justify-content: center;
+      width: 3.5rem;
+    }
+
+    .agent-name {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.35rem 0.55rem;
+    }
+
+    .you-panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      bottom: 1rem;
+      left: 1rem;
+      max-width: 18rem;
+      padding: 0.8rem;
+      position: absolute;
+    }
+
+    .you-label {
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .activity {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      min-height: 20rem;
+      padding: 1rem;
+    }
+
+    .activity h2 {
+      font-size: 1rem;
+      margin: 0 0 0.75rem;
+    }
+
+    .activity-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      max-height: 27rem;
+      overflow: auto;
+    }
+
+    .feed-item {
+      border-left: 3px solid #cbd5e1;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      padding-left: 0.65rem;
+    }
+
+    .feed-item.agent-host {
+      border-color: #10b981;
+    }
+
+    .feed-item.agent-assistant {
+      border-color: #3b82f6;
+    }
+
+    .feed-item.agent-sales {
+      border-color: #f97316;
+    }
+
+    .feed-meta {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 0.2rem;
     }
 
     form {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      display: grid;
+      gap: 0.6rem;
+      grid-template-columns: 1fr 1fr;
+      padding: 1rem;
     }
 
     input {
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      flex: 1;
       font: inherit;
+      grid-column: 1 / -1;
       padding: 0.75rem;
     }
 
@@ -44,7 +218,8 @@
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       font: inherit;
-      padding: 0.75rem;
+      padding: 0.7rem;
+      width: 100%;
     }
 
     button {
@@ -54,6 +229,7 @@
       color: #fff;
       cursor: pointer;
       font: inherit;
+      grid-column: 1 / -1;
       padding: 0.75rem 1rem;
     }
 
@@ -64,92 +240,82 @@
 
     .error {
       color: #b91c1c;
-      min-height: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .messages {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .message {
-      align-self: flex-start;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-      max-width: 85%;
-      padding: 1rem;
-      word-break: break-word;
-    }
-
-    .message.user {
-      align-self: flex-end;
-      background: #f8fafc;
-      border-color: #cbd5e1;
-    }
-
-    .message.agent {
-      align-self: flex-start;
-    }
-
-    .message.agent-host {
-      background: #ecfdf5;
-      border-color: #a7f3d0;
-    }
-
-    .message.agent-assistant {
-      background: #eff6ff;
-      border-color: #bfdbfe;
-    }
-
-    .message.agent-sales {
-      background: #fff7ed;
-      border-color: #fed7aa;
-    }
-
-    .message-meta {
-      color: #64748b;
-      font-size: 0.8rem;
-      margin-top: 0.5rem;
+      min-height: 1.4rem;
+      margin-bottom: 0.75rem;
     }
 
     .empty {
       color: #64748b;
-      padding: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .room {
+        min-height: 38rem;
+      }
+
+      .agent-node {
+        width: 11rem;
+      }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>WOYS</h1>
-
-    <form id="messageForm">
-      <select id="agentSelect" name="agent"></select>
-      <select id="roomSelect" name="room">
-        <option value="main">Main</option>
-        <option value="sales">Sales</option>
-        <option value="support">Support</option>
-      </select>
-      <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
-      <button id="sendButton" type="submit">Send</button>
-    </form>
+    <div class="toolbar">
+      <h1>WOYS Room</h1>
+      <div class="controls">
+        <select id="roomSelect" name="room">
+          <option value="main">Main</option>
+          <option value="sales">Sales</option>
+          <option value="support">Support</option>
+        </select>
+      </div>
+    </div>
 
     <div id="error" class="error" role="status"></div>
-    <div id="messages" class="messages" aria-live="polite"></div>
+
+    <div class="layout">
+      <section class="room" aria-label="Agent brainstorming room">
+        <div class="table"></div>
+        <div id="roomAgents"></div>
+        <div class="you-panel">
+          <div class="you-label">You</div>
+          <div id="youMessage" class="empty">No message yet.</div>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <form id="messageForm">
+          <select id="agentSelect" name="agent"></select>
+          <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
+          <button id="sendButton" type="submit">Send into room</button>
+        </form>
+
+        <section class="activity">
+          <h2>Activity</h2>
+          <div id="activityFeed" class="activity-feed" aria-live="polite"></div>
+        </section>
+      </aside>
+    </div>
   </main>
 
   <script src="./app.js"></script>
   <script>
+    const activityFeed = document.getElementById("activityFeed");
     const agentSelect = document.getElementById("agentSelect");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
-    const messages = document.getElementById("messages");
+    const roomAgents = document.getElementById("roomAgents");
     const roomSelect = document.getElementById("roomSelect");
     const sendButton = document.getElementById("sendButton");
+    const youMessage = document.getElementById("youMessage");
+    let loadedAgents = [];
 
     roomSelect.value = WOYSApp.getSelectedRoomId();
 
@@ -164,35 +330,76 @@
       });
     }
 
-    function renderMessages(items) {
-      messages.textContent = "";
+    function renderRoom(items) {
+      roomAgents.textContent = "";
+      youMessage.textContent = WOYSApp.getLatestUserMessage(items) || "No message yet.";
+
+      loadedAgents.forEach(agent => {
+        const roomAgent = WOYSApp.mapAgentForRoom(agent, items);
+        const node = document.createElement("div");
+        node.className = "agent-node";
+        node.style.left = roomAgent.position.left;
+        node.style.top = roomAgent.position.top;
+
+        const speech = document.createElement("div");
+        speech.className = "speech";
+        speech.textContent = roomAgent.latestMessage;
+
+        const avatarRow = document.createElement("div");
+        avatarRow.className = "avatar-row";
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.style.color = roomAgent.color;
+        avatar.textContent = roomAgent.label.slice(0, 1);
+
+        const name = document.createElement("div");
+        name.className = "agent-name";
+        name.textContent = roomAgent.name;
+
+        avatarRow.append(avatar, name);
+        node.append(speech, avatarRow);
+        roomAgents.appendChild(node);
+      });
+    }
+
+    function renderActivity(items) {
+      activityFeed.textContent = "";
 
       if (items.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = "No messages yet.";
-        messages.appendChild(empty);
+        empty.textContent = "No activity yet.";
+        activityFeed.appendChild(empty);
         return;
       }
 
       items
         .slice()
-        .sort((first, second) => new Date(first.createdAt) - new Date(second.createdAt))
+        .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
+        .slice(0, 20)
         .forEach(item => {
           const view = WOYSApp.mapMessageForDisplay(item);
-          const message = document.createElement("div");
-          message.className = view.classes.join(" ");
+          const feedItem = document.createElement("div");
+          feedItem.className = view.classes
+            .map(className => className === "message" ? "feed-item" : className)
+            .join(" ");
+
+          const meta = document.createElement("div");
+          meta.className = "feed-meta";
+          meta.textContent = formatTime(view.createdAt);
 
           const text = document.createElement("div");
           text.textContent = view.text;
 
-          const meta = document.createElement("div");
-          meta.className = "message-meta";
-          meta.textContent = formatTime(view.createdAt);
-
-          message.append(text, meta);
-          messages.appendChild(message);
+          feedItem.append(meta, text);
+          activityFeed.appendChild(feedItem);
         });
+    }
+
+    function renderMessages(items) {
+      renderRoom(items);
+      renderActivity(items);
     }
 
     function loadMessages() {
@@ -209,6 +416,7 @@
     }
 
     function renderAgents(items) {
+      loadedAgents = items;
       agentSelect.textContent = "";
 
       items.forEach(item => {
@@ -225,6 +433,7 @@
 
       agentSelect.value = WOYSApp.getSelectedAgentId(items);
       WOYSApp.saveSelectedAgentId(agentSelect.value);
+      renderRoom([]);
     }
 
     function loadAgents() {

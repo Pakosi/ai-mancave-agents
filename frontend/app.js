@@ -223,6 +223,35 @@
     };
   }
 
+  const agentRoomPositions = {
+    host: { left: "18%", top: "45%" },
+    assistant: { left: "50%", top: "32%" },
+    sales: { left: "78%", top: "50%" },
+  };
+
+  function mapAgentForRoom(agent, messages = []) {
+    const latestMessage = [...messages]
+      .reverse()
+      .find((item) => item.role === "agent" && item.agentId === agent.id);
+
+    return {
+      id: agent.id,
+      name: agent.name,
+      label: agent.label,
+      color: agent.color,
+      position: agentRoomPositions[agent.id] || { left: "50%", top: "50%" },
+      latestMessage: latestMessage ? latestMessage.message : "Thinking...",
+    };
+  }
+
+  function getLatestUserMessage(messages = []) {
+    const latestMessage = [...messages]
+      .reverse()
+      .find((item) => item.role === "user");
+
+    return latestMessage ? latestMessage.message : "";
+  }
+
   const api = {
     fetchJson,
     getAgentReply,
@@ -232,7 +261,9 @@
     loadAgents,
     loadMessages,
     mapAgentForOption,
+    mapAgentForRoom,
     mapMessageForDisplay,
+    getLatestUserMessage,
     saveSelectedAgentId,
     getSelectedRoomId,
     saveSelectedRoomId,

@@ -7,9 +7,11 @@ const {
   getSessionId,
   getSelectedAgentId,
   getSelectedRoomId,
+  getLatestUserMessage,
   loadAgents,
   loadMessages,
   mapAgentForOption,
+  mapAgentForRoom,
   mapMessageForDisplay,
   saveSelectedAgentId,
   saveSelectedRoomId,
@@ -276,6 +278,36 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
     label: "ASSISTANT",
     color: "#3b82f6",
   });
+});
+
+test("mapAgentForRoom adds fixed position and latest agent message", () => {
+  const roomAgent = mapAgentForRoom(
+    { id: "assistant", name: "Assistant", label: "ASSISTANT", color: "#3b82f6" },
+    [
+      { role: "agent", agentId: "assistant", message: "older" },
+      { role: "agent", agentId: "sales", message: "sales thought" },
+      { role: "agent", agentId: "assistant", message: "latest assistant thought" },
+    ],
+  );
+
+  assert.deepEqual(roomAgent, {
+    id: "assistant",
+    name: "Assistant",
+    label: "ASSISTANT",
+    color: "#3b82f6",
+    position: { left: "50%", top: "32%" },
+    latestMessage: "latest assistant thought",
+  });
+});
+
+test("getLatestUserMessage returns the latest user message", () => {
+  const latest = getLatestUserMessage([
+    { role: "user", message: "first" },
+    { role: "agent", message: "agent" },
+    { role: "user", message: "second" },
+  ]);
+
+  assert.equal(latest, "second");
 });
 
 test("getSessionId reuses or creates localStorage session id", () => {
