@@ -19,11 +19,14 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// root route (optional but nice)
 app.get("/", (req, res) => {
   res.send("AI Mancave Backend Running");
 });
 
-app.listen(3001, () => {
-  console.log("Server running on port 3001");
-});
+if (require.main === module) {
+  app.listen(3001, () => {
+    console.log("Server running on port 3001");
+  });
+}
+
+module.exports = app;
