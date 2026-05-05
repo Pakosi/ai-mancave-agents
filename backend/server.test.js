@@ -1,12 +1,16 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 
 const app = require("./server");
 
+const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
+
 function resetMessages() {
-  app.locals.messages = [];
-  app.locals.nextMessageId = 1;
+  app.locals.messagesFile = path.join(testDataDir, `${Date.now()}-${Math.random()}.json`);
 }
 
 function listen() {
@@ -225,4 +229,27 @@ test("POST /api/message trims message before storing it", async (t) => {
 
   assert.equal(messages.statusCode, 200);
   assert.equal(messages.body.messages[0].message, "hello");
+});
+
+test("messages persist through file storage", async (t) => {
+  resetMessages();
+
+  const firstServer = await listen();
+
+  const created = await postJson(firstServer, "/api/message", {
+    message: "persist me",
+  });
+
+  firstServer.close();
+
+  const secondServer = await listen();
+
+  t.after(() => {
+    secondServer.close();
+  });
+
+  const messages = await getJson(secondServer, "/api/messages");
+
+  assert.equal(messages.statusCode, 200);
+  assert.deepEqual(messages.body.messages, [created.body]);
 });

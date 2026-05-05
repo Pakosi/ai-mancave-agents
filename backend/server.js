@@ -1,13 +1,42 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const app = express();
 
-app.locals.messages = [];
-app.locals.nextMessageId = 1;
+app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
 
 app.use(cors());
 app.use(express.json());
+
+function ensureMessagesFile() {
+  const dataDir = path.dirname(app.locals.messagesFile);
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(app.locals.messagesFile)) {
+    fs.writeFileSync(app.locals.messagesFile, "[]\n");
+  }
+}
+
+function readMessages() {
+  ensureMessagesFile();
+
+  const data = fs.readFileSync(app.locals.messagesFile, "utf8");
+  return JSON.parse(data);
+}
+
+function writeMessages(messages) {
+  ensureMessagesFile();
+  fs.writeFileSync(app.locals.messagesFile, `${JSON.stringify(messages, null, 2)}\n`);
+}
+
+function getNextMessageId(messages) {
+  return messages.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
+}
 
 // test route
 app.get("/api/test", (req, res) => {
@@ -19,24 +48,26 @@ app.get("/api/status", (req, res) => {
 });
 
 app.get("/api/messages", (req, res) => {
-  res.json({ messages: app.locals.messages });
+  res.json({ messages: readMessages() });
 });
 
 app.post("/api/message", (req, res) => {
-  const { message } = req.body;
+  const { message } = req.body || {};
 
   if (typeof message !== "string" || message.trim() === "") {
     return res.status(400).json({ error: "message is required" });
   }
 
+  const messages = readMessages();
+
   const storedMessage = {
-    id: app.locals.nextMessageId,
+    id: getNextMessageId(messages),
     message: message.trim(),
     createdAt: new Date().toISOString(),
   };
 
-  app.locals.nextMessageId += 1;
-  app.locals.messages.push(storedMessage);
+  messages.push(storedMessage);
+  writeMessages(messages);
 
   return res.status(201).json(storedMessage);
 });
