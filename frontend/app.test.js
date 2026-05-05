@@ -6,11 +6,13 @@ const {
   getAgentReply,
   getSessionId,
   getSelectedAgentId,
+  getSelectedRoomId,
   loadAgents,
   loadMessages,
   mapAgentForOption,
   mapMessageForDisplay,
   saveSelectedAgentId,
+  saveSelectedRoomId,
   sendMessage,
 } = require("./app");
 
@@ -70,6 +72,7 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
     apiBaseUrl: "http://test.local",
     fetch,
     sessionId: "session-1",
+    roomId: "support",
     onMessages(items) {
       callbacks.push(items);
     },
@@ -78,7 +81,7 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
   assert.deepEqual(messages, responseMessages);
   assert.deepEqual(callbacks, [responseMessages]);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "http://test.local/api/messages?sessionId=session-1");
+  assert.equal(calls[0].url, "http://test.local/api/messages?sessionId=session-1&roomId=support");
   assert.equal(calls[0].options, undefined);
 });
 
@@ -140,6 +143,7 @@ test("sendMessage sends POST, correct body, and triggers onSent", async () => {
     apiBaseUrl: "http://test.local",
     fetch,
     sessionId: "session-1",
+    roomId: "support",
     onSent(item) {
       callbacks.push(item);
     },
@@ -155,7 +159,7 @@ test("sendMessage sends POST, correct body, and triggers onSent", async () => {
   });
   assert.equal(
     calls[0].options.body,
-    JSON.stringify({ message: "Hello WOYS", sessionId: "session-1" }),
+    JSON.stringify({ message: "Hello WOYS", sessionId: "session-1", roomId: "support" }),
   );
 });
 
@@ -193,6 +197,7 @@ test("getAgentReply calls selected agent endpoint and triggers onReply", async (
     apiBaseUrl: "http://test.local",
     fetch,
     sessionId: "session-1",
+    roomId: "support",
     onReply(item) {
       callbacks.push(item);
     },
@@ -208,7 +213,7 @@ test("getAgentReply calls selected agent endpoint and triggers onReply", async (
   });
   assert.equal(
     calls[0].options.body,
-    JSON.stringify({ message: "hello", sessionId: "session-1" }),
+    JSON.stringify({ message: "hello", sessionId: "session-1", roomId: "support" }),
   );
 });
 
@@ -315,4 +320,20 @@ test("getSelectedAgentId falls back when saved selected agent is invalid", () =>
   ];
 
   assert.equal(getSelectedAgentId(agents, storage), "host");
+});
+
+test("saveSelectedRoomId saves selected room", () => {
+  const storage = mockStorage();
+
+  saveSelectedRoomId("support", storage);
+
+  assert.equal(storage.values.woysSelectedRoomId, "support");
+});
+
+test("getSelectedRoomId reuses saved selected room", () => {
+  const storage = mockStorage({
+    woysSelectedRoomId: "sales",
+  });
+
+  assert.equal(getSelectedRoomId(storage), "sales");
 });

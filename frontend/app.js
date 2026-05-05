@@ -71,10 +71,31 @@
     return agents.length > 0 ? agents[0].id : "";
   }
 
+  function saveSelectedRoomId(roomId, storage) {
+    const selectedRoomStorage = storage || root.localStorage;
+
+    if (selectedRoomStorage && typeof selectedRoomStorage.setItem === "function") {
+      selectedRoomStorage.setItem("woysSelectedRoomId", roomId);
+    }
+
+    root.__woysSelectedRoomId = roomId;
+  }
+
+  function getSelectedRoomId(storage) {
+    const selectedRoomStorage = storage || root.localStorage;
+
+    if (selectedRoomStorage && typeof selectedRoomStorage.getItem === "function") {
+      return selectedRoomStorage.getItem("woysSelectedRoomId") || "main";
+    }
+
+    return root.__woysSelectedRoomId || "main";
+  }
+
   function loadMessages(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
-    const query = new URLSearchParams({ sessionId });
+    const roomId = options.roomId || getSelectedRoomId(options.storage);
+    const query = new URLSearchParams({ sessionId, roomId });
 
     return fetchJson(`${apiBaseUrl}/api/messages?${query.toString()}`, undefined, options.fetch)
       .then((data) => {
@@ -116,6 +137,7 @@
   function sendMessage(message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
+    const roomId = options.roomId || getSelectedRoomId(options.storage);
 
     return fetchJson(
       `${apiBaseUrl}/api/message`,
@@ -124,7 +146,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message, sessionId }),
+        body: JSON.stringify({ message, sessionId, roomId }),
       },
       options.fetch,
     )
@@ -147,6 +169,7 @@
   function getAgentReply(agentId, message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
+    const roomId = options.roomId || getSelectedRoomId(options.storage);
 
     return fetchJson(
       `${apiBaseUrl}/api/agents/${encodeURIComponent(agentId)}/reply`,
@@ -155,7 +178,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message, sessionId }),
+        body: JSON.stringify({ message, sessionId, roomId }),
       },
       options.fetch,
     )
@@ -211,6 +234,8 @@
     mapAgentForOption,
     mapMessageForDisplay,
     saveSelectedAgentId,
+    getSelectedRoomId,
+    saveSelectedRoomId,
     sendMessage,
   };
 

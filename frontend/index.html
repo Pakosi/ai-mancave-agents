@@ -128,6 +128,11 @@
 
     <form id="messageForm">
       <select id="agentSelect" name="agent"></select>
+      <select id="roomSelect" name="room">
+        <option value="main">Main</option>
+        <option value="sales">Sales</option>
+        <option value="support">Support</option>
+      </select>
       <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
       <button id="sendButton" type="submit">Send</button>
     </form>
@@ -143,7 +148,10 @@
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
     const messages = document.getElementById("messages");
+    const roomSelect = document.getElementById("roomSelect");
     const sendButton = document.getElementById("sendButton");
+
+    roomSelect.value = WOYSApp.getSelectedRoomId();
 
     function setError(message) {
       error.textContent = message || "";
@@ -278,6 +286,11 @@
 
     agentSelect.addEventListener("change", () => {
       WOYSApp.saveSelectedAgentId(agentSelect.value);
+    });
+
+    roomSelect.addEventListener("change", () => {
+      WOYSApp.saveSelectedRoomId(roomSelect.value);
+      loadMessages();
     });
 
     loadAgents().then(loadMessages);

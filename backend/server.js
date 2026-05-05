@@ -56,6 +56,14 @@ function getSessionId(value) {
   return value.trim();
 }
 
+function getRoomId(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return "main";
+  }
+
+  return value.trim();
+}
+
 const agents = {
   host: {
     id: "host",
@@ -119,7 +127,10 @@ app.get("/api/status", (req, res) => {
 
 app.get("/api/messages", (req, res) => {
   const sessionId = getSessionId(req.query.sessionId);
-  const messages = readMessages().filter((item) => getSessionId(item.sessionId) === sessionId);
+  const roomId = getRoomId(req.query.roomId);
+  const messages = readMessages().filter((item) => (
+    getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
+  ));
 
   res.json({ messages });
 });
@@ -131,6 +142,7 @@ app.get("/api/agents", (req, res) => {
 app.post("/api/message", (req, res) => {
   const message = getValidMessage(req.body);
   const sessionId = getSessionId(req.body && req.body.sessionId);
+  const roomId = getRoomId(req.body && req.body.roomId);
 
   if (!message) {
     return res.status(400).json({ error: "message is required" });
@@ -141,6 +153,7 @@ app.post("/api/message", (req, res) => {
   const storedMessage = {
     id: getNextMessageId(messages),
     sessionId,
+    roomId,
     role: "user",
     message,
     createdAt: new Date().toISOString(),
@@ -156,6 +169,7 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   const { agentId } = req.params;
   const agent = agents[agentId];
   const sessionId = getSessionId(req.body && req.body.sessionId);
+  const roomId = getRoomId(req.body && req.body.roomId);
 
   if (!agent) {
     return res.status(400).json({ error: "invalid agentId" });
@@ -168,12 +182,15 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   }
 
   const allMessages = readMessages();
-  const sessionMessages = allMessages.filter((item) => getSessionId(item.sessionId) === sessionId);
+  const sessionMessages = allMessages.filter((item) => (
+    getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
+  ));
   const contextText = getRecentContext(sessionMessages);
   const reply = agent.reply(message, contextText);
   const storedMessage = {
     id: getNextMessageId(allMessages),
     sessionId,
+    roomId,
     role: "agent",
     agentId,
     message: reply,

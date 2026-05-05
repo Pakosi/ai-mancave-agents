@@ -165,6 +165,7 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
   assert.equal(created.statusCode, 201);
   assert.equal(created.body.id, 1);
   assert.equal(created.body.sessionId, "default");
+  assert.equal(created.body.roomId, "main");
   assert.equal(created.body.role, "user");
   assert.equal(created.body.message, "Hello WOYS");
   assert.equal(typeof created.body.createdAt, "string");
@@ -221,6 +222,28 @@ test("POST /api/message uses default session when sessionId is missing", async (
   assert.deepEqual(messages.body.messages, [created.body]);
 });
 
+test("POST /api/message uses main room when roomId is missing", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/message", {
+    message: "main room",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.roomId, "main");
+
+  const messages = await getJson(server, "/api/messages?sessionId=default&roomId=main");
+
+  assert.equal(messages.statusCode, 200);
+  assert.deepEqual(messages.body.messages, [created.body]);
+});
+
 test("GET /api/messages keeps sessions separate", async (t) => {
   resetMessages();
 
@@ -246,6 +269,35 @@ test("GET /api/messages keeps sessions separate", async (t) => {
   assert.equal(betaMessages.statusCode, 200);
   assert.deepEqual(alphaMessages.body.messages, [alpha.body]);
   assert.deepEqual(betaMessages.body.messages, [beta.body]);
+});
+
+test("GET /api/messages keeps rooms separate", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const main = await postJson(server, "/api/message", {
+    message: "main message",
+    sessionId: "alpha",
+    roomId: "main",
+  });
+  const support = await postJson(server, "/api/message", {
+    message: "support message",
+    sessionId: "alpha",
+    roomId: "support",
+  });
+
+  const mainMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=main");
+  const supportMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=support");
+
+  assert.equal(mainMessages.statusCode, 200);
+  assert.equal(supportMessages.statusCode, 200);
+  assert.deepEqual(mainMessages.body.messages, [main.body]);
+  assert.deepEqual(supportMessages.body.messages, [support.body]);
 });
 
 test("POST /api/message returns 400 when message is missing", async (t) => {
@@ -459,6 +511,7 @@ test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) 
   assert.equal(messages.body.messages[0].role, "agent");
   assert.equal(messages.body.messages[0].agentId, "sales");
   assert.equal(messages.body.messages[0].sessionId, "default");
+  assert.equal(messages.body.messages[0].roomId, "main");
   assert.equal(messages.body.messages[0].message, response.body.reply);
 });
 
