@@ -4,6 +4,11 @@ const test = require("node:test");
 
 const app = require("./server");
 
+function resetMessages() {
+  app.locals.messages = [];
+  app.locals.nextMessageId = 1;
+}
+
 function listen() {
   return new Promise((resolve, reject) => {
     const server = app.listen(0, "127.0.0.1", () => {
@@ -103,8 +108,7 @@ test("GET /api/status returns ok", async (t) => {
 });
 
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
-  app.locals.messages = [];
-  app.locals.nextMessageId = 1;
+  resetMessages();
 
   const server = await listen();
 
@@ -125,4 +129,100 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
 
   assert.equal(messages.statusCode, 200);
   assert.deepEqual(messages.body.messages, [created.body]);
+});
+
+test("POST /api/message returns 400 when message is missing", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/message", {});
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, { error: "message is required" });
+});
+
+test("POST /api/message returns 400 when message is empty", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/message", {
+    message: "",
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, { error: "message is required" });
+});
+
+test("POST /api/message returns 400 when message is not a string", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/message", {
+    message: 123,
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, { error: "message is required" });
+});
+
+test("GET /api/messages returns multiple messages in order", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const first = await postJson(server, "/api/message", {
+    message: "one",
+  });
+  const second = await postJson(server, "/api/message", {
+    message: "two",
+  });
+  const third = await postJson(server, "/api/message", {
+    message: "three",
+  });
+
+  const messages = await getJson(server, "/api/messages");
+
+  assert.equal(messages.statusCode, 200);
+  assert.deepEqual(messages.body.messages, [first.body, second.body, third.body]);
+});
+
+test("POST /api/message trims message before storing it", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/message", {
+    message: "   hello   ",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.message, "hello");
+
+  const messages = await getJson(server, "/api/messages");
+
+  assert.equal(messages.statusCode, 200);
+  assert.equal(messages.body.messages[0].message, "hello");
 });
