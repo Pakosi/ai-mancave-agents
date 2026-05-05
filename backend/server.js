@@ -49,16 +49,26 @@ function getValidMessage(body) {
 }
 
 const agentBehaviors = {
-  host(message) {
-    return `Glad you shared that. ${message}`;
+  host(message, contextText) {
+    const context = contextText ? ` I remember: ${contextText}.` : "";
+    return `Glad you shared "${message}".${context}`;
   },
-  assistant(message) {
-    return `I can help with that: ${message}`;
+  assistant(message, contextText) {
+    const context = contextText ? ` Recent context: ${contextText}.` : "";
+    return `I can help with "${message}".${context}`;
   },
-  sales(message) {
-    return `Great choice. Let's turn "${message}" into a win.`;
+  sales(message, contextText) {
+    const context = contextText ? ` Building on ${contextText},` : "";
+    return `${context} let's turn "${message}" into a win.`;
   },
 };
+
+function getRecentContext(messages) {
+  return messages
+    .slice(-5)
+    .map((item) => item.message)
+    .join("; ");
+}
 
 // test route
 app.get("/api/test", (req, res) => {
@@ -108,9 +118,12 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
     return res.status(400).json({ error: "message is required" });
   }
 
+  const recentMessages = readMessages();
+  const contextText = getRecentContext(recentMessages);
+
   return res.json({
     agentId,
-    reply: behavior(message),
+    reply: behavior(message, contextText),
   });
 });
 

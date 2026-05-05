@@ -255,6 +255,8 @@ test("messages persist through file storage", async (t) => {
 });
 
 test("POST /api/agents/:agentId/reply returns correct structure for each agent", async (t) => {
+  resetMessages();
+
   const server = await listen();
 
   t.after(() => {
@@ -273,6 +275,52 @@ test("POST /api/agents/:agentId/reply returns correct structure for each agent",
     assert.equal(typeof response.body.reply, "string");
     assert.notEqual(response.body.reply.length, 0);
   }
+});
+
+test("POST /api/agents/:agentId/reply works when no prior messages exist", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/agents/assistant/reply", {
+    message: "fresh topic",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.agentId, "assistant");
+  assert.match(response.body.reply, /fresh topic/);
+  assert.doesNotMatch(response.body.reply, /Recent context:/);
+});
+
+test("POST /api/agents/:agentId/reply references prior saved messages", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/message", {
+    message: "first context",
+  });
+  await postJson(server, "/api/message", {
+    message: "second context",
+  });
+
+  const response = await postJson(server, "/api/agents/assistant/reply", {
+    message: "latest ask",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.agentId, "assistant");
+  assert.match(response.body.reply, /latest ask/);
+  assert.match(response.body.reply, /first context/);
+  assert.match(response.body.reply, /second context/);
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
