@@ -56,20 +56,50 @@ function getSessionId(value) {
   return value.trim();
 }
 
-const agentBehaviors = {
-  host(message, contextText) {
-    const context = contextText ? ` I remember: ${contextText}.` : "";
-    return `Glad you shared "${message}".${context}`;
+const agents = {
+  host: {
+    id: "host",
+    name: "Host",
+    label: "HOST",
+    color: "#10b981",
+    systemPrompt: "Friendly, short replies that make the user feel welcomed.",
+    reply(message, contextText) {
+      const context = contextText ? ` I remember: ${contextText}.` : "";
+      return `Glad you shared "${message}".${context}`;
+    },
   },
-  assistant(message, contextText) {
-    const context = contextText ? ` Recent context: ${contextText}.` : "";
-    return `I can help with "${message}".${context}`;
+  assistant: {
+    id: "assistant",
+    name: "Assistant",
+    label: "ASSISTANT",
+    color: "#3b82f6",
+    systemPrompt: "Neutral, helpful replies that focus on useful next steps.",
+    reply(message, contextText) {
+      const context = contextText ? ` Recent context: ${contextText}.` : "";
+      return `I can help with "${message}".${context}`;
+    },
   },
-  sales(message, contextText) {
-    const context = contextText ? ` Building on ${contextText},` : "";
-    return `${context} let's turn "${message}" into a win.`;
+  sales: {
+    id: "sales",
+    name: "Sales",
+    label: "SALES",
+    color: "#f97316",
+    systemPrompt: "Persuasive replies that frame the message as an opportunity.",
+    reply(message, contextText) {
+      const context = contextText ? ` Building on ${contextText},` : "";
+      return `${context} let's turn "${message}" into a win.`;
+    },
   },
 };
+
+function getPublicAgents() {
+  return Object.values(agents).map(({ id, name, label, color }) => ({
+    id,
+    name,
+    label,
+    color,
+  }));
+}
 
 function getRecentContext(messages) {
   return messages
@@ -92,6 +122,10 @@ app.get("/api/messages", (req, res) => {
   const messages = readMessages().filter((item) => getSessionId(item.sessionId) === sessionId);
 
   res.json({ messages });
+});
+
+app.get("/api/agents", (req, res) => {
+  res.json({ agents: getPublicAgents() });
 });
 
 app.post("/api/message", (req, res) => {
@@ -120,10 +154,10 @@ app.post("/api/message", (req, res) => {
 
 app.post("/api/agents/:agentId/reply", (req, res) => {
   const { agentId } = req.params;
-  const behavior = agentBehaviors[agentId];
+  const agent = agents[agentId];
   const sessionId = getSessionId(req.body && req.body.sessionId);
 
-  if (!behavior) {
+  if (!agent) {
     return res.status(400).json({ error: "invalid agentId" });
   }
 
@@ -136,7 +170,7 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   const allMessages = readMessages();
   const sessionMessages = allMessages.filter((item) => getSessionId(item.sessionId) === sessionId);
   const contextText = getRecentContext(sessionMessages);
-  const reply = behavior(message, contextText);
+  const reply = agent.reply(message, contextText);
   const storedMessage = {
     id: getNextMessageId(allMessages),
     sessionId,

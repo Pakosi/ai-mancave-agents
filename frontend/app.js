@@ -62,6 +62,26 @@
       });
   }
 
+  function loadAgents(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/agents`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onAgents) {
+          options.onAgents(data.agents);
+        }
+
+        return data.agents;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function sendMessage(message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
@@ -140,11 +160,22 @@
     };
   }
 
+  function mapAgentForOption(agent) {
+    return {
+      value: agent.id,
+      text: agent.name,
+      label: agent.label,
+      color: agent.color,
+    };
+  }
+
   const api = {
     fetchJson,
     getAgentReply,
     getSessionId,
+    loadAgents,
     loadMessages,
+    mapAgentForOption,
     mapMessageForDisplay,
     sendMessage,
   };

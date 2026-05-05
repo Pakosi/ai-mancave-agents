@@ -111,6 +111,44 @@ test("GET /api/status returns ok", async (t) => {
   assert.deepEqual(response.body, { status: "ok" });
 });
 
+test("GET /api/agents returns public agents", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/agents");
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(
+    response.body.agents.map((agent) => agent.id),
+    ["host", "assistant", "sales"],
+  );
+  assert.deepEqual(Object.keys(response.body.agents[0]).sort(), [
+    "color",
+    "id",
+    "label",
+    "name",
+  ]);
+});
+
+test("GET /api/agents does not expose systemPrompt", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/agents");
+
+  assert.equal(response.statusCode, 200);
+
+  for (const agent of response.body.agents) {
+    assert.equal(agent.systemPrompt, undefined);
+  }
+});
+
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
   resetMessages();
 

@@ -5,7 +5,9 @@ const {
   fetchJson,
   getAgentReply,
   getSessionId,
+  loadAgents,
   loadMessages,
+  mapAgentForOption,
   mapMessageForDisplay,
   sendMessage,
 } = require("./app");
@@ -63,6 +65,33 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
   assert.deepEqual(callbacks, [responseMessages]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "http://test.local/api/messages?sessionId=session-1");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadAgents calls /api/agents and returns agents", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseAgents = [
+    { id: "host", name: "Host", label: "HOST", color: "#10b981" },
+    { id: "sales", name: "Sales", label: "SALES", color: "#f97316" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ agents: responseAgents }));
+  };
+
+  const agents = await loadAgents({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onAgents(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(agents, responseAgents);
+  assert.deepEqual(callbacks, [responseAgents]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/agents");
   assert.equal(calls[0].options, undefined);
 });
 
@@ -211,6 +240,22 @@ test("mapMessageForDisplay handles user and agent roles", () => {
     classes: ["message", "agent", "agent-host"],
     text: "HOST: welcome",
     createdAt: "2026-05-05T00:00:01.000Z",
+  });
+});
+
+test("mapAgentForOption maps backend agent for dropdown use", () => {
+  const option = mapAgentForOption({
+    id: "assistant",
+    name: "Assistant",
+    label: "ASSISTANT",
+    color: "#3b82f6",
+  });
+
+  assert.deepEqual(option, {
+    value: "assistant",
+    text: "Assistant",
+    label: "ASSISTANT",
+    color: "#3b82f6",
   });
 });
 

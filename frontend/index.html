@@ -127,11 +127,7 @@
     <h1>WOYS</h1>
 
     <form id="messageForm">
-      <select id="agentSelect" name="agent">
-        <option value="host">Host</option>
-        <option value="assistant">Assistant</option>
-        <option value="sales">Sales</option>
-      </select>
+      <select id="agentSelect" name="agent"></select>
       <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
       <button id="sendButton" type="submit">Send</button>
     </form>
@@ -204,6 +200,35 @@
       }).catch(() => {});
     }
 
+    function renderAgents(items) {
+      agentSelect.textContent = "";
+
+      items.forEach(item => {
+        const optionData = WOYSApp.mapAgentForOption(item);
+        const option = document.createElement("option");
+
+        option.value = optionData.value;
+        option.textContent = optionData.text;
+        option.dataset.label = optionData.label;
+        option.dataset.color = optionData.color;
+
+        agentSelect.appendChild(option);
+      });
+    }
+
+    function loadAgents() {
+      return WOYSApp.loadAgents({
+        onAgents(items) {
+          renderAgents(items);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not load agents.");
+        },
+      }).catch(() => {});
+    }
+
     function sendMessage(message) {
       const agentId = agentSelect.value;
 
@@ -248,7 +273,7 @@
       sendMessage(message);
     });
 
-    loadMessages();
+    loadAgents().then(loadMessages);
     setInterval(loadMessages, 2000);
   </script>
 </body>
