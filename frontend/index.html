@@ -103,9 +103,8 @@
     <div id="messages" class="messages" aria-live="polite"></div>
   </main>
 
+  <script src="./app.js"></script>
   <script>
-    const API_BASE_URL = "http://localhost:3001";
-
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
@@ -150,47 +149,35 @@
       });
     }
 
-    function fetchJson(url, options) {
-      return fetch(url, options)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Request failed with status ${res.status}`);
-          }
-
-          return res.json();
-        });
-    }
-
     function loadMessages() {
-      return fetchJson(`${API_BASE_URL}/api/messages`)
-        .then(data => {
-          renderMessages(data.messages);
+      return WOYSApp.loadMessages({
+        onMessages(items) {
+          renderMessages(items);
           setError("");
-        })
-        .catch(err => {
+        },
+        onError(err) {
           console.error(err);
           setError("Could not load messages.");
-        });
+        },
+      }).catch(() => {});
     }
 
     function sendMessage(message) {
       sendButton.disabled = true;
 
-      fetchJson(`${API_BASE_URL}/api/message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message }),
-      })
-        .then(() => {
+      WOYSApp.sendMessage(message, {
+        onSent() {
           messageInput.value = "";
-          return loadMessages();
-        })
-        .catch(err => {
+        },
+        onError(err) {
           console.error(err);
           setError("Could not send message.");
+        },
+      })
+        .then(() => {
+          return loadMessages();
         })
+        .catch(() => {})
         .finally(() => {
           sendButton.disabled = false;
           messageInput.focus();
