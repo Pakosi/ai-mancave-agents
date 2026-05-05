@@ -48,6 +48,14 @@ function getValidMessage(body) {
   return message.trim();
 }
 
+function getSessionId(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return "default";
+  }
+
+  return value.trim();
+}
+
 const agentBehaviors = {
   host(message, contextText) {
     const context = contextText ? ` I remember: ${contextText}.` : "";
@@ -80,11 +88,15 @@ app.get("/api/status", (req, res) => {
 });
 
 app.get("/api/messages", (req, res) => {
-  res.json({ messages: readMessages() });
+  const sessionId = getSessionId(req.query.sessionId);
+  const messages = readMessages().filter((item) => getSessionId(item.sessionId) === sessionId);
+
+  res.json({ messages });
 });
 
 app.post("/api/message", (req, res) => {
   const message = getValidMessage(req.body);
+  const sessionId = getSessionId(req.body && req.body.sessionId);
 
   if (!message) {
     return res.status(400).json({ error: "message is required" });
@@ -94,6 +106,7 @@ app.post("/api/message", (req, res) => {
 
   const storedMessage = {
     id: getNextMessageId(messages),
+    sessionId,
     role: "user",
     message,
     createdAt: new Date().toISOString(),
@@ -108,6 +121,7 @@ app.post("/api/message", (req, res) => {
 app.post("/api/agents/:agentId/reply", (req, res) => {
   const { agentId } = req.params;
   const behavior = agentBehaviors[agentId];
+  const sessionId = getSessionId(req.body && req.body.sessionId);
 
   if (!behavior) {
     return res.status(400).json({ error: "invalid agentId" });
@@ -119,19 +133,21 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
     return res.status(400).json({ error: "message is required" });
   }
 
-  const recentMessages = readMessages();
-  const contextText = getRecentContext(recentMessages);
+  const allMessages = readMessages();
+  const sessionMessages = allMessages.filter((item) => getSessionId(item.sessionId) === sessionId);
+  const contextText = getRecentContext(sessionMessages);
   const reply = behavior(message, contextText);
   const storedMessage = {
-    id: getNextMessageId(recentMessages),
+    id: getNextMessageId(allMessages),
+    sessionId,
     role: "agent",
     agentId,
     message: reply,
     createdAt: new Date().toISOString(),
   };
 
-  recentMessages.push(storedMessage);
-  writeMessages(recentMessages);
+  allMessages.push(storedMessage);
+  writeMessages(allMessages);
 
   return res.json({
     agentId,

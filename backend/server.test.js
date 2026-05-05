@@ -126,6 +126,7 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
 
   assert.equal(created.statusCode, 201);
   assert.equal(created.body.id, 1);
+  assert.equal(created.body.sessionId, "default");
   assert.equal(created.body.role, "user");
   assert.equal(created.body.message, "Hello WOYS");
   assert.equal(typeof created.body.createdAt, "string");
@@ -158,6 +159,55 @@ test("POST /api/message stores user role", async (t) => {
   assert.equal(messages.statusCode, 200);
   assert.equal(messages.body.messages[0].role, "user");
   assert.equal(messages.body.messages[0].agentId, undefined);
+});
+
+test("POST /api/message uses default session when sessionId is missing", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/message", {
+    message: "default session",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.sessionId, "default");
+
+  const messages = await getJson(server, "/api/messages?sessionId=default");
+
+  assert.equal(messages.statusCode, 200);
+  assert.deepEqual(messages.body.messages, [created.body]);
+});
+
+test("GET /api/messages keeps sessions separate", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const alpha = await postJson(server, "/api/message", {
+    message: "alpha message",
+    sessionId: "alpha",
+  });
+  const beta = await postJson(server, "/api/message", {
+    message: "beta message",
+    sessionId: "beta",
+  });
+
+  const alphaMessages = await getJson(server, "/api/messages?sessionId=alpha");
+  const betaMessages = await getJson(server, "/api/messages?sessionId=beta");
+
+  assert.equal(alphaMessages.statusCode, 200);
+  assert.equal(betaMessages.statusCode, 200);
+  assert.deepEqual(alphaMessages.body.messages, [alpha.body]);
+  assert.deepEqual(betaMessages.body.messages, [beta.body]);
 });
 
 test("POST /api/message returns 400 when message is missing", async (t) => {
@@ -370,6 +420,7 @@ test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) 
   assert.equal(messages.body.messages.length, 1);
   assert.equal(messages.body.messages[0].role, "agent");
   assert.equal(messages.body.messages[0].agentId, "sales");
+  assert.equal(messages.body.messages[0].sessionId, "default");
   assert.equal(messages.body.messages[0].message, response.body.reply);
 });
 

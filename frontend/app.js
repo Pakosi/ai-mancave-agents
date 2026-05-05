@@ -17,10 +17,35 @@
     });
   }
 
+  function getSessionId(storage) {
+    const sessionStorage = storage || root.localStorage;
+
+    if (!sessionStorage || typeof sessionStorage.getItem !== "function") {
+      if (!root.__woysSessionId) {
+        root.__woysSessionId = `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      return root.__woysSessionId;
+    }
+
+    const existingSessionId = sessionStorage.getItem("woysSessionId");
+
+    if (existingSessionId) {
+      return existingSessionId;
+    }
+
+    const sessionId = `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem("woysSessionId", sessionId);
+
+    return sessionId;
+  }
+
   function loadMessages(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const sessionId = options.sessionId || getSessionId(options.storage);
+    const query = new URLSearchParams({ sessionId });
 
-    return fetchJson(`${apiBaseUrl}/api/messages`, undefined, options.fetch)
+    return fetchJson(`${apiBaseUrl}/api/messages?${query.toString()}`, undefined, options.fetch)
       .then((data) => {
         if (options.onMessages) {
           options.onMessages(data.messages);
@@ -39,6 +64,7 @@
 
   function sendMessage(message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const sessionId = options.sessionId || getSessionId(options.storage);
 
     return fetchJson(
       `${apiBaseUrl}/api/message`,
@@ -47,7 +73,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, sessionId }),
       },
       options.fetch,
     )
@@ -69,6 +95,7 @@
 
   function getAgentReply(agentId, message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const sessionId = options.sessionId || getSessionId(options.storage);
 
     return fetchJson(
       `${apiBaseUrl}/api/agents/${encodeURIComponent(agentId)}/reply`,
@@ -77,7 +104,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, sessionId }),
       },
       options.fetch,
     )
@@ -116,6 +143,7 @@
   const api = {
     fetchJson,
     getAgentReply,
+    getSessionId,
     loadMessages,
     mapMessageForDisplay,
     sendMessage,

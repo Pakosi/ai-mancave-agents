@@ -4,6 +4,7 @@ const test = require("node:test");
 const {
   fetchJson,
   getAgentReply,
+  getSessionId,
   loadMessages,
   mapMessageForDisplay,
   sendMessage,
@@ -52,6 +53,7 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
   const messages = await loadMessages({
     apiBaseUrl: "http://test.local",
     fetch,
+    sessionId: "session-1",
     onMessages(items) {
       callbacks.push(items);
     },
@@ -60,7 +62,7 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
   assert.deepEqual(messages, responseMessages);
   assert.deepEqual(callbacks, [responseMessages]);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "http://test.local/api/messages");
+  assert.equal(calls[0].url, "http://test.local/api/messages?sessionId=session-1");
   assert.equal(calls[0].options, undefined);
 });
 
@@ -94,6 +96,7 @@ test("sendMessage sends POST, correct body, and triggers onSent", async () => {
   const message = await sendMessage("Hello WOYS", {
     apiBaseUrl: "http://test.local",
     fetch,
+    sessionId: "session-1",
     onSent(item) {
       callbacks.push(item);
     },
@@ -107,7 +110,10 @@ test("sendMessage sends POST, correct body, and triggers onSent", async () => {
   assert.deepEqual(calls[0].options.headers, {
     "Content-Type": "application/json",
   });
-  assert.equal(calls[0].options.body, JSON.stringify({ message: "Hello WOYS" }));
+  assert.equal(
+    calls[0].options.body,
+    JSON.stringify({ message: "Hello WOYS", sessionId: "session-1" }),
+  );
 });
 
 test("sendMessage calls onError and rejects when fetch fails", async () => {
@@ -143,6 +149,7 @@ test("getAgentReply calls selected agent endpoint and triggers onReply", async (
   const reply = await getAgentReply("sales", "hello", {
     apiBaseUrl: "http://test.local",
     fetch,
+    sessionId: "session-1",
     onReply(item) {
       callbacks.push(item);
     },
@@ -156,7 +163,10 @@ test("getAgentReply calls selected agent endpoint and triggers onReply", async (
   assert.deepEqual(calls[0].options.headers, {
     "Content-Type": "application/json",
   });
-  assert.equal(calls[0].options.body, JSON.stringify({ message: "hello" }));
+  assert.equal(
+    calls[0].options.body,
+    JSON.stringify({ message: "hello", sessionId: "session-1" }),
+  );
 });
 
 test("getAgentReply calls onError and rejects when fetch fails", async () => {
@@ -202,4 +212,23 @@ test("mapMessageForDisplay handles user and agent roles", () => {
     text: "HOST: welcome",
     createdAt: "2026-05-05T00:00:01.000Z",
   });
+});
+
+test("getSessionId reuses or creates localStorage session id", () => {
+  const values = {};
+  const storage = {
+    getItem(key) {
+      return values[key] || null;
+    },
+    setItem(key, value) {
+      values[key] = value;
+    },
+  };
+
+  const created = getSessionId(storage);
+  const reused = getSessionId(storage);
+
+  assert.match(created, /^session-/);
+  assert.equal(reused, created);
+  assert.equal(values.woysSessionId, created);
 });
