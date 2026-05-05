@@ -66,7 +66,7 @@ const agentBehaviors = {
 function getRecentContext(messages) {
   return messages
     .slice(-5)
-    .map((item) => item.message)
+    .map((item) => `${item.role}: ${item.message}`)
     .join("; ");
 }
 
@@ -94,6 +94,7 @@ app.post("/api/message", (req, res) => {
 
   const storedMessage = {
     id: getNextMessageId(messages),
+    role: "user",
     message,
     createdAt: new Date().toISOString(),
   };
@@ -120,10 +121,21 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
 
   const recentMessages = readMessages();
   const contextText = getRecentContext(recentMessages);
+  const reply = behavior(message, contextText);
+  const storedMessage = {
+    id: getNextMessageId(recentMessages),
+    role: "agent",
+    agentId,
+    message: reply,
+    createdAt: new Date().toISOString(),
+  };
+
+  recentMessages.push(storedMessage);
+  writeMessages(recentMessages);
 
   return res.json({
     agentId,
-    reply: behavior(message, contextText),
+    reply,
   });
 });
 

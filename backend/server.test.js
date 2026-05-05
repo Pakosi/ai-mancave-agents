@@ -126,6 +126,7 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
 
   assert.equal(created.statusCode, 201);
   assert.equal(created.body.id, 1);
+  assert.equal(created.body.role, "user");
   assert.equal(created.body.message, "Hello WOYS");
   assert.equal(typeof created.body.createdAt, "string");
 
@@ -133,6 +134,30 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
 
   assert.equal(messages.statusCode, 200);
   assert.deepEqual(messages.body.messages, [created.body]);
+});
+
+test("POST /api/message stores user role", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/message", {
+    message: "role check",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.role, "user");
+  assert.equal(created.body.agentId, undefined);
+
+  const messages = await getJson(server, "/api/messages");
+
+  assert.equal(messages.statusCode, 200);
+  assert.equal(messages.body.messages[0].role, "user");
+  assert.equal(messages.body.messages[0].agentId, undefined);
 });
 
 test("POST /api/message returns 400 when message is missing", async (t) => {
@@ -321,6 +346,31 @@ test("POST /api/agents/:agentId/reply references prior saved messages", async (t
   assert.match(response.body.reply, /latest ask/);
   assert.match(response.body.reply, /first context/);
   assert.match(response.body.reply, /second context/);
+});
+
+test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/agents/sales/reply", {
+    message: "close this",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.agentId, "sales");
+
+  const messages = await getJson(server, "/api/messages");
+
+  assert.equal(messages.statusCode, 200);
+  assert.equal(messages.body.messages.length, 1);
+  assert.equal(messages.body.messages[0].role, "agent");
+  assert.equal(messages.body.messages[0].agentId, "sales");
+  assert.equal(messages.body.messages[0].message, response.body.reply);
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {

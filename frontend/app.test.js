@@ -5,6 +5,7 @@ const {
   fetchJson,
   getAgentReply,
   loadMessages,
+  mapMessageForDisplay,
   sendMessage,
 } = require("./app");
 
@@ -174,4 +175,31 @@ test("getAgentReply calls onError and rejects when fetch fails", async () => {
   );
 
   assert.deepEqual(errors, [fetchError]);
+});
+
+test("mapMessageForDisplay handles user and agent roles", () => {
+  const user = mapMessageForDisplay({
+    role: "user",
+    message: "hello",
+    createdAt: "2026-05-05T00:00:00.000Z",
+  });
+
+  assert.deepEqual(user, {
+    classes: ["message", "user"],
+    text: "hello",
+    createdAt: "2026-05-05T00:00:00.000Z",
+  });
+
+  const agent = mapMessageForDisplay({
+    role: "agent",
+    agentId: "host",
+    message: "welcome",
+    createdAt: "2026-05-05T00:00:01.000Z",
+  });
+
+  assert.deepEqual(agent, {
+    classes: ["message", "agent", "agent-host"],
+    text: "HOST: welcome",
+    createdAt: "2026-05-05T00:00:01.000Z",
+  });
 });

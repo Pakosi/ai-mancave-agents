@@ -85,8 +85,14 @@
       word-break: break-word;
     }
 
-    .message.agent {
+    .message.user {
       align-self: flex-end;
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .message.agent {
+      align-self: flex-start;
     }
 
     .message.agent-host {
@@ -142,7 +148,6 @@
     const messageInput = document.getElementById("messageInput");
     const messages = document.getElementById("messages");
     const sendButton = document.getElementById("sendButton");
-    const agentReplies = [];
 
     function setError(message) {
       error.textContent = message || "";
@@ -170,22 +175,16 @@
         .slice()
         .sort((first, second) => new Date(first.createdAt) - new Date(second.createdAt))
         .forEach(item => {
+          const view = WOYSApp.mapMessageForDisplay(item);
           const message = document.createElement("div");
-          message.className = "message";
-
-          if (item.source === "agent") {
-            message.classList.add("agent");
-            message.classList.add(`agent-${item.agentId}`);
-          }
+          message.className = view.classes.join(" ");
 
           const text = document.createElement("div");
-          text.textContent = item.source === "agent"
-            ? `${item.agentId.toUpperCase()}: ${item.message}`
-            : item.message;
+          text.textContent = view.text;
 
           const meta = document.createElement("div");
           meta.className = "message-meta";
-          meta.textContent = formatTime(item.createdAt);
+          meta.textContent = formatTime(view.createdAt);
 
           message.append(text, meta);
           messages.appendChild(message);
@@ -195,7 +194,7 @@
     function loadMessages() {
       return WOYSApp.loadMessages({
         onMessages(items) {
-          renderMessages(items.concat(agentReplies));
+          renderMessages(items);
           setError("");
         },
         onError(err) {
@@ -221,15 +220,6 @@
       })
         .then(() => {
           return WOYSApp.getAgentReply(agentId, message, {
-            onReply(data) {
-              agentReplies.push({
-                id: `agent-${Date.now()}`,
-                agentId: data.agentId,
-                message: data.reply,
-                createdAt: new Date().toISOString(),
-                source: "agent",
-              });
-            },
             onError(err) {
               console.error(err);
               setError("Could not get agent reply.");

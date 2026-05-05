@@ -97,10 +97,27 @@
       });
   }
 
+  function mapMessageForDisplay(item) {
+    if (item.role === "agent") {
+      return {
+        classes: ["message", "agent", `agent-${item.agentId}`],
+        text: `${item.agentId.toUpperCase()}: ${item.message}`,
+        createdAt: item.createdAt,
+      };
+    }
+
+    return {
+      classes: ["message", "user"],
+      text: item.message,
+      createdAt: item.createdAt,
+    };
+  }
+
   const api = {
     fetchJson,
     getAgentReply,
     loadMessages,
+    mapMessageForDisplay,
     sendMessage,
   };
 
