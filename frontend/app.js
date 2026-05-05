@@ -67,11 +67,11 @@
       });
   }
 
-  function getAgentReply(message, options = {}) {
+  function getAgentReply(agentId, message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
 
     return fetchJson(
-      `${apiBaseUrl}/api/agent/reply`,
+      `${apiBaseUrl}/api/agents/${encodeURIComponent(agentId)}/reply`,
       {
         method: "POST",
         headers: {
@@ -83,10 +83,10 @@
     )
       .then((data) => {
         if (options.onReply) {
-          options.onReply(data.reply);
+          options.onReply(data);
         }
 
-        return data.reply;
+        return data;
       })
       .catch((err) => {
         if (options.onError) {

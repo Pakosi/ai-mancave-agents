@@ -127,15 +127,19 @@ test("sendMessage calls onError and rejects when fetch fails", async () => {
   assert.deepEqual(errors, [fetchError]);
 });
 
-test("getAgentReply sends POST, correct body, and triggers onReply", async () => {
+test("getAgentReply calls selected agent endpoint and triggers onReply", async () => {
   const calls = [];
   const callbacks = [];
+  const response = {
+    agentId: "sales",
+    reply: "Great choice. Let's turn hello into a win.",
+  };
   const fetch = (url, options) => {
     calls.push({ url, options });
-    return Promise.resolve(mockResponse({ reply: "Agent received: hello" }));
+    return Promise.resolve(mockResponse(response));
   };
 
-  const reply = await getAgentReply("hello", {
+  const reply = await getAgentReply("sales", "hello", {
     apiBaseUrl: "http://test.local",
     fetch,
     onReply(item) {
@@ -143,10 +147,10 @@ test("getAgentReply sends POST, correct body, and triggers onReply", async () =>
     },
   });
 
-  assert.equal(reply, "Agent received: hello");
-  assert.deepEqual(callbacks, ["Agent received: hello"]);
+  assert.deepEqual(reply, response);
+  assert.deepEqual(callbacks, [response]);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "http://test.local/api/agent/reply");
+  assert.equal(calls[0].url, "http://test.local/api/agents/sales/reply");
   assert.equal(calls[0].options.method, "POST");
   assert.deepEqual(calls[0].options.headers, {
     "Content-Type": "application/json",
@@ -160,7 +164,7 @@ test("getAgentReply calls onError and rejects when fetch fails", async () => {
   const fetch = () => Promise.reject(fetchError);
 
   await assert.rejects(
-    getAgentReply("hello", {
+    getAgentReply("host", "hello", {
       fetch,
       onError(err) {
         errors.push(err);

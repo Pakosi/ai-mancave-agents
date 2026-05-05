@@ -48,6 +48,18 @@ function getValidMessage(body) {
   return message.trim();
 }
 
+const agentBehaviors = {
+  host(message) {
+    return `Glad you shared that. ${message}`;
+  },
+  assistant(message) {
+    return `I can help with that: ${message}`;
+  },
+  sales(message) {
+    return `Great choice. Let's turn "${message}" into a win.`;
+  },
+};
+
 // test route
 app.get("/api/test", (req, res) => {
   res.json({ message: "Backend is alive" });
@@ -82,7 +94,14 @@ app.post("/api/message", (req, res) => {
   return res.status(201).json(storedMessage);
 });
 
-app.post("/api/agent/reply", (req, res) => {
+app.post("/api/agents/:agentId/reply", (req, res) => {
+  const { agentId } = req.params;
+  const behavior = agentBehaviors[agentId];
+
+  if (!behavior) {
+    return res.status(400).json({ error: "invalid agentId" });
+  }
+
   const message = getValidMessage(req.body);
 
   if (!message) {
@@ -90,7 +109,8 @@ app.post("/api/agent/reply", (req, res) => {
   }
 
   return res.json({
-    reply: `Agent received: ${message}`,
+    agentId,
+    reply: behavior(message),
   });
 });
 

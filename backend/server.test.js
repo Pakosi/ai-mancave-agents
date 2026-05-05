@@ -254,31 +254,50 @@ test("messages persist through file storage", async (t) => {
   assert.deepEqual(messages.body.messages, [created.body]);
 });
 
-test("POST /api/agent/reply returns a reply for a valid message", async (t) => {
+test("POST /api/agents/:agentId/reply returns correct structure for each agent", async (t) => {
   const server = await listen();
 
   t.after(() => {
     server.close();
   });
 
-  const response = await postJson(server, "/api/agent/reply", {
-    message: "   hello agent   ",
-  });
+  const agents = ["host", "assistant", "sales"];
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.body, {
-    reply: "Agent received: hello agent",
-  });
+  for (const agentId of agents) {
+    const response = await postJson(server, `/api/agents/${agentId}/reply`, {
+      message: "   hello agent   ",
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.agentId, agentId);
+    assert.equal(typeof response.body.reply, "string");
+    assert.notEqual(response.body.reply.length, 0);
+  }
 });
 
-test("POST /api/agent/reply returns 400 for an invalid message", async (t) => {
+test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
   const server = await listen();
 
   t.after(() => {
     server.close();
   });
 
-  const response = await postJson(server, "/api/agent/reply", {
+  const response = await postJson(server, "/api/agents/unknown/reply", {
+    message: "hello",
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, { error: "invalid agentId" });
+});
+
+test("POST /api/agents/:agentId/reply returns 400 for an invalid message", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/agents/host/reply", {
     message: "",
   });
 

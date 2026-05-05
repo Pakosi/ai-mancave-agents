@@ -40,6 +40,13 @@
       padding: 0.75rem;
     }
 
+    select {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font: inherit;
+      padding: 0.75rem;
+    }
+
     button {
       background: #2563eb;
       border: 0;
@@ -80,8 +87,21 @@
 
     .message.agent {
       align-self: flex-end;
+    }
+
+    .message.agent-host {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+
+    .message.agent-assistant {
       background: #eff6ff;
       border-color: #bfdbfe;
+    }
+
+    .message.agent-sales {
+      background: #fff7ed;
+      border-color: #fed7aa;
     }
 
     .message-meta {
@@ -101,6 +121,11 @@
     <h1>WOYS</h1>
 
     <form id="messageForm">
+      <select id="agentSelect" name="agent">
+        <option value="host">Host</option>
+        <option value="assistant">Assistant</option>
+        <option value="sales">Sales</option>
+      </select>
       <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
       <button id="sendButton" type="submit">Send</button>
     </form>
@@ -111,6 +136,7 @@
 
   <script src="./app.js"></script>
   <script>
+    const agentSelect = document.getElementById("agentSelect");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
@@ -149,10 +175,13 @@
 
           if (item.source === "agent") {
             message.classList.add("agent");
+            message.classList.add(`agent-${item.agentId}`);
           }
 
           const text = document.createElement("div");
-          text.textContent = item.message;
+          text.textContent = item.source === "agent"
+            ? `${item.agentId.toUpperCase()}: ${item.message}`
+            : item.message;
 
           const meta = document.createElement("div");
           meta.className = "message-meta";
@@ -177,6 +206,8 @@
     }
 
     function sendMessage(message) {
+      const agentId = agentSelect.value;
+
       sendButton.disabled = true;
 
       WOYSApp.sendMessage(message, {
@@ -189,11 +220,12 @@
         },
       })
         .then(() => {
-          return WOYSApp.getAgentReply(message, {
-            onReply(reply) {
+          return WOYSApp.getAgentReply(agentId, message, {
+            onReply(data) {
               agentReplies.push({
                 id: `agent-${Date.now()}`,
-                message: reply,
+                agentId: data.agentId,
+                message: data.reply,
                 createdAt: new Date().toISOString(),
                 source: "agent",
               });
