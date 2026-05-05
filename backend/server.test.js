@@ -515,6 +515,30 @@ test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) 
   assert.equal(messages.body.messages[0].message, response.body.reply);
 });
 
+test("autonomous agent thought stores an agent message", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 0;
+
+  const thought = app.locals.createAgentThought();
+
+  assert.equal(thought.role, "agent");
+  assert.equal(thought.sessionId, "default");
+  assert.equal(thought.roomId, "main");
+  assert.equal(typeof thought.agentId, "string");
+  assert.match(thought.message, /AI Mancave|business idea|next steps|offer/);
+});
+
+test("autonomous agent thoughts can reference prior agent messages", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 0;
+
+  app.locals.createAgentThought();
+  const secondThought = app.locals.createAgentThought();
+
+  assert.equal(secondThought.role, "agent");
+  assert.match(secondThought.message, /Building on/);
+});
+
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
   const server = await listen();
 

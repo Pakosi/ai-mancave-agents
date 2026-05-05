@@ -3,9 +3,12 @@ const cors = require("cors");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { generateAgentReply } = require("./aiProvider");
+
 const app = express();
 
 app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
+app.locals.agentThoughtIndex = 0;
 
 app.use(cors());
 app.use(express.json());
@@ -71,10 +74,6 @@ const agents = {
     label: "HOST",
     color: "#10b981",
     systemPrompt: "Friendly, short replies that make the user feel welcomed.",
-    reply(message, contextText) {
-      const context = contextText ? ` I remember: ${contextText}.` : "";
-      return `Glad you shared "${message}".${context}`;
-    },
   },
   assistant: {
     id: "assistant",
@@ -82,10 +81,6 @@ const agents = {
     label: "ASSISTANT",
     color: "#3b82f6",
     systemPrompt: "Neutral, helpful replies that focus on useful next steps.",
-    reply(message, contextText) {
-      const context = contextText ? ` Recent context: ${contextText}.` : "";
-      return `I can help with "${message}".${context}`;
-    },
   },
   sales: {
     id: "sales",
@@ -93,12 +88,17 @@ const agents = {
     label: "SALES",
     color: "#f97316",
     systemPrompt: "Persuasive replies that frame the message as an opportunity.",
-    reply(message, contextText) {
-      const context = contextText ? ` Building on ${contextText},` : "";
-      return `${context} let's turn "${message}" into a win.`;
-    },
   },
 };
+
+const businessTopic = "AI Mancave: a practical workspace where agents brainstorm offers, support flows, and sales angles for small teams.";
+const thoughtPrompts = [
+  "Find one useful business idea for the room.",
+  "Turn the current discussion into a practical next step.",
+  "Suggest a way to package this into a service or offer.",
+  "Look for a support or onboarding improvement.",
+  "Connect the latest idea to revenue or customer value.",
+];
 
 function getPublicAgents() {
   return Object.values(agents).map(({ id, name, label, color }) => ({
@@ -109,11 +109,64 @@ function getPublicAgents() {
   }));
 }
 
-function getRecentContext(messages) {
-  return messages
-    .slice(-5)
-    .map((item) => `${item.role}: ${item.message}`)
-    .join("; ");
+function getRoomMessages(messages, sessionId, roomId) {
+  return messages.filter((item) => (
+    getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
+  ));
+}
+
+function storeAgentMessage({ agentId, sessionId, roomId, message, messages }) {
+  const storedMessage = {
+    id: getNextMessageId(messages),
+    sessionId,
+    roomId,
+    role: "agent",
+    agentId,
+    message,
+    createdAt: new Date().toISOString(),
+  };
+
+  messages.push(storedMessage);
+  writeMessages(messages);
+
+  return storedMessage;
+}
+
+function createAgentThought() {
+  const agentList = Object.values(agents);
+  const agent = agentList[app.locals.agentThoughtIndex % agentList.length];
+  const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
+  const sessionId = "default";
+  const roomId = "main";
+  const allMessages = readMessages();
+  const contextMessages = getRoomMessages(allMessages, sessionId, roomId);
+  const reply = generateAgentReply({
+    agent,
+    message: `${businessTopic} ${prompt}`,
+    context: {
+      topic: businessTopic,
+      messages: contextMessages,
+    },
+  });
+
+  app.locals.agentThoughtIndex += 1;
+
+  return storeAgentMessage({
+    agentId: agent.id,
+    sessionId,
+    roomId,
+    message: reply,
+    messages: allMessages,
+  });
+}
+
+function startAgentThoughtLoop() {
+  if (app.locals.agentThoughtTimer) {
+    return;
+  }
+
+  app.locals.agentThoughtTimer = setInterval(createAgentThought, 15000);
+  setTimeout(createAgentThought, 3000);
 }
 
 // test route
@@ -128,9 +181,7 @@ app.get("/api/status", (req, res) => {
 app.get("/api/messages", (req, res) => {
   const sessionId = getSessionId(req.query.sessionId);
   const roomId = getRoomId(req.query.roomId);
-  const messages = readMessages().filter((item) => (
-    getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
-  ));
+  const messages = getRoomMessages(readMessages(), sessionId, roomId);
 
   res.json({ messages });
 });
@@ -182,23 +233,23 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   }
 
   const allMessages = readMessages();
-  const sessionMessages = allMessages.filter((item) => (
-    getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
-  ));
-  const contextText = getRecentContext(sessionMessages);
-  const reply = agent.reply(message, contextText);
-  const storedMessage = {
-    id: getNextMessageId(allMessages),
+  const sessionMessages = getRoomMessages(allMessages, sessionId, roomId);
+  const reply = generateAgentReply({
+    agent,
+    message,
+    context: {
+      topic: businessTopic,
+      messages: sessionMessages,
+    },
+  });
+
+  storeAgentMessage({
+    agentId,
     sessionId,
     roomId,
-    role: "agent",
-    agentId,
     message: reply,
-    createdAt: new Date().toISOString(),
-  };
-
-  allMessages.push(storedMessage);
-  writeMessages(allMessages);
+    messages: allMessages,
+  });
 
   return res.json({
     agentId,
@@ -218,6 +269,10 @@ if (require.main === module) {
   app.listen(3001, () => {
     console.log("Server running on port 3001");
   });
+  startAgentThoughtLoop();
 }
+
+app.locals.createAgentThought = createAgentThought;
+app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 
 module.exports = app;
