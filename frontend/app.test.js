@@ -5,10 +5,12 @@ const {
   fetchJson,
   getAgentReply,
   getSessionId,
+  getSelectedAgentId,
   loadAgents,
   loadMessages,
   mapAgentForOption,
   mapMessageForDisplay,
+  saveSelectedAgentId,
   sendMessage,
 } = require("./app");
 
@@ -17,6 +19,18 @@ function mockResponse(body, options = {}) {
     ok: options.ok !== false,
     status: options.status || 200,
     json: () => Promise.resolve(body),
+  };
+}
+
+function mockStorage(values = {}) {
+  return {
+    getItem(key) {
+      return values[key] || null;
+    },
+    setItem(key, value) {
+      values[key] = value;
+    },
+    values,
   };
 }
 
@@ -260,20 +274,45 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
 });
 
 test("getSessionId reuses or creates localStorage session id", () => {
-  const values = {};
-  const storage = {
-    getItem(key) {
-      return values[key] || null;
-    },
-    setItem(key, value) {
-      values[key] = value;
-    },
-  };
+  const storage = mockStorage();
 
   const created = getSessionId(storage);
   const reused = getSessionId(storage);
 
   assert.match(created, /^session-/);
   assert.equal(reused, created);
-  assert.equal(values.woysSessionId, created);
+  assert.equal(storage.values.woysSessionId, created);
+});
+
+test("saveSelectedAgentId saves selected agent", () => {
+  const storage = mockStorage();
+
+  saveSelectedAgentId("sales", storage);
+
+  assert.equal(storage.values.woysSelectedAgentId, "sales");
+});
+
+test("getSelectedAgentId reuses saved selected agent", () => {
+  const storage = mockStorage({
+    woysSelectedAgentId: "assistant",
+  });
+  const agents = [
+    { id: "host" },
+    { id: "assistant" },
+    { id: "sales" },
+  ];
+
+  assert.equal(getSelectedAgentId(agents, storage), "assistant");
+});
+
+test("getSelectedAgentId falls back when saved selected agent is invalid", () => {
+  const storage = mockStorage({
+    woysSelectedAgentId: "missing",
+  });
+  const agents = [
+    { id: "host" },
+    { id: "assistant" },
+  ];
+
+  assert.equal(getSelectedAgentId(agents, storage), "host");
 });

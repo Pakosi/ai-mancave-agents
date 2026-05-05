@@ -214,6 +214,9 @@
 
         agentSelect.appendChild(option);
       });
+
+      agentSelect.value = WOYSApp.getSelectedAgentId(items);
+      WOYSApp.saveSelectedAgentId(agentSelect.value);
     }
 
     function loadAgents() {
@@ -271,6 +274,10 @@
       }
 
       sendMessage(message);
+    });
+
+    agentSelect.addEventListener("change", () => {
+      WOYSApp.saveSelectedAgentId(agentSelect.value);
     });
 
     loadAgents().then(loadMessages);

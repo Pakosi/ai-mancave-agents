@@ -40,6 +40,37 @@
     return sessionId;
   }
 
+  function saveSelectedAgentId(agentId, storage) {
+    const selectedAgentStorage = storage || root.localStorage;
+
+    if (selectedAgentStorage && typeof selectedAgentStorage.setItem === "function") {
+      selectedAgentStorage.setItem("woysSelectedAgentId", agentId);
+    }
+
+    root.__woysSelectedAgentId = agentId;
+  }
+
+  function getSavedSelectedAgentId(storage) {
+    const selectedAgentStorage = storage || root.localStorage;
+
+    if (selectedAgentStorage && typeof selectedAgentStorage.getItem === "function") {
+      return selectedAgentStorage.getItem("woysSelectedAgentId");
+    }
+
+    return root.__woysSelectedAgentId || null;
+  }
+
+  function getSelectedAgentId(agents, storage) {
+    const savedAgentId = getSavedSelectedAgentId(storage);
+    const savedAgent = agents.find((agent) => agent.id === savedAgentId);
+
+    if (savedAgent) {
+      return savedAgent.id;
+    }
+
+    return agents.length > 0 ? agents[0].id : "";
+  }
+
   function loadMessages(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
@@ -173,10 +204,13 @@
     fetchJson,
     getAgentReply,
     getSessionId,
+    getSelectedAgentId,
+    getSavedSelectedAgentId,
     loadAgents,
     loadMessages,
     mapAgentForOption,
     mapMessageForDisplay,
+    saveSelectedAgentId,
     sendMessage,
   };
 
