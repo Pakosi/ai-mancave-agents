@@ -241,7 +241,14 @@
       color: agent.color,
       position: agentRoomPositions[agent.id] || { left: "50%", top: "50%" },
       latestMessage: latestMessage ? latestMessage.message : "Thinking...",
+      latestMessageId: latestMessage ? latestMessage.id : null,
     };
+  }
+
+  function getNewestAgentMessage(messages = []) {
+    return [...messages]
+      .reverse()
+      .find((item) => item.role === "agent") || null;
   }
 
   function getLatestUserMessage(messages = []) {
@@ -263,6 +270,7 @@
     mapAgentForOption,
     mapAgentForRoom,
     mapMessageForDisplay,
+    getNewestAgentMessage,
     getLatestUserMessage,
     saveSelectedAgentId,
     getSelectedRoomId,

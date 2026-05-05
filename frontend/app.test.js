@@ -8,6 +8,7 @@ const {
   getSelectedAgentId,
   getSelectedRoomId,
   getLatestUserMessage,
+  getNewestAgentMessage,
   loadAgents,
   loadMessages,
   mapAgentForOption,
@@ -284,9 +285,9 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
   const roomAgent = mapAgentForRoom(
     { id: "assistant", name: "Assistant", label: "ASSISTANT", color: "#3b82f6" },
     [
-      { role: "agent", agentId: "assistant", message: "older" },
+      { id: 1, role: "agent", agentId: "assistant", message: "older" },
       { role: "agent", agentId: "sales", message: "sales thought" },
-      { role: "agent", agentId: "assistant", message: "latest assistant thought" },
+      { id: 3, role: "agent", agentId: "assistant", message: "latest assistant thought" },
     ],
   );
 
@@ -297,6 +298,22 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
     color: "#3b82f6",
     position: { left: "50%", top: "32%" },
     latestMessage: "latest assistant thought",
+    latestMessageId: 3,
+  });
+});
+
+test("getNewestAgentMessage returns latest agent message", () => {
+  const latest = getNewestAgentMessage([
+    { id: 1, role: "agent", agentId: "host", message: "first" },
+    { id: 2, role: "user", message: "user" },
+    { id: 3, role: "agent", agentId: "sales", message: "second" },
+  ]);
+
+  assert.deepEqual(latest, {
+    id: 3,
+    role: "agent",
+    agentId: "sales",
+    message: "second",
   });
 });
 
