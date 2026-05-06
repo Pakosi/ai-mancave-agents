@@ -13,6 +13,7 @@ const {
   getHQLayoutConfig,
   getRoomActivityView,
   getSelectedRoom,
+  getAgentCharacterStyle,
   loadAgents,
   loadAgentGoals,
   loadCompanyPlan,
@@ -808,6 +809,13 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
     role: "",
     specialty: "",
     position: { left: "50%", top: "32%" },
+    appearance: {
+      head: "#cbd5e1",
+      torso: "#284d91",
+      trim: "#8cc0ff",
+      accent: "#eff6ff",
+      shadow: "#0d1728",
+    },
     latestMessage: "latest assistant thought",
     latestMessageId: 3,
   });
@@ -831,8 +839,25 @@ test("mapAgentForRoom includes specialized agent role and stable position", () =
     role: "Task manager",
     specialty: "coordination",
     position: { left: "50%", top: "48%" },
+    appearance: {
+      head: "#dbc39a",
+      torso: "#6b4a10",
+      trim: "#e5c15e",
+      accent: "#fbefce",
+      shadow: "#181106",
+    },
     latestMessage: "Thinking...",
     latestMessageId: null,
+  });
+});
+
+test("getAgentCharacterStyle returns a distinct fixed style per agent", () => {
+  assert.deepEqual(getAgentCharacterStyle({ id: "sales", color: "#f97316" }), {
+    head: "#d6b08a",
+    torso: "#8a4312",
+    trim: "#f6b35a",
+    accent: "#ffe3ba",
+    shadow: "#261006",
   });
 });
 

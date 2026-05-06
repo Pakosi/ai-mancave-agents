@@ -593,6 +593,75 @@
     manager: { left: "50%", top: "48%" },
   };
 
+  const agentCharacterStyles = {
+    host: {
+      head: "#d9c49d",
+      torso: "#184d52",
+      trim: "#d4a853",
+      accent: "#f8e7be",
+      shadow: "#071717",
+    },
+    assistant: {
+      head: "#cbd5e1",
+      torso: "#284d91",
+      trim: "#8cc0ff",
+      accent: "#eff6ff",
+      shadow: "#0d1728",
+    },
+    sales: {
+      head: "#d6b08a",
+      torso: "#8a4312",
+      trim: "#f6b35a",
+      accent: "#ffe3ba",
+      shadow: "#261006",
+    },
+    strategist: {
+      head: "#d7c4f2",
+      torso: "#513089",
+      trim: "#b892ff",
+      accent: "#f4ebff",
+      shadow: "#180b2e",
+    },
+    researcher: {
+      head: "#b8d9e8",
+      torso: "#0d5f73",
+      trim: "#7fd8ef",
+      accent: "#dff8ff",
+      shadow: "#061921",
+    },
+    builder: {
+      head: "#d4b39a",
+      torso: "#8f1f1f",
+      trim: "#ff9f7a",
+      accent: "#ffe4d7",
+      shadow: "#240707",
+    },
+    analyst: {
+      head: "#cad2d8",
+      torso: "#4f5f73",
+      trim: "#a4b4c5",
+      accent: "#edf2f7",
+      shadow: "#101722",
+    },
+    manager: {
+      head: "#dbc39a",
+      torso: "#6b4a10",
+      trim: "#e5c15e",
+      accent: "#fbefce",
+      shadow: "#181106",
+    },
+  };
+
+  function getAgentCharacterStyle(agent) {
+    return agentCharacterStyles[agent.id] || {
+      head: agent.color || "#c8b08a",
+      torso: agent.color || "#5a3e1b",
+      trim: "#d4a853",
+      accent: "#f4ead3",
+      shadow: "#100b07",
+    };
+  }
+
   function mapAgentForRoom(agent, messages = []) {
     const latestMessage = [...messages]
       .reverse()
@@ -606,6 +675,7 @@
       role: agent.role || "",
       specialty: agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || "",
       position: agentRoomPositions[agent.id] || { left: "50%", top: "50%" },
+      appearance: getAgentCharacterStyle(agent),
       latestMessage: latestMessage ? latestMessage.message : "Thinking...",
       latestMessageId: latestMessage ? latestMessage.id : null,
     };
@@ -647,6 +717,7 @@
     mapAgentForOption,
     mapAgentGoalForDisplay,
     mapAgentForRoom,
+    getAgentCharacterStyle,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,

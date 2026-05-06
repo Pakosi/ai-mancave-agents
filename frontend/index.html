@@ -319,13 +319,12 @@
     /* ── Agent Nodes ── */
     .agent-node {
       align-items: center;
-      animation: agentWalk 5.5s ease-in-out infinite;
       display: flex;
       flex-direction: column;
       gap: 0.22rem;
       position: absolute;
       transform: translate(-50%, -50%);
-      width: 8rem;
+      width: 8.4rem;
       z-index: 2;
     }
 
@@ -342,27 +341,168 @@
       align-items: center;
       display: flex;
       flex-direction: column;
-      gap: 0;
+      gap: 0.05rem;
+      padding-top: 0.15rem;
+      position: relative;
+      width: 4.7rem;
       transition: filter 200ms ease, transform 200ms ease;
     }
 
     .char-head {
-      border-radius: 50%;
-      width: 1.7rem;
-      height: 1.7rem;
-      border: 2px solid rgba(255,255,255,0.18);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 18%, transparent 19%),
+        linear-gradient(180deg, color-mix(in srgb, var(--char-head) 88%, white 12%) 0%, var(--char-head) 55%, color-mix(in srgb, var(--char-head) 76%, black 24%) 100%);
+      border-radius: 44% 44% 42% 42%;
+      border: 1px solid rgba(255,255,255,0.16);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.55);
+      height: 1.8rem;
+      position: relative;
       transition: transform 180ms ease, box-shadow 180ms ease;
+      width: 1.9rem;
     }
 
-    .char-body {
-      width: 2.3rem;
-      height: 2rem;
-      border-radius: 6px 6px 2px 2px;
-      opacity: 0.8;
+    .char-head::before {
+      background: linear-gradient(180deg, rgba(14,18,28,0.95), rgba(14,18,28,0.55));
+      border-radius: 999px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
+      content: '';
+      height: 0.25rem;
+      left: 22%;
+      position: absolute;
+      right: 22%;
+      top: 0.66rem;
+    }
+
+    .char-head::after {
+      background: linear-gradient(180deg, var(--char-accent), rgba(255,255,255,0.15));
+      border-radius: 999px;
+      bottom: 0.18rem;
+      content: '';
+      height: 0.12rem;
+      left: 27%;
+      position: absolute;
+      right: 27%;
+    }
+
+    .char-torso {
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--char-torso) 88%, white 12%) 0%, var(--char-torso) 48%, color-mix(in srgb, var(--char-torso) 74%, black 26%) 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.6rem 0.6rem 0.4rem 0.4rem;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+      height: 2.35rem;
+      position: relative;
+      width: 2.4rem;
+    }
+
+    .char-torso::before {
+      background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.02));
+      border-radius: inherit;
+      bottom: 0.2rem;
+      content: '';
+      left: 0.2rem;
+      position: absolute;
+      right: 0.2rem;
+      top: 0.2rem;
+    }
+
+    .char-torso::after {
+      background: linear-gradient(90deg, transparent 0%, var(--char-trim) 50%, transparent 100%);
+      content: '';
+      height: 0.16rem;
+      left: 12%;
+      position: absolute;
+      right: 12%;
+      top: 0.85rem;
+    }
+
+    .char-arms {
+      inset: 1.95rem -0.05rem auto;
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .char-arm {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--char-torso) 82%, white 18%) 0%, color-mix(in srgb, var(--char-torso) 65%, black 35%) 100%);
       border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.45);
-      transition: transform 180ms ease;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+      height: 1.65rem;
+      position: absolute;
+      top: 0;
+      width: 0.48rem;
+    }
+
+    .char-arm.left {
+      left: 0.45rem;
+      transform: rotate(18deg);
+      transform-origin: top center;
+    }
+
+    .char-arm.right {
+      right: 0.45rem;
+      transform: rotate(-18deg);
+      transform-origin: top center;
+    }
+
+    .char-legs {
+      display: flex;
+      gap: 0.42rem;
+      justify-content: center;
+      margin-top: -0.12rem;
+      width: 2.2rem;
+    }
+
+    .char-leg {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--char-shadow) 20%, var(--char-torso) 80%) 0%, var(--char-shadow) 100%);
+      border-radius: 0.18rem 0.18rem 0.28rem 0.28rem;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      height: 2rem;
+      position: relative;
+      width: 0.58rem;
+    }
+
+    .char-leg::after {
+      background: var(--char-accent);
+      bottom: -0.08rem;
+      content: '';
+      height: 0.14rem;
+      left: -0.1rem;
+      position: absolute;
+      right: -0.1rem;
+    }
+
+    .char-foot {
+      background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.18));
+      border-radius: 0.2rem;
+      bottom: -0.08rem;
+      height: 0.18rem;
+      left: 0;
+      position: absolute;
+      right: 0;
+    }
+
+    .char-shoulders {
+      background: linear-gradient(90deg, transparent 0%, var(--char-trim) 18%, var(--char-accent) 50%, var(--char-trim) 82%, transparent 100%);
+      border-radius: 999px;
+      height: 0.18rem;
+      margin: 0 auto -0.05rem;
+      opacity: 0.95;
+      width: 3rem;
+    }
+
+    .char-glow {
+      background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--char-trim) 40%, transparent) 0%, transparent 70%);
+      bottom: -0.2rem;
+      filter: blur(1px);
+      height: 1rem;
+      left: 50%;
+      opacity: 0.65;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%);
+      width: 3.3rem;
+      z-index: -1;
     }
 
     /* latest speaker — golden glow */
@@ -376,6 +516,10 @@
       transform: scale(1.08);
     }
 
+    .agent-node.latest .char-torso {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,168,83,0.15);
+    }
+
     .agent-node.latest .speech {
       border-color: #c8860a;
       opacity: 1;
@@ -384,11 +528,6 @@
 
     .agent-node.latest .speech::after {
       border-top-color: #c8860a;
-    }
-
-    /* thinking agent */
-    .agent-node.thinking .char-head {
-      animation: thinkingPulse 1.1s ease-in-out infinite;
     }
 
     /* ── Speech Bubble ── */
@@ -974,16 +1113,52 @@
 
         const charWrap = document.createElement("div");
         charWrap.className = "char-wrap";
+        charWrap.style.setProperty("--char-head", roomAgent.appearance.head);
+        charWrap.style.setProperty("--char-torso", roomAgent.appearance.torso);
+        charWrap.style.setProperty("--char-trim", roomAgent.appearance.trim);
+        charWrap.style.setProperty("--char-accent", roomAgent.appearance.accent);
+        charWrap.style.setProperty("--char-shadow", roomAgent.appearance.shadow);
+
+        const charGlow = document.createElement("div");
+        charGlow.className = "char-glow";
 
         const charHead = document.createElement("div");
         charHead.className = "char-head";
-        charHead.style.background = roomAgent.color;
 
-        const charBody = document.createElement("div");
-        charBody.className = "char-body";
-        charBody.style.background = roomAgent.color;
+        const charShoulders = document.createElement("div");
+        charShoulders.className = "char-shoulders";
 
-        charWrap.append(charHead, charBody);
+        const charTorso = document.createElement("div");
+        charTorso.className = "char-torso";
+
+        const charArms = document.createElement("div");
+        charArms.className = "char-arms";
+
+        const leftArm = document.createElement("div");
+        leftArm.className = "char-arm left";
+
+        const rightArm = document.createElement("div");
+        rightArm.className = "char-arm right";
+        charArms.append(leftArm, rightArm);
+
+        const charLegs = document.createElement("div");
+        charLegs.className = "char-legs";
+
+        const leftLeg = document.createElement("div");
+        leftLeg.className = "char-leg";
+
+        const rightLeg = document.createElement("div");
+        rightLeg.className = "char-leg";
+
+        const leftFoot = document.createElement("div");
+        leftFoot.className = "char-foot";
+        const rightFoot = document.createElement("div");
+        rightFoot.className = "char-foot";
+        leftLeg.appendChild(leftFoot);
+        rightLeg.appendChild(rightFoot);
+        charLegs.append(leftLeg, rightLeg);
+
+        charWrap.append(charGlow, charHead, charShoulders, charTorso, charArms, charLegs);
 
         const name = document.createElement("div");
         name.className = "agent-name";
