@@ -366,9 +366,19 @@
     return "";
   }
 
-  function mapTaskForDisplay(task, agents = []) {
+  function isTaskRecentlyUpdated(task, now = Date.now(), windowMs = 10000) {
+    if (!task.updatedAt) {
+      return false;
+    }
+
+    return now - new Date(task.updatedAt).getTime() <= windowMs;
+  }
+
+  function mapTaskForDisplay(task, agents = [], options = {}) {
     const agent = agents.find((item) => item.id === task.assignedAgentId);
     const nextStatus = getNextTaskStatus(task.status);
+    const now = options.now || Date.now();
+    const recentWindowMs = options.recentWindowMs || 10000;
 
     return {
       id: task.id,
@@ -376,6 +386,7 @@
       assignedAgent: agent ? agent.name : task.assignedAgentId,
       status: task.status,
       statusText: task.status.replace("_", " "),
+      isRecentlyUpdated: isTaskRecentlyUpdated(task, now, recentWindowMs),
       nextStatus,
       nextStatusText: nextStatus ? nextStatus.replace("_", " ") : "",
     };

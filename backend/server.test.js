@@ -558,6 +558,56 @@ test("PATCH /api/tasks/:taskId updates task status", async (t) => {
   assert.equal(done.body.status, "done");
 });
 
+test("PATCH /api/tasks/:taskId rejects invalid status progression", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Skip ahead",
+    assignedAgentId: "assistant",
+  });
+  const invalid = await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "done",
+  });
+
+  assert.equal(invalid.statusCode, 400);
+  assert.deepEqual(invalid.body, { error: "invalid status progression" });
+});
+
+test("PATCH /api/tasks/:taskId creates an agent message", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "auto",
+    title: "Qualify lead list",
+    assignedAgentId: "sales",
+  });
+  await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "in_progress",
+  });
+
+  const messages = await getJson(server, "/api/messages?roomId=auto");
+
+  assert.equal(messages.statusCode, 200);
+  assert.equal(messages.body.messages.length, 1);
+  assert.equal(messages.body.messages[0].role, "agent");
+  assert.equal(messages.body.messages[0].agentId, "sales");
+  assert.match(messages.body.messages[0].message, /Qualify lead list/);
+  assert.match(messages.body.messages[0].message, /in progress/);
+});
+
 test("GET /api/tasks keeps rooms separate", async (t) => {
   resetMessages();
 
@@ -876,6 +926,79 @@ test("autonomous room context stays isolated", async (t) => {
   assert.doesNotMatch(app.locals.topicMemory["default:auto"], /campaign|funnel/);
   assert.match(app.locals.topicMemory["default:marketing"], /campaign|funnel/);
   assert.doesNotMatch(app.locals.topicMemory["default:marketing"], /dealership|pipeline/);
+});
+
+test("task helper selects active tasks for a room", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const auto = await postJson(server, "/api/tasks", {
+    roomId: "auto",
+    title: "Review auto lead script",
+    assignedAgentId: "sales",
+  });
+  await postJson(server, "/api/tasks", {
+    roomId: "marketing",
+    title: "Review campaign copy",
+    assignedAgentId: "assistant",
+  });
+
+  const selectedTask = app.locals.selectRoomTaskForTest(app.locals.readTasksForTest(), "auto");
+
+  assert.equal(selectedTask.id, auto.body.id);
+  assert.equal(selectedTask.roomId, "auto");
+});
+
+test("autonomous agent thought references active room task", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Map onboarding handoff",
+    assignedAgentId: "assistant",
+  });
+
+  const thought = app.locals.createAgentThought(undefined, "main");
+
+  assert.match(thought.message, /Map onboarding handoff/);
+});
+
+test("autonomous agent thought can advance a task and store update message", async (t) => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 1;
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Tighten sales offer",
+    assignedAgentId: "sales",
+  });
+
+  app.locals.createAgentThought(undefined, "main");
+
+  const tasks = await getJson(server, "/api/tasks?roomId=main");
+  const messages = await getJson(server, "/api/messages?roomId=main");
+
+  assert.equal(tasks.body.tasks[0].status, "in_progress");
+  assert.equal(messages.body.messages.length, 2);
+  assert.match(messages.body.messages[1].message, /Tighten sales offer/);
+  assert.match(messages.body.messages[1].message, /in progress/);
 });
 
 test("autonomous agent thoughts sometimes create room tasks", () => {

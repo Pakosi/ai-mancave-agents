@@ -239,6 +239,12 @@
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       padding: 0.7rem;
+      transition: background 180ms ease, border-color 180ms ease;
+    }
+
+    .task-item.recent {
+      background: #ecfdf5;
+      border-color: #10b981;
     }
 
     .task-title {
@@ -577,6 +583,10 @@
         const taskItem = document.createElement("div");
         taskItem.className = "task-item";
 
+        if (view.isRecentlyUpdated) {
+          taskItem.classList.add("recent");
+        }
+
         const title = document.createElement("div");
         title.className = "task-title";
         title.textContent = view.title;
@@ -777,7 +787,7 @@
           setError("Could not update task.");
         },
       })
-        .then(loadTasks)
+        .then(() => Promise.all([loadTasks(), loadMessages()]))
         .catch(() => {})
         .finally(() => {
           button.disabled = false;

@@ -446,9 +446,13 @@ test("mapTaskForDisplay maps task state and next action", () => {
     title: "Draft pitch",
     assignedAgentId: "sales",
     status: "open",
+    updatedAt: "2026-05-05T12:00:00.000Z",
   }, [
     { id: "sales", name: "Sales" },
-  ]);
+  ], {
+    now: new Date("2026-05-05T12:00:03.000Z").getTime(),
+    recentWindowMs: 10000,
+  });
 
   assert.deepEqual(task, {
     id: 3,
@@ -456,6 +460,7 @@ test("mapTaskForDisplay maps task state and next action", () => {
     assignedAgent: "Sales",
     status: "open",
     statusText: "open",
+    isRecentlyUpdated: true,
     nextStatus: "in_progress",
     nextStatusText: "in progress",
   });
@@ -465,8 +470,13 @@ test("mapTaskForDisplay maps task state and next action", () => {
     title: "Done task",
     assignedAgentId: "host",
     status: "done",
-  }, []);
+    updatedAt: "2026-05-05T12:00:00.000Z",
+  }, [], {
+    now: new Date("2026-05-05T12:01:00.000Z").getTime(),
+    recentWindowMs: 10000,
+  });
 
+  assert.equal(done.isRecentlyUpdated, false);
   assert.equal(done.nextStatus, "");
   assert.equal(done.nextStatusText, "");
 });

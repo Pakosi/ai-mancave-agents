@@ -259,6 +259,38 @@ function getRoomTasks(tasks, roomId) {
   return tasks.filter((item) => getRoomId(item.roomId) === roomId);
 }
 
+function getActiveRoomTasks(tasks, roomId) {
+  return getRoomTasks(tasks, roomId).filter((task) => (
+    task.status === "open" || task.status === "in_progress"
+  ));
+}
+
+function selectRoomTask(tasks, roomId) {
+  const activeTasks = getActiveRoomTasks(tasks, roomId);
+
+  if (activeTasks.length === 0) {
+    return null;
+  }
+
+  return activeTasks[app.locals.agentThoughtIndex % activeTasks.length];
+}
+
+function getNextTaskStatus(status) {
+  if (status === "open") {
+    return "in_progress";
+  }
+
+  if (status === "in_progress") {
+    return "done";
+  }
+
+  return "";
+}
+
+function canMoveTaskStatus(currentStatus, nextStatus) {
+  return getNextTaskStatus(currentStatus) === nextStatus;
+}
+
 function createTask({ roomId, title, description, assignedAgentId, tasks }) {
   const now = new Date().toISOString();
   const task = {
@@ -273,6 +305,18 @@ function createTask({ roomId, title, description, assignedAgentId, tasks }) {
   };
 
   tasks.push(task);
+  writeTasks(tasks);
+
+  return task;
+}
+
+function updateTaskStatus({ task, status, tasks }) {
+  if (!canMoveTaskStatus(task.status, status)) {
+    return null;
+  }
+
+  task.status = status;
+  task.updatedAt = new Date().toISOString();
   writeTasks(tasks);
 
   return task;
@@ -293,6 +337,24 @@ function storeAgentMessage({ agentId, sessionId, roomId, message, messages }) {
   writeMessages(messages);
 
   return storedMessage;
+}
+
+function storeTaskStatusMessage({ task, agentId, sessionId, messages }) {
+  return storeAgentMessage({
+    agentId,
+    sessionId,
+    roomId: task.roomId,
+    message: `Task update: "${task.title}" is now ${task.status.replace("_", " ")}.`,
+    messages,
+  });
+}
+
+function addTaskReference(reply, task) {
+  if (!task) {
+    return reply;
+  }
+
+  return `${reply} For "${task.title}", the next move is clear.`;
 }
 
 function getLatestMessageByRole(messages, role) {
@@ -332,7 +394,9 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const sessionId = autonomousSessionId;
   const normalizedRoomId = getRoomId(roomId);
   const allMessages = readMessages();
+  const allTasks = readTasks();
   const contextMessages = getRoomMessages(allMessages, sessionId, normalizedRoomId);
+  const selectedTask = selectRoomTask(allTasks, normalizedRoomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
   const requestedAgent = agents[agentId];
@@ -342,10 +406,12 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const fallbackMessage = `${businessTopic} ${prompt}`;
-  const selectedMessage = targetMessage ? targetMessage.message : fallbackMessage;
+  const selectedMessage = selectedTask
+    ? `${targetMessage ? targetMessage.message : fallbackMessage} Task focus: ${selectedTask.title}`
+    : targetMessage ? targetMessage.message : fallbackMessage;
   const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
-  const reply = generateAgentReply({
+  const reply = addTaskReference(generateAgentReply({
     agent,
     message: selectedMessage,
     context: {
@@ -354,7 +420,7 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
       target: targetMessage,
       variation,
     },
-  });
+  }), selectedTask);
 
   app.locals.agentThoughtIndex += 1;
 
@@ -375,6 +441,12 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     topic,
   };
 
+  maybeAdvanceAutonomousTask({
+    agentId: agent.id,
+    sessionId,
+    task: selectedTask,
+    tasks: allTasks,
+  });
   maybeCreateAutonomousTask({
     agentId: agent.id,
     roomId: normalizedRoomId,
@@ -383,6 +455,35 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   });
 
   return storedMessage;
+}
+
+function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
+  if (!task || app.locals.agentThoughtIndex % 2 !== 0) {
+    return null;
+  }
+
+  const nextStatus = getNextTaskStatus(task.status);
+
+  if (!nextStatus) {
+    return null;
+  }
+
+  const updatedTask = updateTaskStatus({
+    task,
+    status: nextStatus,
+    tasks,
+  });
+
+  if (!updatedTask) {
+    return null;
+  }
+
+  return storeTaskStatusMessage({
+    task: updatedTask,
+    agentId,
+    sessionId,
+    messages: readMessages(),
+  });
 }
 
 function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
@@ -561,11 +662,24 @@ app.patch("/api/tasks/:taskId", (req, res) => {
     return res.status(404).json({ error: "task not found" });
   }
 
-  task.status = status;
-  task.updatedAt = new Date().toISOString();
-  writeTasks(tasks);
+  const updatedTask = updateTaskStatus({
+    task,
+    status,
+    tasks,
+  });
 
-  return res.json(task);
+  if (!updatedTask) {
+    return res.status(400).json({ error: "invalid status progression" });
+  }
+
+  storeTaskStatusMessage({
+    task: updatedTask,
+    agentId: updatedTask.assignedAgentId,
+    sessionId: autonomousSessionId,
+    messages: readMessages(),
+  });
+
+  return res.json(updatedTask);
 });
 
 app.post("/api/message", (req, res) => {
@@ -653,8 +767,10 @@ if (require.main === module) {
 
 app.locals.createAgentThought = createAgentThought;
 app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.readMessagesForTest = readMessages;
 app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
+app.locals.selectRoomTaskForTest = selectRoomTask;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 
 module.exports = app;
