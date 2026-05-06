@@ -123,21 +123,104 @@ const agents = {
     name: "Host",
     label: "HOST",
     color: "#10b981",
-    systemPrompt: "Friendly, short replies that make the user feel welcomed.",
+    role: "Discussion coordinator",
+    expertise: ["facilitation", "summaries", "alignment"],
+    preferredRooms: ["main", "ops"],
+    behaviorStyle: "organized and concise",
+    taskTendencies: ["coordinate", "summarize", "align"],
+    allowedActions: ["reply", "summarize", "create_tasks"],
+    systemPrompt: "Friendly, short replies that coordinate the room and summarize direction.",
   },
   assistant: {
     id: "assistant",
     name: "Assistant",
     label: "ASSISTANT",
     color: "#3b82f6",
-    systemPrompt: "Neutral, helpful replies that focus on useful next steps.",
+    role: "General helper",
+    expertise: ["context bridging", "next steps", "support"],
+    preferredRooms: ["main", "ops", "marketing"],
+    behaviorStyle: "helpful and connective",
+    taskTendencies: ["document", "bridge", "clarify"],
+    allowedActions: ["reply", "create_tasks", "advance_tasks"],
+    systemPrompt: "Neutral, helpful replies that bridge context and focus on useful next steps.",
   },
   sales: {
     id: "sales",
     name: "Sales",
     label: "SALES",
     color: "#f97316",
-    systemPrompt: "Persuasive replies that frame the message as an opportunity.",
+    role: "Revenue specialist",
+    expertise: ["customer validation", "offers", "revenue"],
+    preferredRooms: ["auto", "marketing", "main"],
+    behaviorStyle: "buyer-focused and direct",
+    taskTendencies: ["validate", "offer", "revenue"],
+    allowedActions: ["reply", "create_tasks", "advance_tasks"],
+    systemPrompt: "Persuasive replies that frame the message as a customer or revenue opportunity.",
+  },
+  strategist: {
+    id: "strategist",
+    name: "Strategist",
+    label: "STRATEGIST",
+    color: "#7c3aed",
+    role: "Planning strategist",
+    expertise: ["positioning", "prioritization", "planning"],
+    preferredRooms: ["main", "marketing"],
+    behaviorStyle: "structured and priority-minded",
+    taskTendencies: ["plan", "position", "prioritize"],
+    allowedActions: ["reply", "create_tasks", "prioritize_tasks"],
+    systemPrompt: "Strategic replies that clarify positioning, priorities, and planning tradeoffs.",
+  },
+  researcher: {
+    id: "researcher",
+    name: "Researcher",
+    label: "RESEARCH",
+    color: "#0891b2",
+    role: "Discovery lead",
+    expertise: ["market discovery", "user research", "competitor scans"],
+    preferredRooms: ["marketing", "auto"],
+    behaviorStyle: "curious and evidence-seeking",
+    taskTendencies: ["research", "discover", "compare"],
+    allowedActions: ["reply", "create_tasks"],
+    systemPrompt: "Research replies that identify user, market, and competitor evidence gaps.",
+  },
+  builder: {
+    id: "builder",
+    name: "Builder",
+    label: "BUILDER",
+    color: "#0f766e",
+    role: "Product builder",
+    expertise: ["implementation", "product workflow", "technical delivery"],
+    preferredRooms: ["ops", "main"],
+    behaviorStyle: "practical and implementation-focused",
+    taskTendencies: ["build", "ship", "workflow"],
+    allowedActions: ["reply", "advance_tasks", "create_tasks"],
+    systemPrompt: "Builder replies that turn ideas into product and implementation steps.",
+  },
+  analyst: {
+    id: "analyst",
+    name: "Analyst",
+    label: "ANALYST",
+    color: "#64748b",
+    role: "Metrics and risk analyst",
+    expertise: ["metrics", "risks", "decision gaps"],
+    preferredRooms: ["main", "ops", "marketing"],
+    behaviorStyle: "measured and evidence-based",
+    taskTendencies: ["measure", "risk", "decide"],
+    allowedActions: ["reply", "create_tasks"],
+    systemPrompt: "Analyst replies that surface metrics, risks, and decision gaps.",
+  },
+  manager: {
+    id: "manager",
+    name: "Manager",
+    label: "MANAGER",
+    color: "#be123c",
+    role: "Task manager",
+    expertise: ["coordination", "progress tracking", "ownership"],
+    preferredRooms: ["main", "ops"],
+    behaviorStyle: "clear and action-oriented",
+    taskTendencies: ["assign", "track", "advance"],
+    allowedActions: ["reply", "advance_tasks", "create_tasks", "prioritize_tasks"],
+    systemPrompt: "Manager replies that coordinate ownership, status, and next steps.",
   },
 };
 
@@ -178,11 +261,28 @@ const taskStatuses = new Set(["open", "in_progress", "done"]);
 const autonomousSessionId = "default";
 
 function getPublicAgents() {
-  return Object.values(agents).map(({ id, name, label, color }) => ({
+  return Object.values(agents).map(({
     id,
     name,
     label,
     color,
+    role,
+    expertise,
+    preferredRooms,
+    behaviorStyle,
+    taskTendencies,
+    allowedActions,
+  }) => ({
+    allowedActions,
+    behaviorStyle,
+    color,
+    expertise,
+    id,
+    label,
+    name,
+    preferredRooms,
+    role,
+    taskTendencies,
   }));
 }
 
@@ -274,14 +374,31 @@ function getActiveRoomTasks(tasks, roomId) {
   ));
 }
 
-function selectRoomTask(tasks, roomId) {
+function taskMatchesAgent(task, agent) {
+  if (!agent) {
+    return false;
+  }
+
+  if (task.assignedAgentId === agent.id) {
+    return true;
+  }
+
+  const text = `${task.title} ${task.description || ""}`.toLowerCase();
+
+  return agent.taskTendencies.some((tendency) => text.includes(tendency));
+}
+
+function selectRoomTask(tasks, roomId, agent) {
   const activeTasks = getActiveRoomTasks(tasks, roomId);
 
   if (activeTasks.length === 0) {
     return null;
   }
 
-  return activeTasks[app.locals.agentThoughtIndex % activeTasks.length];
+  const specializedTasks = activeTasks.filter((task) => taskMatchesAgent(task, agent));
+  const candidates = specializedTasks.length > 0 ? specializedTasks : activeTasks;
+
+  return candidates[app.locals.agentThoughtIndex % candidates.length];
 }
 
 function getNextTaskStatus(status) {
@@ -394,13 +511,38 @@ function getLatestMessage(messages) {
   return messages[messages.length - 1] || null;
 }
 
-function chooseNextAgent(lastSpeakerId) {
+function chooseNextAgent(lastSpeakerId, roomId) {
   const agentList = Object.values(agents);
-  const availableAgents = agentList.filter((agent) => agent.id !== lastSpeakerId);
-  const candidates = availableAgents.length > 0 ? availableAgents : agentList;
+  const roomAgents = roomId
+    ? agentList.filter((agent) => agent.preferredRooms.includes(roomId))
+    : agentList;
+  const roomCandidates = roomAgents.length > 0 ? roomAgents : agentList;
+  const availableAgents = roomCandidates.filter((agent) => agent.id !== lastSpeakerId);
+  const candidates = availableAgents.length > 0 ? availableAgents : roomCandidates;
   const agent = candidates[app.locals.agentThoughtIndex % candidates.length];
 
   return agent;
+}
+
+function getAgentTaskDraft(agent, roomId, topic, message) {
+  const roomBrief = getRoomBrief(roomId);
+  const cleanTopic = topic && topic !== "the current business idea" ? topic : roomBrief;
+  const tendency = agent.taskTendencies[app.locals.agentThoughtIndex % agent.taskTendencies.length];
+  const prefixByAgent = {
+    analyst: "Define metrics and risks for",
+    builder: "Build next workflow for",
+    host: "Summarize direction for",
+    manager: "Assign owner and next step for",
+    researcher: "Research evidence for",
+    sales: "Validate offer for",
+    strategist: "Prioritize plan for",
+  };
+  const prefix = prefixByAgent[agent.id] || `Clarify ${tendency} for`;
+
+  return {
+    title: `${prefix} ${cleanTopic}`.slice(0, 80),
+    description: `${agent.role}: ${roomBrief} Follow up on: ${message}`.slice(0, 180),
+  };
 }
 
 function getAgentResponseMode(targetMessage) {
@@ -423,13 +565,13 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const allMessages = readMessages();
   const allTasks = readTasks();
   const contextMessages = getRoomMessages(allMessages, sessionId, normalizedRoomId);
-  const selectedTask = selectRoomTask(allTasks, normalizedRoomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
   const requestedAgent = agents[agentId];
   const agent = requestedAgent && requestedAgent.id !== lastSpeakerId
     ? requestedAgent
-    : chooseNextAgent(lastSpeakerId);
+    : chooseNextAgent(lastSpeakerId, normalizedRoomId);
+  const selectedTask = selectRoomTask(allTasks, normalizedRoomId, agent);
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const roomBrief = getRoomBrief(normalizedRoomId);
@@ -486,6 +628,12 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
 }
 
 function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
+  const agent = agents[agentId];
+
+  if (!agent || !agent.allowedActions.includes("advance_tasks")) {
+    return null;
+  }
+
   if (!task || app.locals.agentThoughtIndex % 2 !== 0) {
     return null;
   }
@@ -515,6 +663,12 @@ function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
 }
 
 function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
+  const agent = agents[agentId];
+
+  if (!agent || !agent.allowedActions.includes("create_tasks")) {
+    return null;
+  }
+
   if (app.locals.agentThoughtIndex % 4 !== 0) {
     return null;
   }
@@ -526,15 +680,12 @@ function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
     return null;
   }
 
-  const roomBrief = getRoomBrief(roomId);
-  const cleanTopic = topic && topic !== "the current business idea" ? topic : roomBrief;
-  const title = `Clarify ${cleanTopic}`.slice(0, 80);
-  const description = `Use the room brief: ${roomBrief} Follow up on: ${message}`.slice(0, 180);
+  const draft = getAgentTaskDraft(agent, roomId, topic, message);
 
   return createTask({
     roomId,
-    title,
-    description,
+    title: draft.title,
+    description: draft.description,
     assignedAgentId: agentId,
     tasks,
   });
@@ -580,7 +731,7 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
   const contextMessages = getRoomMessages(readMessages(), sessionId, roomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
-  const agent = chooseNextAgent(lastSpeakerId);
+  const agent = chooseNextAgent(lastSpeakerId, roomId);
   const topic = updateTopicMemory(sessionId, roomId, contextMessages);
   const roomBrief = getRoomBrief(roomId);
 

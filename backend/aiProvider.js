@@ -36,6 +36,43 @@ function generateAgentReply({ agent, message, context = {} }) {
   const systemPrompt = (agent.systemPrompt || "").toLowerCase();
   const topic = context.topic ? ` around ${context.topic}` : "";
   const variation = (context.variation || "expand").toLowerCase();
+  const role = (agent.role || "").toLowerCase();
+
+  if (role.includes("planning")) {
+    if (variation === "challenge") {
+      return `${contextCue}we should rank the options by urgency, upside, and effort${topic}.`;
+    }
+
+    return `${contextCue}the strategic move is to pick one priority and define the planning task.`;
+  }
+
+  if (role.includes("discovery")) {
+    if (variation === "question") {
+      return `${contextCue}what user or competitor signal would prove this is worth pursuing${topic}?`;
+    }
+
+    return `${contextCue}we need a focused discovery task before treating this as validated.`;
+  }
+
+  if (role.includes("product")) {
+    return `${contextCue}I would turn this into a small build step with a clear handoff and demo point.`;
+  }
+
+  if (role.includes("metrics")) {
+    return `${contextCue}the risk is unclear success criteria; define the metric and decision threshold.`;
+  }
+
+  if (role.includes("task manager")) {
+    return `${contextCue}assign one owner, move the active task forward, and note the next checkpoint.`;
+  }
+
+  if (role.includes("discussion")) {
+    if (variation === "challenge") {
+      return `${contextCue}what is the one question we need to answer before the team moves on${topic}?`;
+    }
+
+    return `${contextCue}let's keep the room organized around one decision and one next step.`;
+  }
 
   if (systemPrompt.includes("friendly")) {
     if (variation === "challenge") {

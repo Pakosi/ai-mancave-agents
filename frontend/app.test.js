@@ -419,14 +419,32 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
     name: "Assistant",
     label: "ASSISTANT",
     color: "#3b82f6",
+    role: "General helper",
   });
 
   assert.deepEqual(option, {
     value: "assistant",
-    text: "Assistant",
+    text: "Assistant - General helper",
     label: "ASSISTANT",
     color: "#3b82f6",
+    role: "General helper",
   });
+});
+
+test("getSelectedAgentId can select newly added specialized agents", () => {
+  const storage = mockStorage({
+    woysSelectedAgentId: "builder",
+  });
+  const agents = [
+    { id: "host" },
+    { id: "strategist" },
+    { id: "researcher" },
+    { id: "builder" },
+    { id: "analyst" },
+    { id: "manager" },
+  ];
+
+  assert.equal(getSelectedAgentId(agents, storage), "builder");
 });
 
 test("mapRoomForOption maps backend room for dropdown use", () => {
@@ -499,9 +517,34 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
     name: "Assistant",
     label: "ASSISTANT",
     color: "#3b82f6",
+    role: "",
+    specialty: "",
     position: { left: "50%", top: "32%" },
     latestMessage: "latest assistant thought",
     latestMessageId: 3,
+  });
+});
+
+test("mapAgentForRoom includes specialized agent role and stable position", () => {
+  const roomAgent = mapAgentForRoom({
+    id: "manager",
+    name: "Manager",
+    label: "MANAGER",
+    color: "#be123c",
+    role: "Task manager",
+    expertise: ["coordination", "progress tracking"],
+  }, []);
+
+  assert.deepEqual(roomAgent, {
+    id: "manager",
+    name: "Manager",
+    label: "MANAGER",
+    color: "#be123c",
+    role: "Task manager",
+    specialty: "coordination",
+    position: { left: "50%", top: "48%" },
+    latestMessage: "Thinking...",
+    latestMessageId: null,
   });
 });
 

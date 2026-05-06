@@ -180,14 +180,47 @@ test("GET /api/agents returns public agents", async (t) => {
   assert.equal(response.statusCode, 200);
   assert.deepEqual(
     response.body.agents.map((agent) => agent.id),
-    ["host", "assistant", "sales"],
+    ["host", "assistant", "sales", "strategist", "researcher", "builder", "analyst", "manager"],
   );
   assert.deepEqual(Object.keys(response.body.agents[0]).sort(), [
+    "allowedActions",
+    "behaviorStyle",
     "color",
+    "expertise",
     "id",
     "label",
     "name",
+    "preferredRooms",
+    "role",
+    "taskTendencies",
   ]);
+});
+
+test("GET /api/agents returns specialization data for each agent", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/agents");
+
+  assert.equal(response.statusCode, 200);
+
+  for (const agent of response.body.agents) {
+    assert.equal(typeof agent.role, "string");
+    assert.ok(agent.role.length > 0);
+    assert.equal(typeof agent.behaviorStyle, "string");
+    assert.ok(agent.behaviorStyle.length > 0);
+    assert.ok(Array.isArray(agent.expertise));
+    assert.ok(agent.expertise.length > 0);
+    assert.ok(Array.isArray(agent.preferredRooms));
+    assert.ok(agent.preferredRooms.length > 0);
+    assert.ok(Array.isArray(agent.taskTendencies));
+    assert.ok(agent.taskTendencies.length > 0);
+    assert.ok(Array.isArray(agent.allowedActions));
+    assert.ok(agent.allowedActions.includes("reply"));
+  }
 });
 
 test("GET /api/agents does not expose systemPrompt", async (t) => {
@@ -707,7 +740,7 @@ test("POST /api/agents/:agentId/reply returns correct structure for each agent",
     server.close();
   });
 
-  const agents = ["host", "assistant", "sales"];
+  const agents = ["host", "assistant", "sales", "strategist", "researcher", "builder", "analyst", "manager"];
 
   for (const agentId of agents) {
     const response = await postJson(server, `/api/agents/${agentId}/reply`, {
@@ -1013,6 +1046,35 @@ test("autonomous agent thought uses room brief context", () => {
   const thought = app.locals.createAgentThought(undefined, "marketing");
 
   assert.match(thought.message, /campaign test/);
+});
+
+test("specialized agents produce capability-aware autonomous replies", () => {
+  resetMessages();
+
+  const strategist = app.locals.createAgentThought("strategist", "marketing");
+  const researcher = app.locals.createAgentThought("researcher", "auto");
+  const builder = app.locals.createAgentThought("builder", "ops");
+  const analyst = app.locals.createAgentThought("analyst", "main");
+  const manager = app.locals.createAgentThought("manager", "ops");
+
+  assert.match(strategist.message, /strategic|priority|planning/i);
+  assert.match(researcher.message, /discovery|validated|competitor|user/i);
+  assert.match(builder.message, /build|implementation|handoff|demo/i);
+  assert.match(analyst.message, /risk|metric|decision/i);
+  assert.match(manager.message, /owner|task|checkpoint/i);
+});
+
+test("autonomous task creation uses agent tendencies", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 3;
+
+  const thought = app.locals.createAgentThought("researcher", "marketing");
+  const tasks = app.locals.readTasksForTest();
+
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].assignedAgentId, thought.agentId);
+  assert.match(tasks[0].title, /Research evidence/);
+  assert.match(tasks[0].description, /Discovery lead/);
 });
 
 test("autonomous agent thought can advance a task and store update message", async (t) => {

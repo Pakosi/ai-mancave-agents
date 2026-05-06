@@ -341,9 +341,10 @@
   function mapAgentForOption(agent) {
     return {
       value: agent.id,
-      text: agent.name,
+      text: agent.role ? `${agent.name} - ${agent.role}` : agent.name,
       label: agent.label,
       color: agent.color,
+      role: agent.role || "",
     };
   }
 
@@ -417,6 +418,11 @@
     host: { left: "18%", top: "45%" },
     assistant: { left: "50%", top: "32%" },
     sales: { left: "78%", top: "50%" },
+    strategist: { left: "30%", top: "25%" },
+    researcher: { left: "66%", top: "24%" },
+    builder: { left: "31%", top: "62%" },
+    analyst: { left: "65%", top: "62%" },
+    manager: { left: "50%", top: "48%" },
   };
 
   function mapAgentForRoom(agent, messages = []) {
@@ -429,6 +435,8 @@
       name: agent.name,
       label: agent.label,
       color: agent.color,
+      role: agent.role || "",
+      specialty: agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || "",
       position: agentRoomPositions[agent.id] || { left: "50%", top: "50%" },
       latestMessage: latestMessage ? latestMessage.message : "Thinking...",
       latestMessageId: latestMessage ? latestMessage.id : null,

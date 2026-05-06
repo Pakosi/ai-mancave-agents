@@ -191,6 +191,14 @@
       padding: 0.35rem 0.55rem;
     }
 
+    .agent-role {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      text-align: center;
+    }
+
     .you-panel {
       background: #ffffff;
       border: 1px solid #cbd5e1;
@@ -532,7 +540,12 @@
         name.textContent = roomAgent.name;
 
         avatarRow.append(avatar, name);
-        node.append(speech, avatarRow);
+
+        const role = document.createElement("div");
+        role.className = "agent-role";
+        role.textContent = roomAgent.role;
+
+        node.append(speech, avatarRow, role);
         roomAgents.appendChild(node);
       });
     }
@@ -677,6 +690,7 @@
         option.textContent = optionData.text;
         option.dataset.label = optionData.label;
         option.dataset.color = optionData.color;
+        option.dataset.role = optionData.role;
 
         agentSelect.appendChild(option);
       });
