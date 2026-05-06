@@ -123,6 +123,64 @@
     };
   }
 
+  const visibleAgentDisplayById = {
+    host: {
+      name: "CEO / Principal",
+      role: "Principal",
+      label: "CEO",
+      specialty: "facilitation",
+    },
+    assistant: {
+      name: "AI Automation Agent",
+      role: "Automation",
+      label: "AUTO",
+      specialty: "automation",
+    },
+    sales: {
+      name: "Trading Agent",
+      role: "Trading",
+      label: "TRADING",
+      specialty: "revenue",
+    },
+    strategist: {
+      name: "Arbitrage Agent",
+      role: "Arbitrage",
+      label: "ARBITRAGE",
+      specialty: "positioning",
+    },
+    researcher: {
+      name: "Research Agent",
+      role: "Research",
+      label: "RESEARCH",
+      specialty: "discovery",
+    },
+    builder: {
+      name: "Builder Agent",
+      role: "Builder",
+      label: "BUILDER",
+      specialty: "implementation",
+    },
+    analyst: {
+      name: "Analyst Agent",
+      role: "Analyst",
+      label: "ANALYST",
+      specialty: "analysis",
+    },
+  };
+
+  function getVisibleAgentDisplay(agent) {
+    return visibleAgentDisplayById[agent.id] || {
+      name: agent.name,
+      role: agent.role || "",
+      label: agent.label || agent.id.toUpperCase(),
+      specialty: agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || "",
+    };
+  }
+
+  function isVisibleAgent(agent) {
+    return agent && agent.id !== "manager";
+  }
+
   function loadMessages(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
@@ -168,6 +226,10 @@
 
         throw err;
       });
+  }
+
+  function getVisibleAgents(agents = []) {
+    return agents.filter(isVisibleAgent);
   }
 
   function loadRooms(options = {}) {
@@ -648,12 +710,14 @@
   }
 
   function mapAgentForOption(agent) {
+    const display = getVisibleAgentDisplay(agent);
+
     return {
       value: agent.id,
-      text: agent.role ? `${agent.name} - ${agent.role}` : agent.name,
-      label: agent.label,
+      text: display.role ? `${display.name} - ${display.role}` : display.name,
+      label: display.label,
       color: agent.color,
-      role: agent.role || "",
+      role: display.role || "",
     };
   }
 
@@ -1260,37 +1324,6 @@
     return hqWorkZones.map((zone) => ({ ...zone }));
   }
 
-  const stationKeywordRules = [
-    {
-      stationId: "research-library",
-      keywords: ["research", "user", "market", "competitor", "discovery", "interview", "study", "library", "read"],
-    },
-    {
-      stationId: "builder-workstation",
-      keywords: ["build", "builder", "implement", "code", "feature", "ship", "fix", "frontend", "backend", "prototype"],
-    },
-    {
-      stationId: "analyst-desk",
-      keywords: ["analysis", "analyze", "metric", "metrics", "risk", "dashboard", "decision", "report", "data", "measure"],
-    },
-    {
-      stationId: "trading-desk",
-      keywords: ["sales", "customer", "client", "offer", "revenue", "validate", "pitch", "demo", "pricing", "trading"],
-    },
-    {
-      stationId: "brainstorm-lounge",
-      keywords: ["strategy", "strategic", "plan", "priorit", "positioning", "roadmap", "brainstorm", "whiteboard", "review"],
-    },
-    {
-      stationId: "automation-station",
-      keywords: ["automation", "workflow", "bridge", "assistant", "context", "ops", "coordination", "handoff"],
-    },
-    {
-      stationId: "command-desk",
-      keywords: ["summary", "check-in", "checkin", "checkpoint", "coordinate", "blocked", "owner", "decision", "lead"],
-    },
-  ];
-
   function getTextBlob(values = []) {
     return values
       .filter(Boolean)
@@ -1302,19 +1335,8 @@
     return keywords.some((keyword) => text.includes(keyword));
   }
 
-  function getStationIdForText(text, fallbackStationId) {
-    const normalizedText = String(text || "").toLowerCase();
-
-    for (const rule of stationKeywordRules) {
-      if (includesAny(normalizedText, rule.keywords)) {
-        return rule.stationId;
-      }
-    }
-
-    return fallbackStationId;
-  }
-
   function getTaskStationId(task, phase, agentId) {
+    const assignedStation = agentWorkZoneAssignments[agentId] || "command-desk";
     const text = getTextBlob([
       task.title,
       task.summary,
@@ -1323,18 +1345,20 @@
       task.blockedReason,
       task.roomId,
     ]);
-    const assignedStation = agentWorkZoneAssignments[agentId] || "command-desk";
-    const keywordStation = getStationIdForText(text, assignedStation);
 
-    if (phase === "review" && includesAny(text, ["summary", "check-in", "checkpoint", "decision", "coordinate", "handoff"])) {
-      return agentId === "host" || agentId === "manager" ? "command-desk" : "brainstorm-lounge";
+    if (agentId === "host" || agentId === "manager") {
+      if (phase === "review" && includesAny(text, ["summary", "check-in", "checkpoint", "decision", "coordinate", "handoff"])) {
+        return "command-desk";
+      }
+
+      if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "roadmap", "positioning"])) {
+        return "brainstorm-lounge";
+      }
+
+      return assignedStation;
     }
 
-    if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "roadmap", "positioning"])) {
-      return "brainstorm-lounge";
-    }
-
-    return keywordStation;
+    return assignedStation;
   }
 
   function getRelevantTaskForAgent(agent, tasks = [], phase = "observe") {
@@ -1449,7 +1473,7 @@
       }
     });
 
-    return bestAgentId;
+    return bestScore >= 6 ? bestAgentId : "";
   }
 
   function getHQAgentStationProfile(agent, context = {}) {
@@ -1654,14 +1678,15 @@
     const latestMessage = [...messages]
       .reverse()
       .find((item) => item.role === "agent" && item.agentId === agent.id);
+    const display = getVisibleAgentDisplay(agent);
 
     return {
       id: agent.id,
-      name: agent.name,
-      label: agent.label,
+      name: display.name,
+      label: display.label,
       color: agent.color,
-      role: agent.role || "",
-      specialty: agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || "",
+      role: display.role || "",
+      specialty: display.specialty || (agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || ""),
       position: agentRoomPositions[agent.id] || { left: "50%", top: "50%" },
       appearance: getAgentCharacterStyle(agent),
       latestMessage: latestMessage ? latestMessage.message : "Thinking...",
@@ -1708,6 +1733,7 @@
     loadRooms,
     loadTasks,
     mapAgentForOption,
+    getVisibleAgents,
     mapAgentGoalForDisplay,
     mapBusinessIdeaForDisplay,
     mapCeoDigestForDisplay,

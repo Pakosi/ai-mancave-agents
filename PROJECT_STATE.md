@@ -16,6 +16,7 @@
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
 - Each agent has public metadata: `id`, `name`, `role`, `expertise`, `preferredRooms`, `behaviorStyle`, `taskTendencies`, and `allowedActions`.
+- The visible HQ roster now presents SRS-facing names: `CEO / Principal`, `Trading Agent`, `AI Automation Agent`, `Arbitrage Agent`, `Research Agent`, `Builder Agent`, and `Analyst Agent`; the internal manager remains hidden from the roster.
 - Agent replies remain rule-based and short, using room brief context and agent specialization.
 
 ## Autonomous Behavior
@@ -58,6 +59,8 @@
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
 - The frontend is visually collapsed into a single persistent HQ room and no longer exposes room switching in the visible shell.
 - Phase 2A introduced fuller static agent characters; Phase 2B layered idle/talking motion, Phase 2C added ambient walking, Phase 2D added workstation interaction visuals, and Phase 3A connected the station behavior to live simulation state without adding routing or pathfinding.
+- Visible agent motion now keeps each agent near a preferred home station, with the CEO/Principal checking in only when blocked tasks or similar pressure justify it.
+- The room art was pushed a little closer to a stylized luxury mancave with warmer panels, stronger station contrast, and transparent character containers so avatars no longer sit on dark blocks.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

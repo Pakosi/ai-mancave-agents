@@ -32,6 +32,7 @@ const {
   loadRooms,
   loadTasks,
   mapAgentForOption,
+  getVisibleAgents,
   mapAgentGoalForDisplay,
   mapBusinessIdeaForDisplay,
   mapCeoDigestForDisplay,
@@ -909,11 +910,34 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
 
   assert.deepEqual(option, {
     value: "assistant",
-    text: "Assistant - General helper",
-    label: "ASSISTANT",
+    text: "AI Automation Agent - Automation",
+    label: "AUTO",
     color: "#3b82f6",
-    role: "General helper",
+    role: "Automation",
   });
+});
+
+test("getVisibleAgents hides the internal manager and preserves the SRS roster", () => {
+  const visible = getVisibleAgents([
+    { id: "host" },
+    { id: "assistant" },
+    { id: "sales" },
+    { id: "strategist" },
+    { id: "researcher" },
+    { id: "builder" },
+    { id: "analyst" },
+    { id: "manager" },
+  ]);
+
+  assert.deepEqual(visible.map((agent) => agent.id), [
+    "host",
+    "assistant",
+    "sales",
+    "strategist",
+    "researcher",
+    "builder",
+    "analyst",
+  ]);
 });
 
 test("getSelectedAgentId can select newly added specialized agents", () => {
@@ -1124,11 +1148,11 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
 
   assert.deepEqual(roomAgent, {
     id: "assistant",
-    name: "Assistant",
-    label: "ASSISTANT",
+    name: "AI Automation Agent",
+    label: "AUTO",
     color: "#3b82f6",
-    role: "",
-    specialty: "",
+    role: "Automation",
+    specialty: "automation",
     position: { left: "50%", top: "32%" },
     appearance: {
       head: "#cbd5e1",
