@@ -62,6 +62,7 @@
 - Visible agent motion now keeps each agent near a preferred home station, with the CEO/Principal checking in only when blocked tasks or similar pressure justify it.
 - The room art was pushed a little closer to a stylized luxury mancave with warmer panels, stronger station contrast, and transparent character containers so avatars no longer sit on dark blocks.
 - Visual readability polish now leans into a cleaner pixel/stylized language with stronger depth separation, clearer station labels, more readable speech bubbles, and subtle ambient station activity like blinking monitors, scrolling bars, and panel glow.
+- Phase 3B adds explicit zone metadata for every HQ station and surfaces each zone's purpose in-room and on agent hover/detail text without changing motion logic.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

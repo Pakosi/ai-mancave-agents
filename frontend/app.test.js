@@ -11,6 +11,7 @@ const {
   getLatestUserMessage,
   getNewestAgentMessage,
   getHQLayoutConfig,
+  getHQZoneMetadata,
   getHQAgentStationProfile,
   getHQAgentMotionState,
   getHQWorkZones,
@@ -1212,6 +1213,10 @@ test("getHQWorkZones returns the workstation layout", () => {
   assert.equal(zones.length >= 7, true);
   assert.deepEqual(zones[0], {
     id: "command-desk",
+    name: "CEO Command Desk",
+    purpose: "Executive check-ins, summaries, and direction",
+    primaryAgentIds: ["host", "manager"],
+    relatedCategories: ["leadership", "planning", "summary"],
     label: "CEO Command Desk",
     className: "command",
     left: 50,
@@ -1223,6 +1228,19 @@ test("getHQWorkZones returns the workstation layout", () => {
     accent: "#d4a853",
   });
   assert.equal(zones.some((zone) => zone.id === "trading-desk"), true);
+});
+
+test("getHQZoneMetadata returns explicit station purpose data", () => {
+  const metadata = getHQZoneMetadata();
+
+  assert.deepEqual(metadata[0], {
+    id: "command-desk",
+    name: "CEO Command Desk",
+    purpose: "Executive check-ins, summaries, and direction",
+    primaryAgentIds: ["host", "manager"],
+    relatedCategories: ["leadership", "planning", "summary"],
+  });
+  assert.equal(metadata.find((zone) => zone.id === "trading-desk").purpose, "Revenue, offers, clients, and market action");
 });
 
 test("getHQAgentStationProfile chooses a task-matched research station", () => {
@@ -1244,6 +1262,7 @@ test("getHQAgentStationProfile chooses a task-matched research station", () => {
   assert.deepEqual(profile, {
     stationId: "research-library",
     stationLabel: "Research / Library",
+    stationPurpose: "Discovery, sourcing, and competitor notes",
     poseClass: "station-reading",
     workClass: "working-reading",
     activityLevel: 1,
@@ -1294,6 +1313,7 @@ test("getHQAgentMotionState keeps builders near their workstation", () => {
   assert.equal(motion.stationId, "builder-workstation");
   assert.equal(motion.workClass, "working-typing");
   assert.equal(motion.isWorkingAtStation, true);
+  assert.equal(motion.stationPurpose, "Implementation, fixes, and prototype work");
   assert.match(motion.left, /%$/);
   assert.match(motion.top, /%$/);
 });

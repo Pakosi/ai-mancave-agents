@@ -444,6 +444,20 @@
       z-index: 2;
     }
 
+    .station-detail {
+      bottom: 0.42rem;
+      color: rgba(236,215,176,0.66);
+      font-size: 0.5rem;
+      left: 0.55rem;
+      letter-spacing: 0.05em;
+      line-height: 1.15;
+      max-width: calc(100% - 1.1rem);
+      position: absolute;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+      z-index: 2;
+    }
+
     .station-panel {
       border-radius: 8px;
       height: 100%;
@@ -1365,6 +1379,18 @@
       text-align: center;
       text-transform: uppercase;
       text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+    }
+
+    .agent-zone {
+      color: rgba(236,215,176,0.62);
+      font-size: 0.55rem;
+      letter-spacing: 0.03em;
+      line-height: 1.1;
+      margin-top: -0.05rem;
+      max-width: 8rem;
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+      text-transform: uppercase;
     }
 
     /* ── You Panel ── */
@@ -2316,6 +2342,12 @@
         label.className = "station-label";
         label.textContent = zone.label;
 
+        const detail = document.createElement("div");
+        detail.className = "station-detail";
+        detail.textContent = zone.purpose;
+
+        node.title = `${zone.label} · ${zone.purpose}`;
+
         switch (zone.id) {
           case "command-desk": {
             panel.append(
@@ -2377,7 +2409,7 @@
             panel.append(makeStationProp("station-terminal"));
         }
 
-        node.append(glow, panel, label);
+        node.append(glow, panel, label, detail);
         workZones.appendChild(node);
       });
     }
@@ -2568,7 +2600,13 @@
         role.className = "agent-role";
         role.textContent = roomAgent.role;
 
-        node.append(speech, charWrap, name, role);
+        const zone = document.createElement("div");
+        zone.className = "agent-zone";
+        zone.textContent = `${motion.stationLabel} · ${motion.stationPurpose}`;
+
+        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}`;
+
+        node.append(speech, charWrap, name, role, zone);
         roomAgents.appendChild(node);
         motions.push({
           agentId: roomAgent.id,

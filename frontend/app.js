@@ -1183,10 +1183,60 @@
     },
   };
 
-  const hqWorkZones = [
+  const hqZoneMetadata = [
     {
       id: "command-desk",
-      label: "CEO Command Desk",
+      name: "CEO Command Desk",
+      purpose: "Executive check-ins, summaries, and direction",
+      primaryAgentIds: ["host", "manager"],
+      relatedCategories: ["leadership", "planning", "summary"],
+    },
+    {
+      id: "research-library",
+      name: "Research / Library",
+      purpose: "Discovery, sourcing, and competitor notes",
+      primaryAgentIds: ["researcher"],
+      relatedCategories: ["research", "discovery", "validation"],
+    },
+    {
+      id: "builder-workstation",
+      name: "Builder Workstation",
+      purpose: "Implementation, fixes, and prototype work",
+      primaryAgentIds: ["builder"],
+      relatedCategories: ["build", "implementation", "mvp"],
+    },
+    {
+      id: "analyst-desk",
+      name: "Analyst Desk",
+      purpose: "Metrics, risks, decisions, and scorekeeping",
+      primaryAgentIds: ["analyst"],
+      relatedCategories: ["analysis", "risk", "decision"],
+    },
+    {
+      id: "automation-station",
+      name: "Automation Station",
+      purpose: "System wiring, tooling, and process automation",
+      primaryAgentIds: ["assistant"],
+      relatedCategories: ["automation", "ops", "tooling"],
+    },
+    {
+      id: "trading-desk",
+      name: "Trading Desk",
+      purpose: "Revenue, offers, clients, and market action",
+      primaryAgentIds: ["sales"],
+      relatedCategories: ["trading", "revenue", "clients"],
+    },
+    {
+      id: "brainstorm-lounge",
+      name: "Brainstorm Lounge",
+      purpose: "Positioning, prioritization, and planning",
+      primaryAgentIds: ["strategist"],
+      relatedCategories: ["strategy", "planning", "ideation"],
+    },
+  ];
+
+  const hqWorkZoneLayouts = {
+    "command-desk": {
       className: "command",
       left: 50,
       top: 64,
@@ -1196,9 +1246,7 @@
       workClass: "working-command",
       accent: "#d4a853",
     },
-    {
-      id: "research-library",
-      label: "Research / Library",
+    "research-library": {
       className: "research",
       left: 14,
       top: 26,
@@ -1208,9 +1256,7 @@
       workClass: "working-reading",
       accent: "#7fd8ef",
     },
-    {
-      id: "builder-workstation",
-      label: "Builder Workstation",
+    "builder-workstation": {
       className: "builder",
       left: 33,
       top: 59,
@@ -1220,9 +1266,7 @@
       workClass: "working-typing",
       accent: "#ff9f7a",
     },
-    {
-      id: "analyst-desk",
-      label: "Analyst Desk",
+    "analyst-desk": {
       className: "analyst",
       left: 67,
       top: 59,
@@ -1232,9 +1276,7 @@
       workClass: "working-charting",
       accent: "#a4b4c5",
     },
-    {
-      id: "automation-station",
-      label: "Automation Station",
+    "automation-station": {
       className: "automation",
       left: 50,
       top: 27,
@@ -1244,9 +1286,7 @@
       workClass: "working-automation",
       accent: "#8cc0ff",
     },
-    {
-      id: "trading-desk",
-      label: "Trading Desk",
+    "trading-desk": {
       className: "trading",
       left: 80,
       top: 47,
@@ -1256,9 +1296,7 @@
       workClass: "working-charting",
       accent: "#f6b35a",
     },
-    {
-      id: "brainstorm-lounge",
-      label: "Brainstorm Lounge",
+    "brainstorm-lounge": {
       className: "lounge",
       left: 26,
       top: 43,
@@ -1268,7 +1306,13 @@
       workClass: "working-whiteboard",
       accent: "#b892ff",
     },
-  ];
+  };
+
+  const hqWorkZones = hqZoneMetadata.map((zone) => ({
+    ...zone,
+    label: zone.name,
+    ...hqWorkZoneLayouts[zone.id],
+  }));
 
   const hqWorkZoneMap = hqWorkZones.reduce((map, zone) => {
     map[zone.id] = zone;
@@ -1322,6 +1366,10 @@
 
   function getHQWorkZones() {
     return hqWorkZones.map((zone) => ({ ...zone }));
+  }
+
+  function getHQZoneMetadata() {
+    return hqZoneMetadata.map((zone) => ({ ...zone }));
   }
 
   function getTextBlob(values = []) {
@@ -1507,6 +1555,7 @@
       return {
         stationId,
         stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : "CEO Command Desk",
+        stationPurpose: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].purpose : "Executive check-ins, summaries, and direction",
         poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : "station-command",
         workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : "working-command",
         activityLevel: targetAgentId ? 0.82 : 0.55,
@@ -1562,6 +1611,7 @@
     return {
       stationId,
       stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : hqWorkZoneMap[assignedStationId].label,
+      stationPurpose: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].purpose : hqWorkZoneMap[assignedStationId].purpose,
       poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : hqWorkZoneMap[assignedStationId].poseClass,
       workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : hqWorkZoneMap[assignedStationId].workClass,
       activityLevel,
@@ -1662,6 +1712,7 @@
       isWalking: segmentProgress > 0.1 && segmentProgress < 0.9 && profile.motionIntensity > 0.45,
       stationId: profile.stationId || baseZone.id,
       stationLabel: profile.stationLabel || baseZone.label,
+      stationPurpose: profile.stationPurpose || baseZone.purpose,
       poseClass: profile.poseClass || baseZone.poseClass,
       workClass: profile.workClass || baseZone.workClass,
       isCheckingIn: false,
@@ -1740,6 +1791,7 @@
     mapAgentForRoom,
     getAgentCharacterStyle,
     getHQWorkZones,
+    getHQZoneMetadata,
     getHQAgentStationProfile,
     getHQAgentMotionState,
     mapCompanyPlanForDisplay,
