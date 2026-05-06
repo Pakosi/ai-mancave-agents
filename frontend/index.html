@@ -75,11 +75,7 @@
     }
 
     .room-brief {
-      color: #a88a60;
-      font-size: 0.8rem;
-      line-height: 1.35;
-      margin: 0 0 0.75rem;
-      max-width: 48rem;
+      display: none;
     }
 
     .room-notice {
@@ -89,12 +85,14 @@
       color: #d4a853;
       font-size: 0.82rem;
       min-height: 1.9rem;
+      display: none;
       opacity: 0;
       padding: 0.45rem 0.7rem;
       transition: opacity 180ms ease;
     }
 
     .room-notice.visible {
+      display: block;
       opacity: 1;
     }
 
@@ -443,17 +441,7 @@
     }
 
     .station-detail {
-      bottom: 0.42rem;
-      color: rgba(236,215,176,0.66);
-      font-size: 0.48rem;
-      left: 0.55rem;
-      letter-spacing: 0.05em;
-      line-height: 1.15;
-      max-width: calc(100% - 1.1rem);
-      position: absolute;
-      text-transform: uppercase;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
-      z-index: 2;
+      display: none;
     }
 
     .station-panel {
@@ -1428,22 +1416,16 @@
     }
 
     .agent-role {
-      color: #8c6c42;
-      font-size: 0.66rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-align: center;
-      text-transform: uppercase;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+      display: none;
     }
 
     .agent-zone {
       color: rgba(236,215,176,0.62);
-      font-size: 0.55rem;
+      font-size: 0.52rem;
       letter-spacing: 0.03em;
       line-height: 1.1;
-      margin-top: -0.05rem;
-      max-width: 8rem;
+      margin-top: 0;
+      max-width: 7rem;
       text-align: center;
       text-shadow: 0 1px 0 rgba(0,0,0,0.35);
       text-transform: uppercase;
@@ -1978,7 +1960,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.65rem;
-      max-height: 27rem;
+      max-height: 12rem;
       overflow: auto;
     }
 
@@ -2397,6 +2379,16 @@
       });
     }
 
+    function shortenRoomText(text, maxLength = 34) {
+      const value = String(text || "").trim();
+
+      if (value.length <= maxLength) {
+        return value;
+      }
+
+      return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+    }
+
     const motionStationClasses = [
       "station-command",
       "station-reading",
@@ -2568,7 +2560,7 @@
       events
         .slice()
         .sort((first, second) => second.importance - first.importance)
-        .slice(0, 5)
+        .slice(0, 3)
         .forEach((event) => {
           const node = document.createElement("div");
           node.className = `room-event event-${event.kind || "station"}`;
@@ -2656,7 +2648,7 @@
           speech.classList.add("thinking");
           speech.textContent = "thinking...";
         } else {
-          speech.textContent = roomAgent.latestMessage;
+          speech.textContent = shortenRoomText(roomAgent.latestMessage, 30);
         }
 
         const charWrap = document.createElement("div");
@@ -2810,7 +2802,7 @@
       combined
         .slice()
         .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
-        .slice(0, 20)
+        .slice(0, 6)
         .forEach(item => {
           if (item.role === "event") {
             const feedItem = document.createElement("div");
@@ -2920,7 +2912,7 @@
         return;
       }
 
-      items.slice(0, 5).forEach(item => {
+      items.slice(0, 3).forEach(item => {
         const view = WOYSApp.mapBusinessIdeaForDisplay(item, loadedAgents);
         const ideaItem = document.createElement("div");
         ideaItem.className = `idea-item ${view.statusClass}`;
@@ -2942,8 +2934,6 @@
         [
           `Status: ${view.status}`,
           `Agent: ${view.assignedAgent}`,
-          `Confidence: ${view.confidence}`,
-          `Profit: ${view.profitPotential}`,
         ].forEach((label) => {
           const tag = document.createElement("span");
           tag.className = "idea-tag";
@@ -2986,67 +2976,12 @@
         return;
       }
 
-      const summary = document.createElement("div");
-      summary.className = "digest-summary";
-      summary.textContent = view.rankedOpportunitySummary;
+      const topIdea = document.createElement("div");
+      topIdea.className = "digest-summary";
+      topIdea.textContent = `${view.topIdeas[0] || view.rankedOpportunitySummary}`;
 
-      const grid = document.createElement("div");
-      grid.className = "digest-grid";
-
-      const blocks = [
-        ["Top ideas", view.topIdeas],
-        ["New ideas", view.newlyCreatedIdeas],
-        ["Paused / killed", view.pausedOrKilledIdeas],
-      ];
-
-      blocks.forEach(([label, items]) => {
-        const block = document.createElement("div");
-        block.className = "digest-block";
-
-        const blockLabel = document.createElement("div");
-        blockLabel.className = "digest-label";
-        blockLabel.textContent = label;
-
-        const list = document.createElement("div");
-        list.className = "digest-list";
-
-        if (items.length === 0) {
-          const empty = document.createElement("div");
-          empty.className = "empty";
-          empty.textContent = "None yet.";
-          list.appendChild(empty);
-        } else {
-          items.forEach((item) => {
-            const line = document.createElement("div");
-            line.className = "digest-line";
-            line.textContent = item;
-            list.appendChild(line);
-          });
-        }
-
-        block.append(blockLabel, list);
-        grid.appendChild(block);
-      });
-
-      const ranking = document.createElement("div");
-      ranking.className = "digest-block";
-      ranking.innerHTML = "";
-
-      const confidenceLabel = document.createElement("div");
-      confidenceLabel.className = "digest-label";
-      confidenceLabel.textContent = "Highest confidence";
-
-      const confidenceValue = document.createElement("div");
-      confidenceValue.className = "digest-line";
-      confidenceValue.textContent = view.highestConfidenceOpportunity;
-
-      const riskLabel = document.createElement("div");
-      riskLabel.className = "digest-label";
-      riskLabel.textContent = "Biggest risk";
-
-      const riskValue = document.createElement("div");
-      riskValue.className = "digest-line";
-      riskValue.textContent = view.biggestRisk;
+      const action = document.createElement("div");
+      action.className = "digest-block";
 
       const actionLabel = document.createElement("div");
       actionLabel.className = "digest-label";
@@ -3056,9 +2991,17 @@
       actionValue.className = "digest-line";
       actionValue.textContent = view.recommendedNextAction;
 
-      ranking.append(confidenceLabel, confidenceValue, riskLabel, riskValue, actionLabel, actionValue);
+      const riskLabel = document.createElement("div");
+      riskLabel.className = "digest-label";
+      riskLabel.textContent = "Biggest risk";
 
-      ceoDigest.append(summary, grid, ranking);
+      const riskValue = document.createElement("div");
+      riskValue.className = "digest-line";
+      riskValue.textContent = view.biggestRisk;
+
+      action.append(actionLabel, actionValue, riskLabel, riskValue);
+
+      ceoDigest.append(topIdea, action);
     }
 
     function renderPlanList(labelText, items) {
@@ -3208,8 +3151,8 @@
     function renderRoomActivity(activity) {
       const view = WOYSApp.getRoomActivityView(activity, hqLayout.roomId, loadedRooms);
 
-      activeRoom.textContent = hqLayout.roomLabel;
-      roomBadge.textContent = hqLayout.roomLabel;
+      activeRoom.textContent = "Live";
+      roomBadge.textContent = "HQ";
       roomNotice.textContent = view.noticeText;
       roomNotice.classList.toggle("visible", view.noticeText !== "");
     }

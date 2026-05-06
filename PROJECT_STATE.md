@@ -109,6 +109,7 @@
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes show the agent name and role with stable lightweight positioning.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
+- The current UI favors glanceability: the room is the main focus, the CEO Digest and business ideas stay compact, and the lower-priority panels remain collapsed by default.
 - Task cards show the current owner (with `assigned → owner` notation when handed off) and a blocked-reason indicator when set.
 - Handoff feed messages appear in the regular activity feed.
 
