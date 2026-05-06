@@ -1159,7 +1159,7 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
     color: "#3b82f6",
     role: "Automation",
     specialty: "automation",
-    position: { left: "50%", top: "32%" },
+    position: { left: "50%", top: "18%" },
     appearance: {
       head: "#cbd5e1",
       torso: "#284d91",
@@ -1344,6 +1344,27 @@ test("getHQAgentRouteDecision prefers owned tasks with a clear route reason", ()
   assert.equal(decision.routeReason, "owned task: Build pricing MVP");
 });
 
+test("getHQAgentRouteDecision keeps non-automation agents on home station unless their own zone matches", () => {
+  const routingState = new Map();
+  const decision = getHQAgentRouteDecision({
+    id: "builder",
+    taskTendencies: ["build", "fix"],
+  }, {
+    phase: "execute",
+    tasks: [
+      {
+        id: 12,
+        title: "Review automation tooling",
+        status: "open",
+        ownerAgentId: "builder",
+      },
+    ],
+  }, routingState, 1000);
+
+  assert.equal(decision.stationId, "builder-workstation");
+  assert.equal(decision.routeReason, "owned task: Review automation tooling");
+});
+
 test("getHQAgentRouteDecision holds a station during cooldown before switching again", () => {
   const routingState = new Map();
   const first = getHQAgentRouteDecision({
@@ -1381,7 +1402,7 @@ test("getHQAgentRouteDecision holds a station during cooldown before switching a
   assert.equal(first.stationId, "research-library");
   assert.equal(first.routeReason, "owned task: Research competitor launch timing");
   assert.equal(second.stationId, "research-library");
-  assert.equal(second.routeReason, "owned task: Research competitor launch timing");
+  assert.equal(second.routeReason, "home station: Research / Library");
 });
 
 test("getHQHostCheckInTarget and CEO routing prioritize blocked agents before ideas", () => {

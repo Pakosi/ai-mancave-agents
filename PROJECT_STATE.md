@@ -63,6 +63,7 @@
 - The room art was pushed a little closer to a stylized luxury mancave with warmer panels, stronger station contrast, and transparent character containers so avatars no longer sit on dark blocks.
 - The HQ room visuals now lean more pixel/stylized: sharper panels, blockier furniture, tiled floor depth, and chunkier agent silhouettes while preserving layout and animations.
 - Visual readability polish now leans into a cleaner pixel/stylized language with stronger depth separation, clearer station labels, more readable speech bubbles, and subtle ambient station activity like blinking monitors, scrolling bars, and panel glow.
+- The current frontend pass pushes the HQ toward a retro pixel-art sim look with sharper HUD surfaces, stronger station silhouettes, more room depth, and tighter home-station routing so agents do not drift into automation by default.
 - Phase 3B adds explicit zone metadata for every HQ station and surfaces each zone's purpose in-room and on agent hover/detail text without changing motion logic.
 - Phase 3C makes movement more intentional with route reasons, task/idea-driven zone switches, host patrol priorities, and a simple cooldown/dwell guard against rapid station hopping.
 - Phase 3D adds short visible interaction events for station work and check-ins, shown in-room and promoted into the activity feed when important.

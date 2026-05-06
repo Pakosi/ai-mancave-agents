@@ -907,13 +907,13 @@
   }
 
   const agentRoomPositions = {
-    host: { left: "18%", top: "45%" },
-    assistant: { left: "50%", top: "32%" },
-    sales: { left: "78%", top: "50%" },
-    strategist: { left: "30%", top: "25%" },
-    researcher: { left: "66%", top: "24%" },
-    builder: { left: "31%", top: "62%" },
-    analyst: { left: "65%", top: "62%" },
+    host: { left: "14%", top: "44%" },
+    assistant: { left: "50%", top: "18%" },
+    sales: { left: "86%", top: "50%" },
+    strategist: { left: "24%", top: "18%" },
+    researcher: { left: "74%", top: "18%" },
+    builder: { left: "24%", top: "70%" },
+    analyst: { left: "74%", top: "70%" },
     manager: { left: "50%", top: "48%" },
   };
 
@@ -1736,7 +1736,12 @@
       const task = getRelevantTaskForAgent(agent, tasks, phase);
 
       if (task) {
-        stationId = getTaskStationId(task, phase, agent.id);
+        const taskStationId = getTaskStationId(task, phase, agent.id);
+        if (taskStationId === assignedStationId || (agent.id === "assistant" && taskStationId === "automation-station")) {
+          stationId = taskStationId;
+        } else {
+          stationId = assignedStationId;
+        }
         routeReason = task.blockedReason
           ? `blocked task: ${task.title}`
           : task.ownerAgentId === agent.id
@@ -1745,7 +1750,7 @@
       } else {
         const relevantIdea = getRelevantIdeaForAgent(agent, ideas, phase);
 
-        if (relevantIdea && relevantIdea.score >= 5.5) {
+        if (relevantIdea && relevantIdea.score >= 5.5 && (relevantIdea.categoryZoneId === assignedStationId || (agent.id === "assistant" && relevantIdea.categoryZoneId === "automation-station"))) {
           stationId = relevantIdea.categoryZoneId || assignedStationId;
           routeReason = `idea category: ${relevantIdea.idea.category || "general"}`;
           targetIdeaId = relevantIdea.idea.id;
