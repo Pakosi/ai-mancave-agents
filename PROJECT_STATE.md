@@ -65,6 +65,7 @@
 - Phase 3B adds explicit zone metadata for every HQ station and surfaces each zone's purpose in-room and on agent hover/detail text without changing motion logic.
 - Phase 3C makes movement more intentional with route reasons, task/idea-driven zone switches, host patrol priorities, and a simple cooldown/dwell guard against rapid station hopping.
 - Phase 3D adds short visible interaction events for station work and check-ins, shown in-room and promoted into the activity feed when important.
+- Stabilization pass tightened label density and card readability across the HQ scene, digest, ideas, command result, and interaction event surfaces without adding new systems.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

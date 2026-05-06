@@ -108,6 +108,7 @@
       min-height: 2rem;
       padding: 0.5rem 0.6rem;
       margin-bottom: 0.5rem;
+      word-break: break-word;
     }
 
     .layout {
@@ -447,7 +448,7 @@
     .station-detail {
       bottom: 0.42rem;
       color: rgba(236,215,176,0.66);
-      font-size: 0.5rem;
+      font-size: 0.48rem;
       left: 0.55rem;
       letter-spacing: 0.05em;
       line-height: 1.15;
@@ -919,6 +920,8 @@
       left: 0;
       letter-spacing: 0.04em;
       line-height: 1;
+      max-width: 10.5rem;
+      overflow: hidden;
       padding: 0.2rem 0.45rem;
       position: absolute;
       text-shadow: 0 1px 0 rgba(0,0,0,0.45);
@@ -1734,6 +1737,10 @@
       font-weight: 700;
       line-height: 1.15;
       min-width: 0;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
     }
 
     .idea-category {
@@ -1765,6 +1772,10 @@
       font-size: 0.72rem;
       line-height: 1.35;
       margin-top: 0.35rem;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
     }
 
     .idea-actions {
@@ -1792,6 +1803,8 @@
       font-size: 0.8rem;
       font-weight: 700;
       line-height: 1.35;
+      max-height: 2.8rem;
+      overflow: hidden;
       margin-bottom: 0.55rem;
     }
 
@@ -1991,6 +2004,7 @@
     .feed-item.room-event-feed {
       border-color: rgba(212,168,83,0.22);
       background: rgba(24,16,8,0.95);
+      color: #d9c19a;
     }
 
     .feed-item.room-event-feed .feed-meta {
@@ -2708,9 +2722,7 @@
 
         const zone = document.createElement("div");
         zone.className = "agent-zone";
-        zone.textContent = motion.routeReason
-          ? `${motion.stationLabel} · ${motion.routeReason}`
-          : `${motion.stationLabel} · ${motion.stationPurpose}`;
+        zone.textContent = motion.routeReason || motion.stationPurpose;
 
         node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
 
@@ -2762,9 +2774,7 @@
 
         const zone = node.querySelector(".agent-zone");
         if (zone) {
-          zone.textContent = motion.routeReason
-            ? `${motion.stationLabel} · ${motion.routeReason}`
-            : `${motion.stationLabel} · ${motion.stationPurpose}`;
+          zone.textContent = motion.routeReason || motion.stationPurpose;
         }
 
         node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
