@@ -641,6 +641,10 @@ test("mapTaskForDisplay maps task state and next action", () => {
     id: 3,
     title: "Draft pitch",
     assignedAgent: "Sales",
+    ownerAgentId: "sales",
+    ownerName: "Sales",
+    blockedReason: null,
+    isHandedOff: false,
     status: "open",
     statusText: "open",
     isRecentlyUpdated: true,
@@ -662,6 +666,28 @@ test("mapTaskForDisplay maps task state and next action", () => {
   assert.equal(done.isRecentlyUpdated, false);
   assert.equal(done.nextStatus, "");
   assert.equal(done.nextStatusText, "");
+});
+
+test("mapTaskForDisplay includes owner and blocked handoff fields", () => {
+  const handedOff = mapTaskForDisplay({
+    id: 5,
+    title: "Workflow docs",
+    assignedAgentId: "assistant",
+    ownerAgentId: "builder",
+    lastHandoffAt: "2026-05-06T10:00:00.000Z",
+    blockedReason: "Needs design input first.",
+    status: "in_progress",
+    updatedAt: "2026-05-06T10:00:00.000Z",
+  }, [
+    { id: "assistant", name: "Assistant" },
+    { id: "builder", name: "Builder" },
+  ]);
+
+  assert.equal(handedOff.ownerAgentId, "builder");
+  assert.equal(handedOff.ownerName, "Builder");
+  assert.equal(handedOff.assignedAgent, "Assistant");
+  assert.equal(handedOff.blockedReason, "Needs design input first.");
+  assert.equal(handedOff.isHandedOff, true);
 });
 
 test("mapCompanyPlanForDisplay maps compact plan data", () => {

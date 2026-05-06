@@ -404,6 +404,15 @@
       text-transform: capitalize;
     }
 
+    .task-blocked {
+      background: #fef2f2;
+      border-left: 3px solid #ef4444;
+      color: #b91c1c;
+      font-size: 0.76rem;
+      margin-bottom: 0.45rem;
+      padding: 0.3rem 0.5rem;
+    }
+
     .task-action {
       background: #0f766e;
       font-size: 0.8rem;
@@ -765,9 +774,18 @@
 
         const meta = document.createElement("div");
         meta.className = "task-meta";
-        meta.textContent = `${view.assignedAgent} · ${view.statusText}`;
+        const displayOwner = view.ownerName || view.assignedAgent;
+        const ownerLine = view.isHandedOff ? `${view.assignedAgent} → ${view.ownerName}` : displayOwner;
+        meta.textContent = `${ownerLine} · ${view.statusText}`;
 
         taskItem.append(title, meta);
+
+        if (view.blockedReason) {
+          const blocked = document.createElement("div");
+          blocked.className = "task-blocked";
+          blocked.textContent = `Blocked: ${view.blockedReason}`;
+          taskItem.append(blocked);
+        }
 
         if (view.nextStatus) {
           const button = document.createElement("button");

@@ -486,6 +486,8 @@
 
   function mapTaskForDisplay(task, agents = [], options = {}) {
     const agent = agents.find((item) => item.id === task.assignedAgentId);
+    const ownerAgentId = task.ownerAgentId || task.assignedAgentId || "";
+    const ownerAgent = agents.find((item) => item.id === ownerAgentId);
     const nextStatus = getNextTaskStatus(task.status);
     const now = options.now || Date.now();
     const recentWindowMs = options.recentWindowMs || 10000;
@@ -494,6 +496,10 @@
       id: task.id,
       title: task.title,
       assignedAgent: agent ? agent.name : task.assignedAgentId,
+      ownerAgentId,
+      ownerName: ownerAgent ? ownerAgent.name : ownerAgentId,
+      blockedReason: task.blockedReason || null,
+      isHandedOff: Boolean(task.lastHandoffAt),
       status: task.status,
       statusText: task.status.replace("_", " "),
       isRecentlyUpdated: isTaskRecentlyUpdated(task, now, recentWindowMs),

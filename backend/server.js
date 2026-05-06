@@ -81,8 +81,19 @@ function writeMessages(messages) {
   writeJsonFile(app.locals.messagesFile, messages);
 }
 
+function normalizeTasks(tasks) {
+  return tasks.map((task) => ({
+    ...task,
+    ownerAgentId: task.ownerAgentId !== undefined ? task.ownerAgentId : (task.assignedAgentId || null),
+    assignedByAgentId: task.assignedByAgentId !== undefined ? task.assignedByAgentId : (task.assignedAgentId || null),
+    handoffReason: task.handoffReason !== undefined ? task.handoffReason : null,
+    lastHandoffAt: task.lastHandoffAt !== undefined ? task.lastHandoffAt : null,
+    blockedReason: task.blockedReason !== undefined ? task.blockedReason : null,
+  }));
+}
+
 function readTasks() {
-  return readJsonFile(app.locals.tasksFile);
+  return normalizeTasks(readJsonFile(app.locals.tasksFile));
 }
 
 function writeTasks(tasks) {
@@ -480,6 +491,10 @@ function taskMatchesAgent(task, agent) {
     return false;
   }
 
+  if (task.ownerAgentId === agent.id) {
+    return true;
+  }
+
   if (task.assignedAgentId === agent.id) {
     return true;
   }
@@ -506,6 +521,15 @@ function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan(), goal = n
     return null;
   }
 
+  if (agent && agent.id === "manager") {
+    const blockedTasks = activeTasks.filter((task) => task.blockedReason);
+
+    if (blockedTasks.length > 0) {
+      return blockedTasks[app.locals.agentThoughtIndex % blockedTasks.length];
+    }
+  }
+
+  const ownedTasks = agent ? activeTasks.filter((task) => task.ownerAgentId === agent.id) : [];
   const specializedTasks = activeTasks.filter((task) => taskMatchesAgent(task, agent));
   const planTasks = activeTasks.filter((task) => taskMatchesPlan(task, plan));
   const planSpecializedTasks = specializedTasks.filter((task) => taskMatchesPlan(task, plan));
@@ -513,7 +537,9 @@ function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan(), goal = n
   const goalSpecializedTasks = specializedTasks.filter((task) => goalMatchesTask(task, goal));
   let candidates = activeTasks;
 
-  if (planSpecializedTasks.length > 0) {
+  if (ownedTasks.length > 0) {
+    candidates = ownedTasks;
+  } else if (planSpecializedTasks.length > 0) {
     candidates = planSpecializedTasks;
   } else if (goalSpecializedTasks.length > 0) {
     candidates = goalSpecializedTasks;
@@ -526,6 +552,142 @@ function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan(), goal = n
   }
 
   return candidates[app.locals.agentThoughtIndex % candidates.length];
+}
+
+function findBestAgentForTask(task, excludeAgentId) {
+  const text = `${task.title} ${task.description || ""}`.toLowerCase();
+  const agentList = Object.values(agents);
+  let bestAgent = null;
+  let bestScore = 0;
+
+  for (const agent of agentList) {
+    if (agent.id === excludeAgentId) {
+      continue;
+    }
+
+    const score = agent.taskTendencies.filter((term) => text.includes(term.toLowerCase())).length;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestAgent = agent;
+    }
+  }
+
+  return bestAgent;
+}
+
+function handoffTask({ task, fromAgentId, toAgentId, reason, tasks, messages, sessionId, isImportant }) {
+  if (!agents[toAgentId]) {
+    return null;
+  }
+
+  task.ownerAgentId = toAgentId;
+  task.handoffReason = reason;
+  task.lastHandoffAt = new Date().toISOString();
+  task.updatedAt = task.lastHandoffAt;
+  writeTasks(tasks);
+
+  storeAgentMessage({
+    agentId: fromAgentId,
+    sessionId,
+    roomId: task.roomId,
+    message: `Handoff: "${task.title}" to ${agents[toAgentId].name}. ${reason}`,
+    messages,
+  });
+
+  if (isImportant) {
+    const fromName = agents[fromAgentId] ? agents[fromAgentId].name : fromAgentId;
+    const result = createMemoryEvent({
+      log: readDecisionLog(),
+      roomId: task.roomId,
+      type: "task_handoff",
+      summary: `${fromName} handed off "${task.title}" to ${agents[toAgentId].name}: ${reason}`,
+      importance: "medium",
+    });
+
+    if (result.entry) {
+      writeDecisionLog(result.log);
+    }
+  }
+
+  return task;
+}
+
+function maybeHandoffAutonomousTask({ agentId, sessionId, taskId, rhythm }) {
+  if (!taskId) {
+    return null;
+  }
+
+  const agent = agents[agentId];
+
+  if (!agent) {
+    return null;
+  }
+
+  const tasks = readTasks();
+  const task = tasks.find((t) => t.id === taskId);
+
+  if (!task || task.status === "done") {
+    return null;
+  }
+
+  const isCoordinator = agent.id === "manager" || agent.id === "host";
+
+  if (isCoordinator && rhythm.phase === "review" && app.locals.agentThoughtIndex % 3 === 1) {
+    const bestAgent = findBestAgentForTask(task, agentId);
+
+    if (bestAgent && bestAgent.id !== task.ownerAgentId) {
+      return handoffTask({
+        task,
+        fromAgentId: agentId,
+        toAgentId: bestAgent.id,
+        reason: `${agent.name} reassigned to better-suited owner.`,
+        tasks,
+        messages: readMessages(),
+        sessionId,
+        isImportant: true,
+      });
+    }
+  }
+
+  if (!isCoordinator && task.ownerAgentId !== agentId && rhythm.phase !== "execute" && app.locals.agentThoughtIndex % 5 === 0) {
+    const bestAgent = findBestAgentForTask(task, null);
+
+    if (bestAgent && bestAgent.id !== agentId && bestAgent.id !== task.ownerAgentId) {
+      return handoffTask({
+        task,
+        fromAgentId: agentId,
+        toAgentId: bestAgent.id,
+        reason: `${agent.name} identified better owner.`,
+        tasks,
+        messages: readMessages(),
+        sessionId,
+        isImportant: false,
+      });
+    }
+  }
+
+  if (agent.id === "manager" && task.blockedReason && app.locals.agentThoughtIndex % 4 === 2) {
+    const bestAgent = findBestAgentForTask(task, task.ownerAgentId);
+    const toAgentId = bestAgent ? bestAgent.id : "assistant";
+
+    if (agents[toAgentId]) {
+      task.blockedReason = null;
+
+      return handoffTask({
+        task,
+        fromAgentId: agentId,
+        toAgentId,
+        reason: "Manager unblocked and reassigned.",
+        tasks,
+        messages: readMessages(),
+        sessionId,
+        isImportant: true,
+      });
+    }
+  }
+
+  return null;
 }
 
 function getNextTaskStatus(status) {
@@ -544,7 +706,7 @@ function canMoveTaskStatus(currentStatus, nextStatus) {
   return getNextTaskStatus(currentStatus) === nextStatus;
 }
 
-function createTask({ roomId, title, description, assignedAgentId, tasks }) {
+function createTask({ roomId, title, description, assignedAgentId, assignedByAgentId, tasks }) {
   const now = new Date().toISOString();
   const task = {
     id: getNextId(tasks),
@@ -553,6 +715,11 @@ function createTask({ roomId, title, description, assignedAgentId, tasks }) {
     description,
     status: "open",
     assignedAgentId,
+    assignedByAgentId: assignedByAgentId || assignedAgentId,
+    ownerAgentId: assignedAgentId,
+    handoffReason: null,
+    lastHandoffAt: null,
+    blockedReason: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -784,6 +951,12 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     goal: agentGoal,
     rhythm,
   });
+  maybeHandoffAutonomousTask({
+    agentId: agent.id,
+    sessionId,
+    taskId: selectedTask ? selectedTask.id : null,
+    rhythm,
+  });
   maybeUpdateCompanyPlan({
     agent,
     roomId: normalizedRoomId,
@@ -980,6 +1153,7 @@ function maybeCreateAutonomousTask({
     title: draft.title,
     description: draft.description,
     assignedAgentId: agentId,
+    assignedByAgentId: agentId,
     tasks,
   });
 }
@@ -1145,13 +1319,21 @@ app.post("/api/tasks", (req, res) => {
 
 app.patch("/api/tasks/:taskId", (req, res) => {
   const taskId = Number(req.params.taskId);
-  const status = req.body && req.body.status;
+  const body = req.body || {};
+  const hasStatus = "status" in body;
+  const status = hasStatus ? body.status : undefined;
+  const hasBlockedReason = "blockedReason" in body;
+  const blockedReason = hasBlockedReason ? (body.blockedReason || null) : undefined;
 
   if (!Number.isInteger(taskId) || taskId < 1) {
     return res.status(400).json({ error: "invalid taskId" });
   }
 
-  if (!taskStatuses.has(status)) {
+  if (!hasStatus && !hasBlockedReason) {
+    return res.status(400).json({ error: "valid status is required" });
+  }
+
+  if (hasStatus && !taskStatuses.has(status)) {
     return res.status(400).json({ error: "valid status is required" });
   }
 
@@ -1162,23 +1344,75 @@ app.patch("/api/tasks/:taskId", (req, res) => {
     return res.status(404).json({ error: "task not found" });
   }
 
-  const updatedTask = updateTaskStatus({
-    task,
-    status,
-    tasks,
-  });
+  if (hasStatus) {
+    const updatedTask = updateTaskStatus({ task, status, tasks });
 
-  if (!updatedTask) {
-    return res.status(400).json({ error: "invalid status progression" });
+    if (!updatedTask) {
+      return res.status(400).json({ error: "invalid status progression" });
+    }
+
+    storeTaskStatusMessage({
+      task: updatedTask,
+      agentId: updatedTask.assignedAgentId,
+      sessionId: autonomousSessionId,
+      messages: readMessages(),
+    });
+    maybeCreateTaskMemoryEvent(updatedTask);
   }
 
-  storeTaskStatusMessage({
-    task: updatedTask,
-    agentId: updatedTask.assignedAgentId,
-    sessionId: autonomousSessionId,
+  if (hasBlockedReason) {
+    task.blockedReason = blockedReason;
+    task.updatedAt = new Date().toISOString();
+    writeTasks(tasks);
+  }
+
+  return res.json(task);
+});
+
+app.patch("/api/tasks/:taskId/handoff", (req, res) => {
+  const taskId = Number(req.params.taskId);
+  const body = req.body || {};
+  const actingAgentId = getValidText(body.actingAgentId);
+  const toAgentId = getValidText(body.toAgentId);
+  const reason = getValidText(body.reason);
+
+  if (!Number.isInteger(taskId) || taskId < 1) {
+    return res.status(400).json({ error: "invalid taskId" });
+  }
+
+  if (!actingAgentId || !["manager", "host"].includes(actingAgentId)) {
+    return res.status(400).json({ error: "only manager or host can reassign tasks" });
+  }
+
+  if (!toAgentId || !agents[toAgentId]) {
+    return res.status(400).json({ error: "valid toAgentId is required" });
+  }
+
+  if (!reason) {
+    return res.status(400).json({ error: "reason is required" });
+  }
+
+  const tasks = readTasks();
+  const task = tasks.find((item) => item.id === taskId);
+
+  if (!task) {
+    return res.status(404).json({ error: "task not found" });
+  }
+
+  if (task.status === "done") {
+    return res.status(400).json({ error: "cannot handoff a completed task" });
+  }
+
+  const updatedTask = handoffTask({
+    task,
+    fromAgentId: actingAgentId,
+    toAgentId,
+    reason,
+    tasks,
     messages: readMessages(),
+    sessionId: autonomousSessionId,
+    isImportant: true,
   });
-  maybeCreateTaskMemoryEvent(updatedTask);
 
   return res.json(updatedTask);
 });
@@ -1281,5 +1515,8 @@ app.locals.writeDecisionLogForTest = writeDecisionLog;
 app.locals.writeCompanyPlanForTest = writeCompanyPlan;
 app.locals.writeAgentGoalsForTest = writeAgentGoals;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
+app.locals.handoffTaskForTest = handoffTask;
+app.locals.findBestAgentForTaskForTest = findBestAgentForTask;
+app.locals.maybeHandoffAutonomousTaskForTest = maybeHandoffAutonomousTask;
 
 module.exports = app;

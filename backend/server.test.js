@@ -1518,3 +1518,213 @@ test("POST /api/agents/:agentId/reply returns 400 for an invalid message", async
   assert.equal(response.statusCode, 400);
   assert.deepEqual(response.body, { error: "message is required" });
 });
+
+test("task has ownership and handoff fields on creation", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Map the onboarding flow",
+    assignedAgentId: "builder",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.ownerAgentId, "builder");
+  assert.equal(created.body.assignedByAgentId, "builder");
+  assert.equal(created.body.handoffReason, null);
+  assert.equal(created.body.lastHandoffAt, null);
+  assert.equal(created.body.blockedReason, null);
+});
+
+test("agents prefer owned tasks in task selection", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/tasks", {
+    roomId: "auto",
+    title: "Generic meeting notes",
+    assignedAgentId: "host",
+  });
+  const salesTask = await postJson(server, "/api/tasks", {
+    roomId: "auto",
+    title: "Review lead pipeline",
+    assignedAgentId: "sales",
+  });
+
+  const salesAgent = { id: "sales", taskTendencies: ["validate", "offer", "revenue"] };
+  const selected = app.locals.selectRoomTaskForTest(
+    app.locals.readTasksForTest(),
+    "auto",
+    salesAgent,
+  );
+
+  assert.equal(selected.id, salesTask.body.id);
+  assert.equal(selected.ownerAgentId, "sales");
+});
+
+test("PATCH /api/tasks/:taskId/handoff creates feed entry and updates owner", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Write support flow",
+    assignedAgentId: "assistant",
+  });
+  const handoff = await patchJson(server, `/api/tasks/${created.body.id}/handoff`, {
+    actingAgentId: "manager",
+    toAgentId: "builder",
+    reason: "Builder is better suited for workflow tasks.",
+  });
+
+  assert.equal(handoff.statusCode, 200);
+  assert.equal(handoff.body.ownerAgentId, "builder");
+  assert.equal(handoff.body.handoffReason, "Builder is better suited for workflow tasks.");
+  assert.ok(handoff.body.lastHandoffAt);
+
+  const messages = await getJson(server, "/api/messages?roomId=ops");
+
+  assert.equal(messages.statusCode, 200);
+  assert.ok(messages.body.messages.length > 0);
+  assert.match(messages.body.messages[0].message, /Write support flow/);
+  assert.match(messages.body.messages[0].message, /Builder/);
+});
+
+test("manager handoff creates a memory event", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Refine ops workflow",
+    assignedAgentId: "assistant",
+  });
+
+  await patchJson(server, `/api/tasks/${created.body.id}/handoff`, {
+    actingAgentId: "manager",
+    toAgentId: "builder",
+    reason: "Builder owns workflow tasks.",
+  });
+
+  const log = app.locals.readDecisionLogForTest();
+
+  assert.ok(log.memoryEvents.some((event) => (
+    event.type === "task_handoff" && event.summary.includes("Refine ops workflow")
+  )));
+});
+
+test("PATCH /api/tasks/:taskId/handoff rejects non-manager or host agents", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Some task",
+    assignedAgentId: "sales",
+  });
+  const response = await patchJson(server, `/api/tasks/${created.body.id}/handoff`, {
+    actingAgentId: "sales",
+    toAgentId: "builder",
+    reason: "Testing.",
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /manager or host/);
+});
+
+test("manager prioritizes blocked tasks in task selection", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Generic planning task",
+    assignedAgentId: "strategist",
+  });
+  const blockedTask = await postJson(server, "/api/tasks", {
+    roomId: "main",
+    title: "Stuck onboarding task",
+    assignedAgentId: "builder",
+  });
+
+  await patchJson(server, `/api/tasks/${blockedTask.body.id}`, {
+    blockedReason: "Cannot proceed without more info.",
+  });
+
+  const managerAgent = { id: "manager", taskTendencies: ["assign", "track", "advance"] };
+  const selected = app.locals.selectRoomTaskForTest(
+    app.locals.readTasksForTest(),
+    "main",
+    managerAgent,
+  );
+
+  assert.equal(selected.id, blockedTask.body.id);
+  assert.equal(selected.blockedReason, "Cannot proceed without more info.");
+});
+
+test("PATCH /api/tasks/:taskId accepts blockedReason to mark task blocked", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Blocked task test",
+    assignedAgentId: "assistant",
+  });
+  const updated = await patchJson(server, `/api/tasks/${created.body.id}`, {
+    blockedReason: "Waiting on external dependency.",
+  });
+
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.blockedReason, "Waiting on external dependency.");
+  assert.equal(updated.body.status, "open");
+});
+
+test("autonomous task creation sets ownerAgentId and assignedByAgentId", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 3;
+
+  app.locals.createAgentThought("researcher", "marketing");
+
+  const tasks = app.locals.readTasksForTest();
+
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].ownerAgentId, tasks[0].assignedAgentId);
+  assert.equal(tasks[0].assignedByAgentId, tasks[0].assignedAgentId);
+});

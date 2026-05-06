@@ -51,6 +51,24 @@
 - Room agent nodes show the agent name and role with stable lightweight positioning.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
 
+## Agent Handoffs And Task Ownership
+- Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.
+- `ownerAgentId` defaults to `assignedAgentId` on creation; `assignedByAgentId` records who created the task.
+- Task selection priority: manager picks blocked tasks first, then owned tasks (`ownerAgentId === agent.id`), then specialization/plan/goal tiers.
+- `findBestAgentForTask()` matches task text against agent `taskTendencies` to find the strongest fit.
+- `handoffTask()` updates ownership, sets `handoffReason` and `lastHandoffAt`, writes a feed entry, and creates a memory event for important handoffs.
+- `maybeHandoffAutonomousTask()` is called each autonomous cycle: coordinators (manager/host) may reassign during review; any agent may handoff to a better fit outside execute phase; manager clears blocked tasks via handoff.
+- `PATCH /api/tasks/:taskId` now also accepts `blockedReason` (string or null) to mark or unmark a task as blocked.
+- `PATCH /api/tasks/:taskId/handoff` allows manager or host to reassign a task; body: `{ actingAgentId, toAgentId, reason }`. Creates a feed entry and memory event.
+- Existing tasks without new fields are normalized on read via `normalizeTasks()`.
+
+## Frontend
+- The agent selector is populated from `/api/agents` and includes specialized agents.
+- Room agent nodes show the agent name and role with stable lightweight positioning.
+- The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
+- Task cards show the current owner (with `assigned → owner` notation when handed off) and a blocked-reason indicator when set.
+- Handoff feed messages appear in the regular activity feed.
+
 ## Tests
 - Backend: `cd backend && npm test`.
 - Frontend: `node --test frontend/app.test.js`.
