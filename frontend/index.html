@@ -334,6 +334,29 @@
       transform: translate(-50%, -50%);
     }
 
+    .station.active {
+      border-color: rgba(212,168,83,0.36);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.04),
+        0 14px 30px rgba(0,0,0,0.5);
+    }
+
+    .station.busy .station-glow {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+
+    .station.checking-in {
+      border-color: rgba(255,211,120,0.5);
+    }
+
+    .station.focused {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.04),
+        0 0 0 1px rgba(212,168,83,0.18),
+        0 16px 32px rgba(0,0,0,0.54);
+    }
+
     .station::before {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 55%),
@@ -969,23 +992,28 @@
 
     .char-wrap {
       animation: idleFloat 6.8s ease-in-out infinite;
+      animation-duration: var(--idle-speed, 6.8s);
     }
 
     .char-head {
       animation: headDrift 6.8s ease-in-out infinite;
+      animation-duration: var(--head-speed, 6.8s);
     }
 
     .char-torso {
       animation: torsoBreathe 5.8s ease-in-out infinite;
+      animation-duration: var(--breath-speed, 5.8s);
     }
 
     .char-legs {
       animation: legsBalance 6.8s ease-in-out infinite;
+      animation-duration: var(--idle-speed, 6.8s);
     }
 
     /* latest speaker — golden glow */
     .agent-node.latest .char-wrap {
       animation: speakingLift 0.9s ease-in-out infinite;
+      animation-duration: var(--speaking-speed, 0.9s);
       filter: drop-shadow(0 0 11px rgba(200,160,55,0.82));
     }
 
@@ -1020,18 +1048,22 @@
 
     .agent-node.walking .char-torso {
       animation: torsoBreathe 5.8s ease-in-out infinite, walkBob 0.7s ease-in-out infinite;
+      animation-duration: var(--breath-speed, 5.8s), var(--walk-speed, 0.7s);
     }
 
     .agent-node.walking .char-legs {
       animation: legsBalance 6.8s ease-in-out infinite, walkLegs 0.55s ease-in-out infinite;
+      animation-duration: var(--idle-speed, 6.8s), var(--walk-speed, 0.55s);
     }
 
     .agent-node.walking .char-arm.left {
       animation: walkArmLeft 0.55s ease-in-out infinite;
+      animation-duration: var(--walk-speed, 0.55s);
     }
 
     .agent-node.walking .char-arm.right {
       animation: walkArmRight 0.55s ease-in-out infinite;
+      animation-duration: var(--walk-speed, 0.55s);
     }
 
     .agent-node.walking .char-glow {
@@ -1041,6 +1073,19 @@
 
     .agent-node.working .char-wrap {
       filter: drop-shadow(0 0 6px rgba(212,168,83,0.2));
+    }
+
+    .agent-node.speaking .char-head,
+    .agent-node.speaking .char-torso,
+    .agent-node.speaking .char-legs,
+    .agent-node.speaking .char-arm.left,
+    .agent-node.speaking .char-arm.right {
+      animation-duration: calc(var(--idle-speed, 6.8s) * 1.35);
+    }
+
+    .agent-node.speaking .char-arm.left,
+    .agent-node.speaking .char-arm.right {
+      opacity: 0.88;
     }
 
     .agent-node.station-command .char-head {
@@ -1725,6 +1770,7 @@
     const hqLayout = WOYSApp.getHQLayoutConfig();
     let loadedAgents = [];
     let loadedRooms = [];
+    let currentTasks = [];
     let currentMessages = [];
     let currentDecisions = [];
     let currentAgentGoals = [];
@@ -1860,20 +1906,81 @@
 
     renderWorkZones();
 
-    function applyMotionToNode(node, roomAgent, index, now) {
+    function syncWorkZoneStates(motions = []) {
+      const stationStates = new Map();
+
+      motions.forEach((entry) => {
+        const motion = entry.motion || {};
+        const stationId = motion.stationId || "";
+
+        if (!stationId) {
+          return;
+        }
+
+        const existing = stationStates.get(stationId) || {
+          count: 0,
+          activity: 0,
+          focused: false,
+          checkingIn: false,
+        };
+
+        existing.count += 1;
+        existing.activity = Math.max(existing.activity, motion.motionIntensity || motion.activityLevel || 0);
+        existing.focused = existing.focused || Boolean(motion.taskId) || Boolean(motion.targetAgentId);
+        existing.checkingIn = existing.checkingIn || Boolean(motion.isCheckingIn) || Boolean(entry.isSpeaking);
+        stationStates.set(stationId, existing);
+      });
+
+      workZones.querySelectorAll(".station").forEach((stationNode) => {
+        const stationId = stationNode.dataset.stationId;
+        const state = stationStates.get(stationId) || {
+          count: 0,
+          activity: 0,
+          focused: false,
+          checkingIn: false,
+        };
+
+        stationNode.classList.toggle("active", state.count > 0 || state.focused);
+        stationNode.classList.toggle("busy", state.activity >= 0.72);
+        stationNode.classList.toggle("focused", state.focused);
+        stationNode.classList.toggle("checking-in", state.checkingIn);
+        stationNode.dataset.activity = state.activity.toFixed(2);
+        stationNode.dataset.occupancy = String(state.count);
+      });
+    }
+
+    function applyMotionToNode(node, roomAgent, index, now, state = {}) {
       const motion = WOYSApp.getHQAgentMotionState(roomAgent, {
         phase: currentRhythm.phase || "observe",
         now,
         index,
+        tasks: currentTasks,
+        decisions: currentDecisions,
+        memoryEvents: currentMemoryEvents,
       });
+      const isSpeaking = Boolean(state.isSpeaking);
+      const activityIntensity = isSpeaking ? Math.max(0.25, (motion.motionIntensity || 0.4) * 0.45) : (motion.motionIntensity || motion.activityLevel || 0.4);
+      const idleSpeed = Math.max(4.8, 7.2 - (activityIntensity * 1.8));
+      const headSpeed = Math.max(4.8, 7.2 - (activityIntensity * 1.3));
+      const breathSpeed = Math.max(3.8, 6.2 - (activityIntensity * 1.5));
+      const walkSpeed = Math.max(0.42, 0.82 - (activityIntensity * 0.28));
+      const speakingSpeed = isSpeaking ? Math.max(0.65, 1.05 - (activityIntensity * 0.2)) : 0.9;
 
       node.dataset.stationId = motion.stationId || "";
+      node.dataset.activityLevel = activityIntensity.toFixed(2);
       node.style.left = motion.left;
       node.style.top = motion.top;
       node.style.zIndex = String(motion.zIndex);
       node.classList.toggle("walking", motion.isWalking);
-      node.classList.toggle("working", motion.isWorkingAtStation);
-      node.classList.toggle("checking-in", motion.isCheckingIn);
+      node.classList.toggle("working", motion.isWorkingAtStation || activityIntensity >= 0.45);
+      node.classList.toggle("checking-in", motion.isCheckingIn || isSpeaking);
+      node.classList.toggle("speaking", isSpeaking);
+      node.style.setProperty("--idle-speed", `${idleSpeed.toFixed(2)}s`);
+      node.style.setProperty("--head-speed", `${headSpeed.toFixed(2)}s`);
+      node.style.setProperty("--breath-speed", `${breathSpeed.toFixed(2)}s`);
+      node.style.setProperty("--walk-speed", `${walkSpeed.toFixed(2)}s`);
+      node.style.setProperty("--speaking-speed", `${speakingSpeed.toFixed(2)}s`);
+      node.style.setProperty("--motion-intensity", activityIntensity.toFixed(2));
 
       motionStationClasses.forEach(className => {
         node.classList.toggle(className, className === motion.poseClass);
@@ -1882,11 +1989,14 @@
       motionWorkClasses.forEach(className => {
         node.classList.toggle(className, className === motion.workClass);
       });
+
+      return motion;
     }
 
     function renderRoom(items) {
       const newestAgentMessage = WOYSApp.getNewestAgentMessage(items);
       const now = Date.now();
+      const motions = [];
 
       roomAgents.textContent = "";
       youMessage.textContent = WOYSApp.getLatestUserMessage(items) || "No message yet.";
@@ -1976,7 +2086,16 @@
 
         node.append(speech, charWrap, name, role);
         roomAgents.appendChild(node);
+        motions.push({
+          agentId: roomAgent.id,
+          motion: applyMotionToNode(node, roomAgent, index, now, {
+            isSpeaking: thinkingAgentId === roomAgent.id,
+          }),
+          isSpeaking: thinkingAgentId === roomAgent.id,
+        });
       });
+
+      syncWorkZoneStates(motions);
     }
 
     function updateRoomMotion() {
@@ -1985,6 +2104,7 @@
       }
 
       const now = Date.now();
+      const motions = [];
 
       loadedAgents.forEach((agent, index) => {
         const node = roomAgents.querySelector(`[data-agent-id="${agent.id}"]`);
@@ -1994,8 +2114,17 @@
         }
 
         const roomAgent = WOYSApp.mapAgentForRoom(agent, currentMessages);
-        applyMotionToNode(node, roomAgent, index, now);
+        const isSpeaking = node.classList.contains("speaking");
+        motions.push({
+          agentId: roomAgent.id,
+          motion: applyMotionToNode(node, roomAgent, index, now, {
+            isSpeaking,
+          }),
+          isSpeaking,
+        });
       });
+
+      syncWorkZoneStates(motions);
     }
 
     function renderActivity(items) {
@@ -2039,6 +2168,7 @@
     }
 
     function renderTasks(items) {
+      currentTasks = items;
       taskList.textContent = "";
 
       if (items.length === 0) {
@@ -2089,6 +2219,8 @@
 
         taskList.appendChild(taskItem);
       });
+
+      updateRoomMotion();
     }
 
     function renderPlanList(labelText, items) {
@@ -2305,6 +2437,7 @@
         }).catch(() => {}),
       ]).then(() => {
         renderCompanyPlan(loadedPlan || {});
+        updateRoomMotion();
       });
     }
 
@@ -2346,6 +2479,7 @@
         }).catch(() => []),
       ]).then(() => {
         renderDecisionMemory();
+        updateRoomMotion();
       });
     }
 

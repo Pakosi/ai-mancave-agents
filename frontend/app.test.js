@@ -11,6 +11,7 @@ const {
   getLatestUserMessage,
   getNewestAgentMessage,
   getHQLayoutConfig,
+  getHQAgentStationProfile,
   getHQAgentMotionState,
   getHQWorkZones,
   getRoomActivityView,
@@ -882,25 +883,63 @@ test("getHQWorkZones returns the workstation layout", () => {
   assert.equal(zones.some((zone) => zone.id === "trading-desk"), true);
 });
 
-test("getHQAgentMotionState returns a station-aware patrol motion for the host", () => {
-  const motion = getHQAgentMotionState({ id: "host" }, {
-    phase: "plan",
-    now: 2500,
-    index: 0,
+test("getHQAgentStationProfile chooses a task-matched research station", () => {
+  const profile = getHQAgentStationProfile({
+    id: "researcher",
+    taskTendencies: ["research", "discover", "learn"],
+  }, {
+    phase: "execute",
+    tasks: [
+      {
+        id: 7,
+        title: "Research competitor launch timing",
+        status: "in_progress",
+        ownerAgentId: "researcher",
+      },
+    ],
   });
 
-  assert.equal(motion.isWalking, false);
-  assert.equal(motion.isCheckingIn, true);
-  assert.equal(motion.stationId, "automation-station");
-  assert.equal(motion.poseClass, "station-automation");
-  assert.match(motion.left, /%$/);
-  assert.match(motion.top, /%$/);
-  assert.equal(motion.zIndex > 100, true);
-  assert.deepEqual(motion, getHQAgentMotionState({ id: "host" }, {
-    phase: "plan",
-    now: 2500,
-    index: 0,
-  }));
+  assert.deepEqual(profile, {
+    stationId: "research-library",
+    stationLabel: "Research / Library",
+    poseClass: "station-reading",
+    workClass: "working-reading",
+    activityLevel: 1,
+    motionIntensity: 1,
+    taskId: 7,
+    taskStatus: "in_progress",
+    isCheckingIn: false,
+    isWorkingAtStation: true,
+  });
+});
+
+test("getHQAgentStationProfile prefers blocked-task agents for host check-ins", () => {
+  const profile = getHQAgentStationProfile({ id: "host" }, {
+    phase: "execute",
+    tasks: [
+      {
+        id: 4,
+        title: "Sales follow-up",
+        status: "open",
+        ownerAgentId: "sales",
+        blockedReason: "Waiting on final offer copy",
+      },
+      {
+        id: 9,
+        title: "Builder release",
+        status: "open",
+        ownerAgentId: "builder",
+      },
+    ],
+    decisions: [
+      { id: 1, agentId: "builder", title: "Release scope" },
+    ],
+  });
+
+  assert.equal(profile.stationId, "trading-desk");
+  assert.equal(profile.stationLabel, "Trading Desk");
+  assert.equal(profile.targetAgentId, "sales");
+  assert.equal(profile.isCheckingIn, true);
 });
 
 test("getHQAgentMotionState keeps builders near their workstation", () => {

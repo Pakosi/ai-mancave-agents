@@ -52,9 +52,10 @@
 - Phase 2B added lightweight CSS idle and talking animations: breathing, sway, head drift, body lift, and glow pulses.
 - Phase 2C adds lightweight ambient movement between predefined HQ positions, with the host acting as the main patrol/check-in agent.
 - Phase 2D adds visible workstation zones and role-based working poses for command, research, builder, analyst, automation, trading, and lounge areas.
+- Phase 3A ties station choice and animation intensity to current tasks, rhythm phase, decisions, and handoff pressure.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
 - The frontend is visually collapsed into a single persistent HQ room and no longer exposes room switching in the visible shell.
-- Phase 2A introduced fuller static agent characters; Phase 2B layered idle/talking motion, Phase 2C added ambient walking, and Phase 2D added workstation interaction visuals without adding routing or pathfinding.
+- Phase 2A introduced fuller static agent characters; Phase 2B layered idle/talking motion, Phase 2C added ambient walking, Phase 2D added workstation interaction visuals, and Phase 3A connected the station behavior to live simulation state without adding routing or pathfinding.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

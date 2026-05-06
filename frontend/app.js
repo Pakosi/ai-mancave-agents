@@ -1017,6 +1017,295 @@
     return hqWorkZones.map((zone) => ({ ...zone }));
   }
 
+  const stationKeywordRules = [
+    {
+      stationId: "research-library",
+      keywords: ["research", "user", "market", "competitor", "discovery", "interview", "study", "library", "read"],
+    },
+    {
+      stationId: "builder-workstation",
+      keywords: ["build", "builder", "implement", "code", "feature", "ship", "fix", "frontend", "backend", "prototype"],
+    },
+    {
+      stationId: "analyst-desk",
+      keywords: ["analysis", "analyze", "metric", "metrics", "risk", "dashboard", "decision", "report", "data", "measure"],
+    },
+    {
+      stationId: "trading-desk",
+      keywords: ["sales", "customer", "client", "offer", "revenue", "validate", "pitch", "demo", "pricing", "trading"],
+    },
+    {
+      stationId: "brainstorm-lounge",
+      keywords: ["strategy", "strategic", "plan", "priorit", "positioning", "roadmap", "brainstorm", "whiteboard", "review"],
+    },
+    {
+      stationId: "automation-station",
+      keywords: ["automation", "workflow", "bridge", "assistant", "context", "ops", "coordination", "handoff"],
+    },
+    {
+      stationId: "command-desk",
+      keywords: ["summary", "check-in", "checkin", "checkpoint", "coordinate", "blocked", "owner", "decision", "lead"],
+    },
+  ];
+
+  function getTextBlob(values = []) {
+    return values
+      .filter(Boolean)
+      .map((item) => String(item).toLowerCase())
+      .join(" ");
+  }
+
+  function includesAny(text, keywords = []) {
+    return keywords.some((keyword) => text.includes(keyword));
+  }
+
+  function getStationIdForText(text, fallbackStationId) {
+    const normalizedText = String(text || "").toLowerCase();
+
+    for (const rule of stationKeywordRules) {
+      if (includesAny(normalizedText, rule.keywords)) {
+        return rule.stationId;
+      }
+    }
+
+    return fallbackStationId;
+  }
+
+  function getTaskStationId(task, phase, agentId) {
+    const text = getTextBlob([
+      task.title,
+      task.summary,
+      task.nextAction,
+      task.handoffReason,
+      task.blockedReason,
+      task.roomId,
+    ]);
+    const assignedStation = agentWorkZoneAssignments[agentId] || "command-desk";
+    const keywordStation = getStationIdForText(text, assignedStation);
+
+    if (phase === "review" && includesAny(text, ["summary", "check-in", "checkpoint", "decision", "coordinate", "handoff"])) {
+      return agentId === "host" || agentId === "manager" ? "command-desk" : "brainstorm-lounge";
+    }
+
+    if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "roadmap", "positioning"])) {
+      return "brainstorm-lounge";
+    }
+
+    return keywordStation;
+  }
+
+  function getRelevantTaskForAgent(agent, tasks = [], phase = "observe") {
+    const agentTendencies = getTextBlob(agent.taskTendencies || []);
+
+    return tasks
+      .filter((task) => task && task.status !== "done")
+      .map((task) => {
+        const text = getTextBlob([
+          task.title,
+          task.summary,
+          task.nextAction,
+          task.blockedReason,
+          task.handoffReason,
+        ]);
+        let score = 0;
+
+        if (task.ownerAgentId === agent.id) {
+          score += 8;
+        }
+
+        if (task.assignedAgentId === agent.id) {
+          score += 6;
+        }
+
+        if (task.assignedByAgentId === agent.id) {
+          score += 2;
+        }
+
+        if (task.blockedReason) {
+          score += 1;
+        }
+
+        if (includesAny(text, agentTendencies.split(" ").filter(Boolean))) {
+          score += 4;
+        }
+
+        if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "roadmap", "positioning"])) {
+          score += 3;
+        }
+
+        if (phase === "execute" && includesAny(text, ["build", "research", "fix", "validate", "analyze", "sales", "automation"])) {
+          score += 2;
+        }
+
+        if (phase === "review" && includesAny(text, ["summary", "decision", "risk", "handoff", "blocked"])) {
+          score += 3;
+        }
+
+        return { task, score };
+      })
+      .sort((first, second) => {
+        if (second.score !== first.score) {
+          return second.score - first.score;
+        }
+
+        const firstUpdatedAt = first.task.updatedAt || first.task.createdAt || "";
+        const secondUpdatedAt = second.task.updatedAt || second.task.createdAt || "";
+
+        return String(secondUpdatedAt).localeCompare(String(firstUpdatedAt));
+      })[0]?.task || null;
+  }
+
+  function getHQHostCheckInTargetAgentId(context = {}) {
+    const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+    const decisions = Array.isArray(context.decisions) ? context.decisions : [];
+    const scores = new Map();
+
+    function scoreAgent(agentId, points) {
+      if (!agentId) {
+        return;
+      }
+
+      scores.set(agentId, (scores.get(agentId) || 0) + points);
+    }
+
+    tasks.forEach((task) => {
+      const taskOwnerId = task.ownerAgentId || task.assignedAgentId || null;
+      const assignedByAgentId = task.assignedByAgentId || null;
+
+      if (task.blockedReason) {
+        scoreAgent(taskOwnerId, 6);
+        scoreAgent(assignedByAgentId, 2);
+      }
+
+      if (task.handoffReason || task.lastHandoffAt) {
+        scoreAgent(taskOwnerId, 4);
+        scoreAgent(assignedByAgentId, 2);
+      }
+    });
+
+    decisions.forEach((decision) => {
+      if (decision.agentId) {
+        scoreAgent(decision.agentId, 3);
+      }
+
+      if (decision.relatedTaskId) {
+        const relatedTask = tasks.find((task) => String(task.id) === String(decision.relatedTaskId));
+        if (relatedTask) {
+          scoreAgent(relatedTask.ownerAgentId || relatedTask.assignedAgentId, 2);
+        }
+      }
+    });
+
+    let bestAgentId = "";
+    let bestScore = 0;
+
+    Array.from(scores.entries()).forEach(([agentId, score]) => {
+      if (score > bestScore) {
+        bestScore = score;
+        bestAgentId = agentId;
+      }
+    });
+
+    return bestAgentId;
+  }
+
+  function getHQAgentStationProfile(agent, context = {}) {
+    const phase = context.phase || "observe";
+    const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+    const decisions = Array.isArray(context.decisions) ? context.decisions : [];
+    const memoryEvents = Array.isArray(context.memoryEvents) ? context.memoryEvents : [];
+    const assignedStationId = agentWorkZoneAssignments[agent.id] || "command-desk";
+    const task = getRelevantTaskForAgent(agent, tasks, phase);
+    const hasActiveTask = Boolean(task);
+    const taskStationId = task ? getTaskStationId(task, phase, agent.id) : assignedStationId;
+    const baseStationId = taskStationId || assignedStationId;
+    let stationId = baseStationId;
+    let activityLevel = hasActiveTask ? 0.8 : 0.38;
+    let motionIntensity = hasActiveTask ? 0.9 : 0.35;
+
+    if (agent.id === "host") {
+      const targetAgentId = getHQHostCheckInTargetAgentId({ tasks, decisions, memoryEvents });
+      const targetStationId = targetAgentId ? (agentWorkZoneAssignments[targetAgentId] || "command-desk") : "command-desk";
+
+      if (phase === "plan") {
+        stationId = targetAgentId ? "brainstorm-lounge" : "command-desk";
+      } else if (phase === "review") {
+        stationId = targetAgentId ? targetStationId : "command-desk";
+      } else if (phase === "execute") {
+        stationId = targetAgentId ? targetStationId : "command-desk";
+      } else {
+        stationId = targetAgentId ? targetStationId : "command-desk";
+      }
+
+      return {
+        stationId,
+        stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : "CEO Command Desk",
+        poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : "station-command",
+        workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : "working-command",
+        activityLevel: targetAgentId ? 0.82 : 0.55,
+        motionIntensity: targetAgentId ? 0.82 : 0.55,
+        taskId: task ? task.id : null,
+        taskStatus: task ? task.status : null,
+        isCheckingIn: Boolean(targetAgentId),
+        isWorkingAtStation: stationId === "command-desk",
+        targetAgentId,
+      };
+    }
+
+    if (phase === "plan" || phase === "review") {
+      if (["strategist", "manager"].includes(agent.id)) {
+        stationId = "brainstorm-lounge";
+      } else if (agent.id === "analyst") {
+        stationId = phase === "review" ? "analyst-desk" : "brainstorm-lounge";
+      } else if (agent.id === "sales") {
+        stationId = "trading-desk";
+      } else if (agent.id === "researcher") {
+        stationId = "research-library";
+      } else if (agent.id === "builder") {
+        stationId = "builder-workstation";
+      } else if (agent.id === "assistant") {
+        stationId = "automation-station";
+      }
+    }
+
+    if (task && task.blockedReason) {
+      activityLevel = 0.55;
+      motionIntensity = 0.42;
+      if (agent.id === "manager") {
+        stationId = "command-desk";
+      }
+    } else if (task && task.status === "in_progress") {
+      activityLevel = 1;
+      motionIntensity = 1;
+    } else if (task) {
+      activityLevel = 0.85;
+      motionIntensity = 0.82;
+    } else if (phase === "execute") {
+      activityLevel = 0.55;
+      motionIntensity = 0.58;
+    } else if (phase === "review") {
+      activityLevel = 0.48;
+      motionIntensity = 0.46;
+    }
+
+    if (memoryEvents.some((event) => event.importance >= 4)) {
+      motionIntensity = Math.max(motionIntensity, 0.75);
+    }
+
+    return {
+      stationId,
+      stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : hqWorkZoneMap[assignedStationId].label,
+      poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : hqWorkZoneMap[assignedStationId].poseClass,
+      workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : hqWorkZoneMap[assignedStationId].workClass,
+      activityLevel,
+      motionIntensity,
+      taskId: task ? task.id : null,
+      taskStatus: task ? task.status : null,
+      isCheckingIn: false,
+      isWorkingAtStation: true,
+    };
+  }
+
   function parsePercent(value) {
     return Number.parseFloat(String(value).replace("%", "")) || 0;
   }
@@ -1033,16 +1322,28 @@
   }
 
   function getHQAgentMotionState(agent, options = {}) {
+    const profile = getHQAgentStationProfile(agent, options);
     const phase = options.phase || "observe";
     const now = options.now || Date.now();
     const orderIndex = options.index || 0;
     const zoneId = agentWorkZoneAssignments[agent.id] || "command-desk";
     const homeZone = hqWorkZoneMap[zoneId] || hqWorkZoneMap["command-desk"];
+    const baseZone = hqWorkZoneMap[profile.stationId] || hqWorkZoneMap[zoneId] || hqWorkZoneMap["command-desk"];
     const cycleSeed = (agent.id.length * 937) + (orderIndex * 791);
 
     if (agent.id === "host") {
+      const targetZone = profile.targetAgentId ? (hqWorkZoneMap[agentWorkZoneAssignments[profile.targetAgentId]] || homeZone) : homeZone;
       const routeIds = hostCheckInRoutes[phase] || hostCheckInRoutes.observe;
-      const route = routeIds.map((id) => hqWorkZoneMap[id] || homeZone);
+      const route = routeIds.map((id) => {
+        if (id === "command-desk" || id === targetZone.id) {
+          return hqWorkZoneMap[id] || homeZone;
+        }
+
+        return hqWorkZoneMap[id] || homeZone;
+      });
+      if (profile.targetAgentId && !route.some((zone) => zone.id === targetZone.id)) {
+        route.splice(1, 0, targetZone);
+      }
       const cycleMs = 22000;
       const elapsed = (now + cycleSeed) % cycleMs;
       const segmentCount = Math.max(1, route.length - 1);
@@ -1067,6 +1368,11 @@
         workClass: activeZone.workClass,
         isCheckingIn: activeZone.id !== "command-desk",
         isWorkingAtStation: activeZone.id === "command-desk",
+        activityLevel: profile.activityLevel,
+        motionIntensity: profile.motionIntensity,
+        taskId: profile.taskId,
+        taskStatus: profile.taskStatus,
+        targetAgentId: profile.targetAgentId || "",
       };
     }
 
@@ -1079,20 +1385,25 @@
     const segmentProgress = (elapsed % segmentMs) / segmentMs;
     const eased = segmentProgress * segmentProgress * (3 - (2 * segmentProgress));
     const point = interpolatePoint(offsets[segmentIndex], offsets[(segmentIndex + 1) % offsets.length], eased);
-    const baseLeft = homeZone.left + point.left;
-    const baseTop = homeZone.top + point.top;
+    const baseLeft = baseZone.left + point.left;
+    const baseTop = baseZone.top + point.top;
 
     return {
       left: formatPercent(baseLeft),
       top: formatPercent(baseTop),
       zIndex: Math.round(100 + baseTop),
-      isWalking: segmentProgress > 0.1 && segmentProgress < 0.9,
-      stationId: homeZone.id,
-      stationLabel: homeZone.label,
-      poseClass: homeZone.poseClass,
-      workClass: homeZone.workClass,
+      isWalking: segmentProgress > 0.1 && segmentProgress < 0.9 && profile.motionIntensity > 0.45,
+      stationId: profile.stationId || baseZone.id,
+      stationLabel: profile.stationLabel || baseZone.label,
+      poseClass: profile.poseClass || baseZone.poseClass,
+      workClass: profile.workClass || baseZone.workClass,
       isCheckingIn: false,
-      isWorkingAtStation: true,
+      isWorkingAtStation: profile.isWorkingAtStation,
+      activityLevel: profile.activityLevel,
+      motionIntensity: profile.motionIntensity,
+      taskId: profile.taskId,
+      taskStatus: profile.taskStatus,
+      targetAgentId: "",
     };
   }
 
@@ -1153,6 +1464,7 @@
     mapAgentForRoom,
     getAgentCharacterStyle,
     getHQWorkZones,
+    getHQAgentStationProfile,
     getHQAgentMotionState,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
