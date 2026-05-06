@@ -37,8 +37,17 @@ function generateAgentReply({ agent, message, context = {} }) {
   const topic = context.topic ? ` around ${context.topic}` : "";
   const variation = (context.variation || "expand").toLowerCase();
   const role = (agent.role || "").toLowerCase();
+  const phase = (context.phase || "").toLowerCase();
+
+  if (phase === "observe" && role.includes("planning")) {
+    return `${contextCue}strategic observation: find the gap before we choose the priority.`;
+  }
 
   if (role.includes("planning")) {
+    if (phase === "plan") {
+      return `${contextCue}the planning move is to choose the priority and turn it into a concrete task.`;
+    }
+
     if (variation === "challenge") {
       return `${contextCue}we should rank the options by urgency, upside, and effort${topic}.`;
     }
@@ -47,6 +56,10 @@ function generateAgentReply({ agent, message, context = {} }) {
   }
 
   if (role.includes("discovery")) {
+    if (phase === "observe") {
+      return `${contextCue}I am checking discovery gaps before we treat this as validated.`;
+    }
+
     if (variation === "question") {
       return `${contextCue}what user or competitor signal would prove this is worth pursuing${topic}?`;
     }
@@ -55,6 +68,10 @@ function generateAgentReply({ agent, message, context = {} }) {
   }
 
   if (role.includes("product")) {
+    if (phase === "execute") {
+      return `${contextCue}I would move the active build task forward and leave a small demo point.`;
+    }
+
     return `${contextCue}I would turn this into a small build step with a clear handoff and demo point.`;
   }
 
@@ -63,7 +80,19 @@ function generateAgentReply({ agent, message, context = {} }) {
   }
 
   if (role.includes("task manager")) {
+    if (phase === "execute") {
+      return `${contextCue}move the active task forward, confirm the owner, and set the next checkpoint.`;
+    }
+
     return `${contextCue}assign one owner, move the active task forward, and note the next checkpoint.`;
+  }
+
+  if (phase === "observe") {
+    return `${contextCue}I am checking gaps before we commit.`;
+  }
+
+  if (phase === "review") {
+    return `${contextCue}capture progress, decisions, and the next handoff.`;
   }
 
   if (role.includes("discussion")) {

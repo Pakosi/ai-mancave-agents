@@ -256,6 +256,46 @@
       });
   }
 
+  function loadAgentGoals(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/agent-goals`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onGoals) {
+          options.onGoals(data.goals);
+        }
+
+        return data.goals;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function loadOperatingRhythm(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/operating-rhythm`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onRhythm) {
+          options.onRhythm(data.rhythm);
+        }
+
+        return data.rhythm;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function createTask(task, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = task.roomId || options.roomId || getSelectedRoomId(options.storage);
@@ -491,6 +531,27 @@
     };
   }
 
+  function mapAgentGoalForDisplay(goal, agents = []) {
+    const agent = agents.find((item) => item.id === goal.agentId);
+
+    return {
+      agentId: goal.agentId,
+      agentName: agent ? agent.name : goal.agentId,
+      currentGoal: goal.currentGoal,
+      focusArea: goal.focusArea,
+      successCriteria: goal.successCriteria,
+      activeRoomId: goal.activeRoomId,
+      status: goal.status,
+    };
+  }
+
+  function mapOperatingRhythmForDisplay(rhythm = {}) {
+    return {
+      phase: rhythm.phase || "observe",
+      cycleText: rhythm.cycleNumber ? `Cycle ${rhythm.cycleNumber}` : "Cycle 1",
+    };
+  }
+
   function getRoomName(rooms = [], roomId) {
     const room = rooms.find((item) => item.id === roomId);
 
@@ -560,17 +621,21 @@
     getRoomActivityView,
     getSelectedRoom,
     loadAgents,
+    loadAgentGoals,
     loadCompanyPlan,
     loadDecisions,
     loadMemoryEvents,
     loadMessages,
+    loadOperatingRhythm,
     loadRooms,
     loadTasks,
     mapAgentForOption,
+    mapAgentGoalForDisplay,
     mapAgentForRoom,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,
+    mapOperatingRhythmForDisplay,
     mapMessageForDisplay,
     mapRoomForOption,
     mapTaskForDisplay,

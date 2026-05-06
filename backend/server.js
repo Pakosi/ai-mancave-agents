@@ -5,6 +5,14 @@ const path = require("node:path");
 
 const { generateAgentReply } = require("./aiProvider");
 const {
+  createDefaultAgentGoals,
+  getGoalForAgent,
+  getOperatingRhythm,
+  goalMatchesTask,
+  normalizeAgentGoals,
+  updateGoalForCoordinator,
+} = require("./agentGoals");
+const {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
@@ -26,6 +34,7 @@ app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
 app.locals.tasksFile = path.join(__dirname, "data", "tasks.json");
 app.locals.companyPlanFile = path.join(__dirname, "data", "company-plan.json");
 app.locals.decisionLogFile = path.join(__dirname, "data", "decision-log.json");
+app.locals.agentGoalsFile = path.join(__dirname, "data", "agent-goals.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -120,6 +129,27 @@ function writeDecisionLog(log) {
   writeJsonFile(app.locals.decisionLogFile, normalizedLog);
 
   return normalizedLog;
+}
+
+function readAgentGoals() {
+  if (!fs.existsSync(app.locals.agentGoalsFile)) {
+    const goals = createDefaultAgentGoals(agents);
+    writeJsonFile(app.locals.agentGoalsFile, goals);
+
+    return goals;
+  }
+
+  const goals = normalizeAgentGoals(readJsonFile(app.locals.agentGoalsFile), agents);
+  writeJsonFile(app.locals.agentGoalsFile, goals);
+
+  return goals;
+}
+
+function writeAgentGoals(goals) {
+  const normalizedGoals = normalizeAgentGoals(goals, agents);
+  writeJsonFile(app.locals.agentGoalsFile, normalizedGoals);
+
+  return normalizedGoals;
 }
 
 function getNextId(items) {
@@ -469,7 +499,7 @@ function taskMatchesPlan(task, plan) {
   return textMatchesTerms(text, terms);
 }
 
-function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan()) {
+function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan(), goal = null) {
   const activeTasks = getActiveRoomTasks(tasks, roomId);
 
   if (activeTasks.length === 0) {
@@ -479,13 +509,21 @@ function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan()) {
   const specializedTasks = activeTasks.filter((task) => taskMatchesAgent(task, agent));
   const planTasks = activeTasks.filter((task) => taskMatchesPlan(task, plan));
   const planSpecializedTasks = specializedTasks.filter((task) => taskMatchesPlan(task, plan));
-  const candidates = planSpecializedTasks.length > 0
-    ? planSpecializedTasks
-    : specializedTasks.length > 0
-      ? specializedTasks
-      : planTasks.length > 0
-        ? planTasks
-        : activeTasks;
+  const goalTasks = activeTasks.filter((task) => goalMatchesTask(task, goal));
+  const goalSpecializedTasks = specializedTasks.filter((task) => goalMatchesTask(task, goal));
+  let candidates = activeTasks;
+
+  if (planSpecializedTasks.length > 0) {
+    candidates = planSpecializedTasks;
+  } else if (goalSpecializedTasks.length > 0) {
+    candidates = goalSpecializedTasks;
+  } else if (specializedTasks.length > 0) {
+    candidates = specializedTasks;
+  } else if (goalTasks.length > 0) {
+    candidates = goalTasks;
+  } else if (planTasks.length > 0) {
+    candidates = planTasks;
+  }
 
   return candidates[app.locals.agentThoughtIndex % candidates.length];
 }
@@ -635,10 +673,11 @@ function chooseNextAgent(lastSpeakerId, roomId) {
   return agent;
 }
 
-function getAgentTaskDraft(agent, roomId, topic, message, plan = readCompanyPlan()) {
+function getAgentTaskDraft(agent, roomId, topic, message, plan = readCompanyPlan(), goal = null, rhythm = getOperatingRhythm()) {
   const roomBrief = getRoomBrief(roomId);
   const planFocus = getPrimaryPlanFocus(plan);
-  const cleanTopic = topic && topic !== "the current business idea" ? topic : planFocus;
+  const goalFocus = goal ? goal.currentGoal : planFocus;
+  const cleanTopic = topic && topic !== "the current business idea" ? topic : goalFocus;
   const tendency = agent.taskTendencies[app.locals.agentThoughtIndex % agent.taskTendencies.length];
   const prefixByAgent = {
     analyst: "Define metrics and risks for",
@@ -652,8 +691,8 @@ function getAgentTaskDraft(agent, roomId, topic, message, plan = readCompanyPlan
   const prefix = prefixByAgent[agent.id] || `Clarify ${tendency} for`;
 
   return {
-    title: `${prefix} ${cleanTopic}`.slice(0, 80),
-    description: `${agent.role}: ${roomBrief} Objective: ${plan.currentObjective} Follow up on: ${message}`.slice(0, 220),
+    title: `${rhythm.phase}: ${prefix} ${cleanTopic}`.slice(0, 80),
+    description: `${agent.role}: ${roomBrief} Goal: ${goalFocus} Objective: ${plan.currentObjective} Follow up on: ${message}`.slice(0, 240),
   };
 }
 
@@ -677,6 +716,8 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const allMessages = readMessages();
   const allTasks = readTasks();
   const companyPlan = readCompanyPlan();
+  const rhythm = getOperatingRhythm(app.locals.agentThoughtIndex);
+  const agentGoals = readAgentGoals();
   const contextMessages = getRoomMessages(allMessages, sessionId, normalizedRoomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
@@ -684,14 +725,15 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const agent = requestedAgent && requestedAgent.id !== lastSpeakerId
     ? requestedAgent
     : chooseNextAgent(lastSpeakerId, normalizedRoomId);
-  const selectedTask = selectRoomTask(allTasks, normalizedRoomId, agent, companyPlan);
+  const agentGoal = getGoalForAgent(agentGoals, agent.id);
+  const selectedTask = selectRoomTask(allTasks, normalizedRoomId, agent, companyPlan, agentGoal);
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const roomBrief = getRoomBrief(normalizedRoomId);
-  const fallbackMessage = `${businessTopic} ${roomBrief} Objective: ${companyPlan.currentObjective} ${prompt}`;
+  const fallbackMessage = `${businessTopic} ${roomBrief} Phase: ${rhythm.phase}. Goal: ${agentGoal ? agentGoal.currentGoal : "no goal"}. Objective: ${companyPlan.currentObjective} ${prompt}`;
   const selectedMessage = selectedTask
     ? `${targetMessage ? targetMessage.message : fallbackMessage} Task focus: ${selectedTask.title}`
-    : targetMessage ? `${targetMessage.message} Objective: ${companyPlan.currentObjective}` : fallbackMessage;
+    : targetMessage ? `${targetMessage.message} Phase: ${rhythm.phase}. Goal: ${agentGoal ? agentGoal.currentGoal : "no goal"}. Objective: ${companyPlan.currentObjective}` : fallbackMessage;
   const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
   const reply = addRoomBriefCue(addTaskReference(generateAgentReply({
@@ -702,6 +744,8 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
       messages: contextMessages,
       target: targetMessage,
       variation,
+      phase: rhythm.phase,
+      goal: agentGoal,
     },
   }), selectedTask), normalizedRoomId);
 
@@ -729,6 +773,7 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     sessionId,
     task: selectedTask,
     tasks: allTasks,
+    rhythm,
   });
   maybeCreateAutonomousTask({
     agentId: agent.id,
@@ -736,6 +781,8 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     topic,
     message: reply,
     plan: companyPlan,
+    goal: agentGoal,
+    rhythm,
   });
   maybeUpdateCompanyPlan({
     agent,
@@ -743,6 +790,14 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     topic,
     task: selectedTask,
     plan: companyPlan,
+    rhythm,
+  });
+  maybeUpdateAgentGoals({
+    agent,
+    goals: agentGoals,
+    roomId: normalizedRoomId,
+    topic,
+    rhythm,
   });
 
   return storedMessage;
@@ -823,14 +878,46 @@ function maybeUpdateCompanyPlan({ agent, roomId, topic, task, plan }) {
   return writtenPlan;
 }
 
-function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
+function maybeUpdateAgentGoals({ agent, goals, roomId, topic, rhythm }) {
+  const result = updateGoalForCoordinator({
+    goals,
+    agent,
+    roomId,
+    topic,
+    phase: rhythm.phase,
+  });
+
+  if (!result.updatedGoal) {
+    return null;
+  }
+
+  writeAgentGoals(result.goals);
+
+  if (rhythm.phase === "review") {
+    const memory = createMemoryEvent({
+      log: readDecisionLog(),
+      roomId,
+      type: "goal_updated",
+      summary: `${agent.name} updated ${result.updatedGoal.agentId} goal: ${result.updatedGoal.currentGoal}`,
+      importance: "medium",
+    });
+
+    if (memory.entry) {
+      writeDecisionLog(memory.log);
+    }
+  }
+
+  return result.updatedGoal;
+}
+
+function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks, rhythm = getOperatingRhythm(app.locals.agentThoughtIndex) }) {
   const agent = agents[agentId];
 
   if (!agent || !agent.allowedActions.includes("advance_tasks")) {
     return null;
   }
 
-  if (!task || app.locals.agentThoughtIndex % 2 !== 0) {
+  if (!task || (rhythm.phase !== "execute" && app.locals.agentThoughtIndex % 2 !== 0)) {
     return null;
   }
 
@@ -860,7 +947,15 @@ function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
   });
 }
 
-function maybeCreateAutonomousTask({ agentId, roomId, topic, message, plan = readCompanyPlan() }) {
+function maybeCreateAutonomousTask({
+  agentId,
+  roomId,
+  topic,
+  message,
+  plan = readCompanyPlan(),
+  goal = null,
+  rhythm = getOperatingRhythm(app.locals.agentThoughtIndex),
+}) {
   const agent = agents[agentId];
 
   if (!agent || !agent.allowedActions.includes("create_tasks")) {
@@ -878,7 +973,7 @@ function maybeCreateAutonomousTask({ agentId, roomId, topic, message, plan = rea
     return null;
   }
 
-  const draft = getAgentTaskDraft(agent, roomId, topic, message, plan);
+  const draft = getAgentTaskDraft(agent, roomId, topic, message, plan, goal, rhythm);
 
   return createTask({
     roomId,
@@ -1001,6 +1096,14 @@ app.get("/api/memory-events", (req, res) => {
   const log = readDecisionLog();
 
   res.json({ memoryEvents: filterByRoom(log.memoryEvents, roomId) });
+});
+
+app.get("/api/agent-goals", (req, res) => {
+  res.json({ goals: readAgentGoals() });
+});
+
+app.get("/api/operating-rhythm", (req, res) => {
+  res.json({ rhythm: getOperatingRhythm(app.locals.agentThoughtIndex) });
 });
 
 app.get("/api/tasks", (req, res) => {
@@ -1165,7 +1268,9 @@ if (require.main === module) {
 }
 
 app.locals.createAgentThought = createAgentThought;
+app.locals.getOperatingRhythmForTest = getOperatingRhythm;
 app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.readAgentGoalsForTest = readAgentGoals;
 app.locals.readDecisionLogForTest = readDecisionLog;
 app.locals.readCompanyPlanForTest = readCompanyPlan;
 app.locals.readMessagesForTest = readMessages;
@@ -1174,6 +1279,7 @@ app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.selectRoomTaskForTest = selectRoomTask;
 app.locals.writeDecisionLogForTest = writeDecisionLog;
 app.locals.writeCompanyPlanForTest = writeCompanyPlan;
+app.locals.writeAgentGoalsForTest = writeAgentGoals;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 
 module.exports = app;

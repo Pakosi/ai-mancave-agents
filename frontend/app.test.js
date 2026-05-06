@@ -13,17 +13,21 @@ const {
   getRoomActivityView,
   getSelectedRoom,
   loadAgents,
+  loadAgentGoals,
   loadCompanyPlan,
   loadDecisions,
   loadMemoryEvents,
   loadMessages,
+  loadOperatingRhythm,
   loadRooms,
   loadTasks,
   mapAgentForOption,
+  mapAgentGoalForDisplay,
   mapAgentForRoom,
   mapCompanyPlanForDisplay,
   mapDecisionForDisplay,
   mapMemoryEventForDisplay,
+  mapOperatingRhythmForDisplay,
   mapMessageForDisplay,
   mapRoomForOption,
   mapTaskForDisplay,
@@ -293,6 +297,58 @@ test("loadMemoryEvents calls /api/memory-events with room filter", async () => {
   assert.deepEqual(events, responseEvents);
   assert.deepEqual(callbacks, [responseEvents]);
   assert.equal(calls[0].url, "http://test.local/api/memory-events?roomId=ops");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadAgentGoals calls /api/agent-goals and returns goals", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseGoals = [
+    { agentId: "manager", currentGoal: "Coordinate work" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ goals: responseGoals }));
+  };
+
+  const goals = await loadAgentGoals({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onGoals(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(goals, responseGoals);
+  assert.deepEqual(callbacks, [responseGoals]);
+  assert.equal(calls[0].url, "http://test.local/api/agent-goals");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadOperatingRhythm calls /api/operating-rhythm and returns rhythm", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseRhythm = {
+    phase: "execute",
+    cycleNumber: 2,
+    phases: ["observe", "plan", "execute", "review"],
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ rhythm: responseRhythm }));
+  };
+
+  const rhythm = await loadOperatingRhythm({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onRhythm(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(rhythm, responseRhythm);
+  assert.deepEqual(callbacks, [responseRhythm]);
+  assert.equal(calls[0].url, "http://test.local/api/operating-rhythm");
   assert.equal(calls[0].options, undefined);
 });
 
@@ -671,6 +727,39 @@ test("mapMemoryEventForDisplay maps memory panel data", () => {
     summary: "Completed checklist.",
     meta: "task_completed · high",
     timestamp: "2026-05-06T10:00:00.000Z",
+  });
+});
+
+test("mapAgentGoalForDisplay maps goal panel data", () => {
+  const goal = mapAgentGoalForDisplay({
+    agentId: "manager",
+    currentGoal: "Coordinate the room",
+    focusArea: "coordination",
+    successCriteria: "Owners are clear",
+    activeRoomId: "ops",
+    status: "active",
+  }, [
+    { id: "manager", name: "Manager" },
+  ]);
+
+  assert.deepEqual(goal, {
+    agentId: "manager",
+    agentName: "Manager",
+    currentGoal: "Coordinate the room",
+    focusArea: "coordination",
+    successCriteria: "Owners are clear",
+    activeRoomId: "ops",
+    status: "active",
+  });
+});
+
+test("mapOperatingRhythmForDisplay maps phase display", () => {
+  assert.deepEqual(mapOperatingRhythmForDisplay({
+    phase: "review",
+    cycleNumber: 3,
+  }), {
+    phase: "review",
+    cycleText: "Cycle 3",
   });
 });
 

@@ -232,6 +232,7 @@
       padding: 1rem;
     }
 
+    .goals-panel,
     .memory-panel,
     .plan-panel,
     .tasks-panel {
@@ -242,6 +243,7 @@
     }
 
     .activity h2,
+    .goals-panel h2,
     .memory-panel h2,
     .plan-panel h2,
     .tasks-panel h2 {
@@ -255,6 +257,19 @@
       font-weight: 700;
       line-height: 1.35;
       margin-bottom: 0.8rem;
+    }
+
+    .phase-pill {
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      color: #3730a3;
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-bottom: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      text-transform: uppercase;
     }
 
     .plan-group {
@@ -330,6 +345,31 @@
       font-size: 0.72rem;
       font-weight: 700;
       margin-top: 0.25rem;
+    }
+
+    .goal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .goal-item {
+      border-left: 2px solid #cbd5e1;
+      padding-left: 0.55rem;
+    }
+
+    .goal-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .goal-meta {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      text-transform: capitalize;
     }
 
     .task-list {
@@ -546,6 +586,11 @@
           <div id="companyPlan"></div>
         </section>
 
+        <section class="goals-panel">
+          <h2>Agent Goals</h2>
+          <div id="agentGoals"></div>
+        </section>
+
         <section class="memory-panel">
           <h2>Decisions / Memory</h2>
           <div id="decisionMemory"></div>
@@ -564,6 +609,7 @@
     const activityFeed = document.getElementById("activityFeed");
     const activeRoom = document.getElementById("activeRoom");
     const agentSelect = document.getElementById("agentSelect");
+    const agentGoals = document.getElementById("agentGoals");
     const companyPlan = document.getElementById("companyPlan");
     const decisionMemory = document.getElementById("decisionMemory");
     const error = document.getElementById("error");
@@ -580,7 +626,9 @@
     let loadedRooms = [];
     let currentMessages = [];
     let currentDecisions = [];
+    let currentAgentGoals = [];
     let currentMemoryEvents = [];
+    let currentRhythm = {};
     let autonomousThinkingAgentId = "";
     let manualThinkingAgentId = "";
 
@@ -768,17 +816,57 @@
 
       companyPlan.textContent = "";
 
+      const rhythm = WOYSApp.mapOperatingRhythmForDisplay(currentRhythm);
+      const phase = document.createElement("div");
+      phase.className = "phase-pill";
+      phase.textContent = `${rhythm.phase} · ${rhythm.cycleText}`;
+
       const objective = document.createElement("div");
       objective.className = "plan-objective";
       objective.textContent = view.currentObjective;
 
       companyPlan.append(
+        phase,
         objective,
         renderPlanList("Priorities", view.activePriorities),
         renderPlanList("Risks", view.keyRisks),
         renderPlanList("Next actions", view.nextRecommendedActions),
         renderPlanList("Decisions", view.recentDecisions),
       );
+    }
+
+    function renderAgentGoals() {
+      agentGoals.textContent = "";
+
+      if (currentAgentGoals.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No goals yet.";
+        agentGoals.appendChild(empty);
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "goal-list";
+
+      currentAgentGoals.slice(0, 5).forEach(goal => {
+        const view = WOYSApp.mapAgentGoalForDisplay(goal, loadedAgents);
+        const item = document.createElement("div");
+        item.className = "goal-item";
+
+        const title = document.createElement("div");
+        title.className = "goal-title";
+        title.textContent = `${view.agentName}: ${view.currentGoal}`;
+
+        const meta = document.createElement("div");
+        meta.className = "goal-meta";
+        meta.textContent = `${view.status} · ${view.activeRoomId} · ${view.focusArea}`;
+
+        item.append(title, meta);
+        list.appendChild(item);
+      });
+
+      agentGoals.appendChild(list);
     }
 
     function renderMemorySection(titleText, items, mapItem) {
@@ -884,14 +972,43 @@
     }
 
     function loadCompanyPlan() {
-      return WOYSApp.loadCompanyPlan({
-        onPlan(plan) {
-          renderCompanyPlan(plan);
+      let loadedPlan = null;
+
+      return Promise.all([
+        WOYSApp.loadOperatingRhythm({
+          onRhythm(rhythm) {
+            currentRhythm = rhythm;
+          },
+          onError(err) {
+            console.error(err);
+            setError("Could not load operating rhythm.");
+          },
+        }).catch(() => {}),
+        WOYSApp.loadCompanyPlan({
+          onPlan(plan) {
+            loadedPlan = plan;
+            setError("");
+          },
+          onError(err) {
+            console.error(err);
+            setError("Could not load company plan.");
+          },
+        }).catch(() => {}),
+      ]).then(() => {
+        renderCompanyPlan(loadedPlan || {});
+      });
+    }
+
+    function loadAgentGoals() {
+      return WOYSApp.loadAgentGoals({
+        onGoals(items) {
+          currentAgentGoals = items;
+          renderAgentGoals();
           setError("");
         },
         onError(err) {
           console.error(err);
-          setError("Could not load company plan.");
+          setError("Could not load agent goals.");
         },
       }).catch(() => {});
     }
@@ -1016,7 +1133,7 @@
           }).catch(() => {});
         })
         .then(() => {
-          return Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadDecisionMemory()]);
+          return Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
         })
         .catch(() => {})
         .finally(() => {
@@ -1047,7 +1164,7 @@
       WOYSApp.saveSelectedRoomId(roomSelect.value);
       autonomousThinkingAgentId = "";
       renderRoomBrief();
-      Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadDecisionMemory()]);
+      Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
     });
 
     taskList.addEventListener("click", event => {
@@ -1064,7 +1181,7 @@
           setError("Could not update task.");
         },
       })
-        .then(() => Promise.all([loadTasks(), loadMessages(), loadCompanyPlan(), loadDecisionMemory()]))
+        .then(() => Promise.all([loadTasks(), loadMessages(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]))
         .catch(() => {})
         .finally(() => {
           button.disabled = false;
@@ -1075,11 +1192,13 @@
       loadMessages(),
       loadTasks(),
       loadCompanyPlan(),
+      loadAgentGoals(),
       loadDecisionMemory(),
     ]));
     setInterval(loadMessages, 2000);
     setInterval(loadTasks, 4000);
     setInterval(loadCompanyPlan, 5000);
+    setInterval(loadAgentGoals, 5000);
     setInterval(loadDecisionMemory, 5000);
   </script>
 </body>

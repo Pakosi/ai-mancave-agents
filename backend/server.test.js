@@ -14,6 +14,7 @@ function resetMessages() {
   app.locals.tasksFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-tasks.json`);
   app.locals.companyPlanFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-company-plan.json`);
   app.locals.decisionLogFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-decision-log.json`);
+  app.locals.agentGoalsFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-agent-goals.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -342,6 +343,71 @@ test("GET /api/decisions and /api/memory-events return decision log state", asyn
   assert.deepEqual(opsDecisions.body.decisions.map((decision) => decision.roomId), ["ops"]);
   assert.equal(memoryEvents.body.memoryEvents.length, 1);
   assert.equal(memoryEvents.body.memoryEvents[0].importance, "high");
+});
+
+test("GET /api/agent-goals returns persisted agent goals", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/agent-goals");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.goals.length, 8);
+
+  for (const goal of response.body.goals) {
+    assert.equal(typeof goal.agentId, "string");
+    assert.equal(typeof goal.currentGoal, "string");
+    assert.equal(typeof goal.focusArea, "string");
+    assert.equal(typeof goal.successCriteria, "string");
+    assert.equal(typeof goal.activeRoomId, "string");
+    assert.equal(typeof goal.lastUpdated, "string");
+    assert.match(goal.status, /^(active|blocked|complete)$/);
+  }
+});
+
+test("GET /api/operating-rhythm returns current phase", async (t) => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 2;
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/operating-rhythm");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.rhythm.phase, "execute");
+  assert.equal(response.body.rhythm.cycleNumber, 1);
+  assert.deepEqual(response.body.rhythm.phases, ["observe", "plan", "execute", "review"]);
+});
+
+test("agent goals persist through file storage", () => {
+  resetMessages();
+
+  app.locals.writeAgentGoalsForTest([
+    {
+      agentId: "manager",
+      currentGoal: "Coordinate launch tasks",
+      focusArea: "coordination",
+      successCriteria: "Every task has an owner",
+      activeRoomId: "ops",
+      lastUpdated: "2026-05-06T10:00:00.000Z",
+      status: "active",
+    },
+  ]);
+
+  const goals = app.locals.readAgentGoalsForTest();
+  const managerGoal = goals.find((goal) => goal.agentId === "manager");
+
+  assert.equal(managerGoal.currentGoal, "Coordinate launch tasks");
+  assert.equal(managerGoal.activeRoomId, "ops");
 });
 
 test("decision log persists through file storage", () => {
@@ -1221,6 +1287,81 @@ test("autonomous eligible agents can create decision entries and sync plan decis
   assert.equal(log.decisions[0].roomId, "marketing");
   assert.match(log.decisions[0].title, /Prioritize/);
   assert.deepEqual(plan.recentDecisions.slice(0, 1), [log.decisions[0].title]);
+});
+
+test("autonomous manager updates agent goals and can create goal memory during review", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 3;
+
+  app.locals.createAgentThought("manager", "ops");
+
+  const goals = app.locals.readAgentGoalsForTest();
+  const log = app.locals.readDecisionLogForTest();
+  const updatedGoal = goals.find((goal) => goal.activeRoomId === "ops" && goal.currentGoal.startsWith("review:"));
+
+  assert.ok(updatedGoal);
+  assert.match(updatedGoal.successCriteria, /review step/);
+  assert.ok(log.memoryEvents.some((event) => (
+    event.type === "goal_updated" && event.summary.includes(updatedGoal.agentId)
+  )));
+});
+
+test("agent goals influence autonomous task selection", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  app.locals.writeAgentGoalsForTest([
+    {
+      agentId: "assistant",
+      currentGoal: "Improve onboarding checklist",
+      focusArea: "onboarding",
+      successCriteria: "Finish onboarding checklist",
+      activeRoomId: "ops",
+      lastUpdated: "2026-05-06T10:00:00.000Z",
+      status: "active",
+    },
+  ]);
+  await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Generic support cleanup",
+    assignedAgentId: "host",
+  });
+  const goalTask = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Improve onboarding checklist",
+    assignedAgentId: "host",
+  });
+
+  const selectedTask = app.locals.selectRoomTaskForTest(
+    app.locals.readTasksForTest(),
+    "ops",
+    undefined,
+    app.locals.readCompanyPlanForTest(),
+    app.locals.readAgentGoalsForTest().find((goal) => goal.agentId === "assistant"),
+  );
+
+  assert.equal(selectedTask.id, goalTask.body.id);
+});
+
+test("operating rhythm phase influences autonomous replies and task creation", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 0;
+
+  const observeThought = app.locals.createAgentThought("researcher", "marketing");
+
+  assert.match(observeThought.message, /gaps|context|missing proof/);
+
+  app.locals.agentThoughtIndex = 3;
+  app.locals.createAgentThought("strategist", "marketing");
+  const tasks = app.locals.readTasksForTest();
+
+  assert.match(tasks[0].title, /^review:/);
+  assert.match(tasks[0].description, /Goal:/);
 });
 
 test("task completion creates a memory event", async (t) => {
