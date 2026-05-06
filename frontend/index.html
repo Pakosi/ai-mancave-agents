@@ -336,11 +336,7 @@
     <div class="toolbar">
       <h1>WOYS Room</h1>
       <div class="controls">
-        <select id="roomSelect" name="room">
-          <option value="main">Main</option>
-          <option value="sales">Sales</option>
-          <option value="support">Support</option>
-        </select>
+        <select id="roomSelect" name="room"></select>
       </div>
     </div>
 
@@ -383,11 +379,10 @@
     const sendButton = document.getElementById("sendButton");
     const youMessage = document.getElementById("youMessage");
     let loadedAgents = [];
+    let loadedRooms = [];
     let currentMessages = [];
     let autonomousThinkingAgentId = "";
     let manualThinkingAgentId = "";
-
-    roomSelect.value = WOYSApp.getSelectedRoomId();
 
     function setError(message) {
       error.textContent = message || "";
@@ -528,6 +523,24 @@
       renderRoom([]);
     }
 
+    function renderRooms(items) {
+      loadedRooms = items;
+      roomSelect.textContent = "";
+
+      items.forEach(item => {
+        const optionData = WOYSApp.mapRoomForOption(item);
+        const option = document.createElement("option");
+
+        option.value = optionData.value;
+        option.textContent = optionData.text;
+
+        roomSelect.appendChild(option);
+      });
+
+      roomSelect.value = WOYSApp.getSelectedRoomId(items);
+      WOYSApp.saveSelectedRoomId(roomSelect.value);
+    }
+
     function loadAgents() {
       return WOYSApp.loadAgents({
         onAgents(items) {
@@ -537,6 +550,19 @@
         onError(err) {
           console.error(err);
           setError("Could not load agents.");
+        },
+      }).catch(() => {});
+    }
+
+    function loadRooms() {
+      return WOYSApp.loadRooms({
+        onRooms(items) {
+          renderRooms(items);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not load rooms.");
         },
       }).catch(() => {});
     }
@@ -595,10 +621,11 @@
 
     roomSelect.addEventListener("change", () => {
       WOYSApp.saveSelectedRoomId(roomSelect.value);
+      autonomousThinkingAgentId = "";
       loadMessages();
     });
 
-    loadAgents().then(loadMessages);
+    Promise.all([loadAgents(), loadRooms()]).then(loadMessages);
     setInterval(loadMessages, 2000);
   </script>
 </body>

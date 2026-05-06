@@ -81,14 +81,26 @@
     root.__woysSelectedRoomId = roomId;
   }
 
-  function getSelectedRoomId(storage) {
-    const selectedRoomStorage = storage || root.localStorage;
+  function getSelectedRoomId(roomsOrStorage, storage) {
+    const rooms = Array.isArray(roomsOrStorage) ? roomsOrStorage : null;
+    const selectedRoomStorage = rooms ? storage || root.localStorage : roomsOrStorage || root.localStorage;
+    let selectedRoomId = root.__woysSelectedRoomId || "main";
 
     if (selectedRoomStorage && typeof selectedRoomStorage.getItem === "function") {
-      return selectedRoomStorage.getItem("woysSelectedRoomId") || "main";
+      selectedRoomId = selectedRoomStorage.getItem("woysSelectedRoomId") || "main";
     }
 
-    return root.__woysSelectedRoomId || "main";
+    if (!rooms) {
+      return selectedRoomId;
+    }
+
+    const selectedRoom = rooms.find((room) => room.id === selectedRoomId);
+
+    if (selectedRoom) {
+      return selectedRoom.id;
+    }
+
+    return rooms.length > 0 ? rooms[0].id : "main";
   }
 
   function loadMessages(options = {}) {
@@ -128,6 +140,26 @@
         }
 
         return data.agents;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function loadRooms(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/rooms`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onRooms) {
+          options.onRooms(data.rooms);
+        }
+
+        return data.rooms;
       })
       .catch((err) => {
         if (options.onError) {
@@ -227,6 +259,13 @@
     };
   }
 
+  function mapRoomForOption(room) {
+    return {
+      value: room.id,
+      text: room.name,
+    };
+  }
+
   const agentRoomPositions = {
     host: { left: "18%", top: "45%" },
     assistant: { left: "50%", top: "32%" },
@@ -271,9 +310,11 @@
     getSavedSelectedAgentId,
     loadAgents,
     loadMessages,
+    loadRooms,
     mapAgentForOption,
     mapAgentForRoom,
     mapMessageForDisplay,
+    mapRoomForOption,
     getNewestAgentMessage,
     getLatestUserMessage,
     saveSelectedAgentId,

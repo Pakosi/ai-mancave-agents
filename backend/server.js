@@ -12,6 +12,8 @@ app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
   nextAgentId: null,
+  sessionId: "default",
+  roomId: "main",
   topic: "",
 };
 app.locals.topicMemory = {};
@@ -97,6 +99,25 @@ const agents = {
   },
 };
 
+const rooms = {
+  main: {
+    id: "main",
+    name: "Main Office",
+  },
+  auto: {
+    id: "auto",
+    name: "Auto Sales Lab",
+  },
+  marketing: {
+    id: "marketing",
+    name: "Marketing War Room",
+  },
+  ops: {
+    id: "ops",
+    name: "Operations Desk",
+  },
+};
+
 const businessTopic = "AI Mancave: a practical workspace where agents brainstorm offers, support flows, and sales angles for small teams.";
 const thoughtPrompts = [
   "Find one useful business idea for the room.",
@@ -114,6 +135,13 @@ function getPublicAgents() {
     name,
     label,
     color,
+  }));
+}
+
+function getPublicRooms() {
+  return Object.values(rooms).map(({ id, name }) => ({
+    id,
+    name,
   }));
 }
 
@@ -264,6 +292,8 @@ function createAgentThought(agentId) {
   app.locals.agentThoughtState = {
     isThinking: false,
     nextAgentId: null,
+    sessionId,
+    roomId,
     topic,
   };
 
@@ -274,11 +304,14 @@ function getRandomThoughtDelay() {
   return 2000 + Math.floor(Math.random() * 3001);
 }
 
-function getAgentThoughtActivity() {
+function getAgentThoughtActivity(sessionId = "default", roomId = "main") {
+  const state = app.locals.agentThoughtState;
+  const isCurrentRoom = getSessionId(state.sessionId) === sessionId && getRoomId(state.roomId) === roomId;
+
   return {
-    isThinking: Boolean(app.locals.agentThoughtState.isThinking),
-    nextAgentId: app.locals.agentThoughtState.nextAgentId,
-    topic: app.locals.agentThoughtState.topic || "",
+    isThinking: isCurrentRoom && Boolean(state.isThinking),
+    nextAgentId: isCurrentRoom ? state.nextAgentId : null,
+    topic: isCurrentRoom ? state.topic || "" : "",
   };
 }
 
@@ -298,6 +331,8 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
   app.locals.agentThoughtState = {
     isThinking: true,
     nextAgentId: agent.id,
+    sessionId,
+    roomId,
     topic,
   };
 
@@ -332,12 +367,16 @@ app.get("/api/messages", (req, res) => {
 
   res.json({
     messages,
-    activity: getAgentThoughtActivity(),
+    activity: getAgentThoughtActivity(sessionId, roomId),
   });
 });
 
 app.get("/api/agents", (req, res) => {
   res.json({ agents: getPublicAgents() });
+});
+
+app.get("/api/rooms", (req, res) => {
+  res.json({ rooms: getPublicRooms() });
 });
 
 app.post("/api/message", (req, res) => {
@@ -384,11 +423,12 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
 
   const allMessages = readMessages();
   const sessionMessages = getRoomMessages(allMessages, sessionId, roomId);
+  const topic = updateTopicMemory(sessionId, roomId, sessionMessages);
   const reply = generateAgentReply({
     agent,
     message,
     context: {
-      topic: businessTopic,
+      topic,
       messages: sessionMessages,
     },
   });

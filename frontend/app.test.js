@@ -11,9 +11,11 @@ const {
   getNewestAgentMessage,
   loadAgents,
   loadMessages,
+  loadRooms,
   mapAgentForOption,
   mapAgentForRoom,
   mapMessageForDisplay,
+  mapRoomForOption,
   saveSelectedAgentId,
   saveSelectedRoomId,
   sendMessage,
@@ -125,6 +127,33 @@ test("loadAgents calls /api/agents and returns agents", async () => {
   assert.deepEqual(callbacks, [responseAgents]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "http://test.local/api/agents");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadRooms calls /api/rooms and returns rooms", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseRooms = [
+    { id: "main", name: "Main Office" },
+    { id: "auto", name: "Auto Sales Lab" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ rooms: responseRooms }));
+  };
+
+  const rooms = await loadRooms({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onRooms(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(rooms, responseRooms);
+  assert.deepEqual(callbacks, [responseRooms]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/rooms");
   assert.equal(calls[0].options, undefined);
 });
 
@@ -294,6 +323,18 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
   });
 });
 
+test("mapRoomForOption maps backend room for dropdown use", () => {
+  const option = mapRoomForOption({
+    id: "marketing",
+    name: "Marketing War Room",
+  });
+
+  assert.deepEqual(option, {
+    value: "marketing",
+    text: "Marketing War Room",
+  });
+});
+
 test("mapAgentForRoom adds fixed position and latest agent message", () => {
   const roomAgent = mapAgentForRoom(
     { id: "assistant", name: "Assistant", label: "ASSISTANT", color: "#3b82f6" },
@@ -394,8 +435,32 @@ test("saveSelectedRoomId saves selected room", () => {
 
 test("getSelectedRoomId reuses saved selected room", () => {
   const storage = mockStorage({
-    woysSelectedRoomId: "sales",
+    woysSelectedRoomId: "auto",
   });
 
-  assert.equal(getSelectedRoomId(storage), "sales");
+  assert.equal(getSelectedRoomId(storage), "auto");
+});
+
+test("getSelectedRoomId reuses saved room when it exists in loaded rooms", () => {
+  const storage = mockStorage({
+    woysSelectedRoomId: "marketing",
+  });
+  const rooms = [
+    { id: "main" },
+    { id: "marketing" },
+  ];
+
+  assert.equal(getSelectedRoomId(rooms, storage), "marketing");
+});
+
+test("getSelectedRoomId falls back when saved room is invalid", () => {
+  const storage = mockStorage({
+    woysSelectedRoomId: "missing",
+  });
+  const rooms = [
+    { id: "main" },
+    { id: "ops" },
+  ];
+
+  assert.equal(getSelectedRoomId(rooms, storage), "main");
 });

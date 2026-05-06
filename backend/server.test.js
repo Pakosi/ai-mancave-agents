@@ -15,6 +15,8 @@ function resetMessages() {
   app.locals.agentThoughtState = {
     isThinking: false,
     nextAgentId: null,
+    sessionId: "default",
+    roomId: "main",
     topic: "",
   };
   app.locals.topicMemory = {};
@@ -161,6 +163,24 @@ test("GET /api/agents does not expose systemPrompt", async (t) => {
   }
 });
 
+test("GET /api/rooms returns public rooms", async (t) => {
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/rooms");
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body.rooms, [
+    { id: "main", name: "Main Office" },
+    { id: "auto", name: "Auto Sales Lab" },
+    { id: "marketing", name: "Marketing War Room" },
+    { id: "ops", name: "Operations Desk" },
+  ]);
+});
+
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
   resetMessages();
 
@@ -297,19 +317,19 @@ test("GET /api/messages keeps rooms separate", async (t) => {
     sessionId: "alpha",
     roomId: "main",
   });
-  const support = await postJson(server, "/api/message", {
-    message: "support message",
+  const marketing = await postJson(server, "/api/message", {
+    message: "marketing message",
     sessionId: "alpha",
-    roomId: "support",
+    roomId: "marketing",
   });
 
   const mainMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=main");
-  const supportMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=support");
+  const marketingMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=marketing");
 
   assert.equal(mainMessages.statusCode, 200);
-  assert.equal(supportMessages.statusCode, 200);
+  assert.equal(marketingMessages.statusCode, 200);
   assert.deepEqual(mainMessages.body.messages, [main.body]);
-  assert.deepEqual(supportMessages.body.messages, [support.body]);
+  assert.deepEqual(marketingMessages.body.messages, [marketing.body]);
 });
 
 test("POST /api/message returns 400 when message is missing", async (t) => {
@@ -529,6 +549,31 @@ test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) 
   assert.equal(messages.body.messages[0].sessionId, "default");
   assert.equal(messages.body.messages[0].roomId, "main");
   assert.equal(messages.body.messages[0].message, response.body.reply);
+});
+
+test("POST /api/agents/:agentId/reply stores messages in the requested room", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/agents/host/reply", {
+    message: "work on auto follow-up",
+    sessionId: "alpha",
+    roomId: "auto",
+  });
+
+  const autoMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=auto");
+  const mainMessages = await getJson(server, "/api/messages?sessionId=alpha&roomId=main");
+
+  assert.equal(autoMessages.statusCode, 200);
+  assert.equal(mainMessages.statusCode, 200);
+  assert.equal(autoMessages.body.messages.length, 1);
+  assert.equal(autoMessages.body.messages[0].roomId, "auto");
+  assert.deepEqual(mainMessages.body.messages, []);
 });
 
 test("autonomous agent thought stores an agent message", () => {
