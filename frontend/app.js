@@ -745,7 +745,7 @@
     return {
       brief: room.brief,
       value: room.id,
-      text: room.name,
+      text: room.id === "main" ? "AI Mancave HQ" : "HQ",
     };
   }
 
@@ -891,9 +891,11 @@
   }
 
   function getRoomName(rooms = [], roomId) {
-    const room = rooms.find((item) => item.id === roomId);
+    if (roomId === "main") {
+      return "AI Mancave HQ";
+    }
 
-    return room ? room.name : roomId;
+    return "HQ";
   }
 
   function getRoomActivityView(activity = {}, selectedRoomId, rooms = []) {
@@ -902,7 +904,7 @@
 
     return {
       activeRoomText: activeRoomName ? `Active room: ${activeRoomName}` : "Active room",
-      noticeText: otherRoom ? `Activity in ${otherRoom.roomName || getRoomName(rooms, otherRoom.roomId)}` : "",
+      noticeText: otherRoom ? `Activity in ${getRoomName(rooms, otherRoom.roomId)}` : "",
     };
   }
 

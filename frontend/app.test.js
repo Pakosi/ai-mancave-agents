@@ -941,6 +941,15 @@ test("getVisibleAgents hides the internal manager and preserves the SRS roster",
     "builder",
     "analyst",
   ]);
+  assert.deepEqual(visible.map((agent) => mapAgentForOption(agent).text), [
+    "CEO / Principal - Principal",
+    "AI Automation Agent - Automation",
+    "Trading Agent - Trading",
+    "Arbitrage Agent - Arbitrage",
+    "Research Agent - Research",
+    "Builder Agent - Builder",
+    "Analyst Agent - Analyst",
+  ]);
 });
 
 test("getSelectedAgentId can select newly added specialized agents", () => {
@@ -969,7 +978,7 @@ test("mapRoomForOption maps backend room for dropdown use", () => {
   assert.deepEqual(option, {
     brief: "Plan campaigns and content angles.",
     value: "marketing",
-    text: "Strategy Room",
+    text: "HQ",
   });
 });
 
@@ -1087,7 +1096,7 @@ test("mapDecisionForDisplay maps decision panel data", () => {
     id: 7,
     title: "Prioritize pilot",
     summary: "Focus on the pilot workflow.",
-    meta: "Arbitrage Agent · Strategy Room",
+    meta: "Arbitrage Agent · HQ",
     timestamp: "2026-05-06T10:00:00.000Z",
   });
 });
@@ -1655,7 +1664,7 @@ test("getRoomActivityView shows active room and other room notice", () => {
 
   assert.deepEqual(view, {
     activeRoomText: "Active room: AI Mancave HQ",
-    noticeText: "Activity in Strategy Room",
+    noticeText: "Activity in HQ",
   });
 });
 
@@ -1670,7 +1679,7 @@ test("getRoomActivityView hides notice for current room activity", () => {
   }, "ops", rooms);
 
   assert.deepEqual(view, {
-    activeRoomText: "Active room: Operations Desk",
+    activeRoomText: "Active room: HQ",
     noticeText: "",
   });
 });

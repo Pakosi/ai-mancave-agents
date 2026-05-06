@@ -9,7 +9,7 @@
 - Business idea helpers: `backend/businessIdeas.js`.
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
 - Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, `backend/data/agent-goals.json`, and `backend/data/business-ideas.json`.
-- Runtime rooms: AI Mancave HQ, Automation Lab, Strategy Room, and Operations Desk, backed by the internal ids `main`, `auto`, `marketing`, and `ops`.
+- Runtime room: AI Mancave HQ, with internal room ids retained only for compatibility.
 - API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, `/api/operating-rhythm`, and markdown export routes under `/api/exports/...`.
 - Provider boundaries exist for mock-first AI, market data, and research adapters. They currently return deterministic local output and are ready for future real integrations.
 
@@ -53,7 +53,7 @@
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes now use simple full-body stylized characters with stable positioning, while preserving names, roles, and speech bubbles.
 - Phase 2B added lightweight CSS idle and talking animations: breathing, sway, head drift, body lift, and glow pulses.
-- Phase 2C adds lightweight ambient movement between predefined HQ positions, with the host acting as the main patrol/check-in agent.
+- Phase 2C adds lightweight ambient movement between predefined HQ positions, with the CEO/Principal acting as the main patrol/check-in agent.
 - Phase 2D adds visible workstation zones and role-based working poses for command, research, builder, analyst, automation, trading, and lounge areas.
 - Phase 3A ties station choice and animation intensity to current tasks, rhythm phase, decisions, and handoff pressure.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
