@@ -13,6 +13,7 @@ function resetMessages() {
   app.locals.messagesFile = path.join(testDataDir, `${Date.now()}-${Math.random()}.json`);
   app.locals.tasksFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-tasks.json`);
   app.locals.companyPlanFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-company-plan.json`);
+  app.locals.decisionLogFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-decision-log.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -285,6 +286,96 @@ test("GET /api/company-plan returns shared planning state", async (t) => {
   assert.ok(Array.isArray(response.body.plan.nextRecommendedActions));
   assert.ok(Array.isArray(response.body.plan.recentDecisions));
   assert.equal(typeof response.body.plan.updatedAt, "string");
+});
+
+test("GET /api/decisions and /api/memory-events return decision log state", async (t) => {
+  resetMessages();
+  app.locals.writeDecisionLogForTest({
+    decisions: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T10:00:00.000Z",
+        roomId: "main",
+        agentId: "strategist",
+        title: "Prioritize onboarding",
+        summary: "Focus on onboarding flow.",
+        reason: "It supports the current objective.",
+        impact: "Clearer execution.",
+      },
+      {
+        id: 2,
+        timestamp: "2026-05-06T10:01:00.000Z",
+        roomId: "ops",
+        agentId: "manager",
+        title: "Assign checklist owner",
+        summary: "Move checklist ownership forward.",
+        reason: "Ops needs accountability.",
+        impact: "Better follow-through.",
+      },
+    ],
+    memoryEvents: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T10:02:00.000Z",
+        roomId: "ops",
+        type: "task_completed",
+        summary: "Completed checklist.",
+        importance: "high",
+      },
+    ],
+  });
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const decisions = await getJson(server, "/api/decisions");
+  const opsDecisions = await getJson(server, "/api/decisions?roomId=ops");
+  const memoryEvents = await getJson(server, "/api/memory-events?roomId=ops");
+
+  assert.equal(decisions.statusCode, 200);
+  assert.equal(opsDecisions.statusCode, 200);
+  assert.equal(memoryEvents.statusCode, 200);
+  assert.equal(decisions.body.decisions.length, 2);
+  assert.deepEqual(opsDecisions.body.decisions.map((decision) => decision.roomId), ["ops"]);
+  assert.equal(memoryEvents.body.memoryEvents.length, 1);
+  assert.equal(memoryEvents.body.memoryEvents[0].importance, "high");
+});
+
+test("decision log persists through file storage", () => {
+  resetMessages();
+
+  app.locals.writeDecisionLogForTest({
+    decisions: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T10:00:00.000Z",
+        roomId: "marketing",
+        agentId: "host",
+        title: "Align campaign test",
+        summary: "Keep campaign work focused.",
+        reason: "Marketing needs a clear next step.",
+        impact: "Better campaign execution.",
+      },
+    ],
+    memoryEvents: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T10:03:00.000Z",
+        roomId: "marketing",
+        type: "task_completed",
+        summary: "Campaign brief finished.",
+        importance: "high",
+      },
+    ],
+  });
+
+  const log = app.locals.readDecisionLogForTest();
+
+  assert.equal(log.decisions[0].title, "Align campaign test");
+  assert.equal(log.memoryEvents[0].summary, "Campaign brief finished.");
 });
 
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
@@ -1114,6 +1205,52 @@ test("autonomous agents update company plan by specialization", () => {
   assert.match(plan.keyRisks[0], /success metrics|decision risks/);
   assert.match(plan.nextRecommendedActions[0], /Assign owner|Ship the next product step/);
   assert.match(plan.recentDecisions[0], /Coordinate/);
+});
+
+test("autonomous eligible agents can create decision entries and sync plan decisions", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 2;
+
+  app.locals.createAgentThought("strategist", "marketing");
+
+  const log = app.locals.readDecisionLogForTest();
+  const plan = app.locals.readCompanyPlanForTest();
+
+  assert.equal(log.decisions.length, 1);
+  assert.equal(log.decisions[0].agentId, "strategist");
+  assert.equal(log.decisions[0].roomId, "marketing");
+  assert.match(log.decisions[0].title, /Prioritize/);
+  assert.deepEqual(plan.recentDecisions.slice(0, 1), [log.decisions[0].title]);
+});
+
+test("task completion creates a memory event", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Complete handoff checklist",
+    assignedAgentId: "manager",
+  });
+  await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "in_progress",
+  });
+  await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "done",
+  });
+
+  const log = app.locals.readDecisionLogForTest();
+
+  assert.equal(log.memoryEvents.length, 1);
+  assert.equal(log.memoryEvents[0].roomId, "ops");
+  assert.equal(log.memoryEvents[0].type, "task_completed");
+  assert.match(log.memoryEvents[0].summary, /Complete handoff checklist/);
+  assert.equal(log.memoryEvents[0].importance, "high");
 });
 
 test("autonomous task creation includes current objective from company plan", () => {

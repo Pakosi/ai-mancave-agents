@@ -4,10 +4,11 @@
 - Backend: Node/Express in `backend/server.js`.
 - Mock agent logic: `backend/aiProvider.js`; no OpenAI or external AI APIs.
 - Company plan helpers: `backend/companyPlan.js`.
+- Decision and memory helpers: `backend/decisionLog.js`.
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
-- Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, and `backend/data/company-plan.json`.
+- Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, and `backend/data/decision-log.json`.
 - Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
-- API includes `/api/company-plan` for shared planning state.
+- API includes `/api/company-plan`, `/api/decisions`, and `/api/memory-events`.
 
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
@@ -21,17 +22,25 @@
 - Agents can create or advance tasks only when their `allowedActions` permit it.
 - Specialized task drafts reflect agent tendencies, such as research, planning, building, analysis, revenue validation, and coordination.
 - Strategist, analyst, builder, researcher, sales, host, and manager feed updates into the shared company plan.
+- Strategist, manager, analyst, and host can create deterministic decision log entries during autonomous activity.
+- Completed tasks create high-importance memory events.
 
 ## Company Plan
 - Tracks current objective, active priorities, key risks, next recommended actions, and recent decisions.
 - Manager and host occasionally add coordination decisions.
 - Strategist influences priorities; analyst influences risks; builder, researcher, and sales influence next actions.
 - Autonomous task creation includes the current objective so tasks stay tied to the plan.
+- Recent decisions can sync from the decision log.
+
+## Decision Log And Memory
+- Decisions include id, timestamp, room, agent, title, summary, reason, impact, and optional related task id.
+- Memory events include id, timestamp, room, type, summary, and importance.
+- Both endpoints support optional `roomId` filtering.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes show the agent name and role with stable lightweight positioning.
-- The UI shows room brief, activity feed, tasks, and a compact Company Plan panel without adding frameworks.
+- The UI shows room brief, activity feed, tasks, Company Plan, and Decisions / Memory panels without adding frameworks.
 
 ## Tests
 - Backend: `cd backend && npm test`.

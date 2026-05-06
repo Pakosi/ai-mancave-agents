@@ -212,6 +212,50 @@
       });
   }
 
+  function loadDecisions(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const roomId = options.roomId || "";
+    const query = roomId ? `?${new URLSearchParams({ roomId }).toString()}` : "";
+
+    return fetchJson(`${apiBaseUrl}/api/decisions${query}`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onDecisions) {
+          options.onDecisions(data.decisions);
+        }
+
+        return data.decisions;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function loadMemoryEvents(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const roomId = options.roomId || "";
+    const query = roomId ? `?${new URLSearchParams({ roomId }).toString()}` : "";
+
+    return fetchJson(`${apiBaseUrl}/api/memory-events${query}`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onMemoryEvents) {
+          options.onMemoryEvents(data.memoryEvents);
+        }
+
+        return data.memoryEvents;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function createTask(task, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = task.roomId || options.roomId || getSelectedRoomId(options.storage);
@@ -428,6 +472,25 @@
     };
   }
 
+  function mapDecisionForDisplay(decision) {
+    return {
+      id: decision.id,
+      title: decision.title,
+      summary: decision.summary,
+      meta: `${decision.agentId || "agent"} · ${decision.roomId || "room"}`,
+      timestamp: decision.timestamp,
+    };
+  }
+
+  function mapMemoryEventForDisplay(event) {
+    return {
+      id: event.id,
+      summary: event.summary,
+      meta: `${event.type || "event"} · ${event.importance || "medium"}`,
+      timestamp: event.timestamp,
+    };
+  }
+
   function getRoomName(rooms = [], roomId) {
     const room = rooms.find((item) => item.id === roomId);
 
@@ -498,12 +561,16 @@
     getSelectedRoom,
     loadAgents,
     loadCompanyPlan,
+    loadDecisions,
+    loadMemoryEvents,
     loadMessages,
     loadRooms,
     loadTasks,
     mapAgentForOption,
     mapAgentForRoom,
     mapCompanyPlanForDisplay,
+    mapDecisionForDisplay,
+    mapMemoryEventForDisplay,
     mapMessageForDisplay,
     mapRoomForOption,
     mapTaskForDisplay,

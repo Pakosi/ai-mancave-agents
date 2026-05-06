@@ -14,12 +14,16 @@ const {
   getSelectedRoom,
   loadAgents,
   loadCompanyPlan,
+  loadDecisions,
+  loadMemoryEvents,
   loadMessages,
   loadRooms,
   loadTasks,
   mapAgentForOption,
   mapAgentForRoom,
   mapCompanyPlanForDisplay,
+  mapDecisionForDisplay,
+  mapMemoryEventForDisplay,
   mapMessageForDisplay,
   mapRoomForOption,
   mapTaskForDisplay,
@@ -238,6 +242,58 @@ test("loadCompanyPlan calls onError and rejects when fetch fails", async () => {
   );
 
   assert.deepEqual(errors, [fetchError]);
+});
+
+test("loadDecisions calls /api/decisions with room filter", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseDecisions = [
+    { id: 1, roomId: "ops", title: "Assign owner" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ decisions: responseDecisions }));
+  };
+
+  const decisions = await loadDecisions({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    roomId: "ops",
+    onDecisions(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(decisions, responseDecisions);
+  assert.deepEqual(callbacks, [responseDecisions]);
+  assert.equal(calls[0].url, "http://test.local/api/decisions?roomId=ops");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadMemoryEvents calls /api/memory-events with room filter", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseEvents = [
+    { id: 1, roomId: "ops", type: "task_completed" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ memoryEvents: responseEvents }));
+  };
+
+  const events = await loadMemoryEvents({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    roomId: "ops",
+    onMemoryEvents(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(events, responseEvents);
+  assert.deepEqual(callbacks, [responseEvents]);
+  assert.equal(calls[0].url, "http://test.local/api/memory-events?roomId=ops");
+  assert.equal(calls[0].options, undefined);
 });
 
 test("loadMessages calls onError and rejects when fetch fails", async () => {
@@ -579,6 +635,42 @@ test("mapCompanyPlanForDisplay handles missing plan fields", () => {
     keyRisks: [],
     nextRecommendedActions: [],
     recentDecisions: [],
+  });
+});
+
+test("mapDecisionForDisplay maps decision panel data", () => {
+  const decision = mapDecisionForDisplay({
+    id: 7,
+    title: "Prioritize pilot",
+    summary: "Focus on the pilot workflow.",
+    agentId: "strategist",
+    roomId: "marketing",
+    timestamp: "2026-05-06T10:00:00.000Z",
+  });
+
+  assert.deepEqual(decision, {
+    id: 7,
+    title: "Prioritize pilot",
+    summary: "Focus on the pilot workflow.",
+    meta: "strategist · marketing",
+    timestamp: "2026-05-06T10:00:00.000Z",
+  });
+});
+
+test("mapMemoryEventForDisplay maps memory panel data", () => {
+  const event = mapMemoryEventForDisplay({
+    id: 3,
+    type: "task_completed",
+    summary: "Completed checklist.",
+    importance: "high",
+    timestamp: "2026-05-06T10:00:00.000Z",
+  });
+
+  assert.deepEqual(event, {
+    id: 3,
+    summary: "Completed checklist.",
+    meta: "task_completed · high",
+    timestamp: "2026-05-06T10:00:00.000Z",
   });
 });
 

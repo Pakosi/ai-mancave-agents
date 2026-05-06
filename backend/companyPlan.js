@@ -159,9 +159,28 @@ function getPrimaryPlanFocus(plan) {
   return priority || normalizedPlan.currentObjective;
 }
 
+function syncRecentDecisionsFromLog(plan, decisions, now = new Date().toISOString()) {
+  const nextPlan = normalizeCompanyPlan(plan, now);
+
+  if (!Array.isArray(decisions) || decisions.length === 0) {
+    return nextPlan;
+  }
+
+  nextPlan.recentDecisions = decisions
+    .slice()
+    .sort((first, second) => new Date(second.timestamp) - new Date(first.timestamp))
+    .map((decision) => decision.title)
+    .filter((title) => typeof title === "string" && title.trim() !== "")
+    .slice(0, maxItems);
+  nextPlan.updatedAt = now;
+
+  return nextPlan;
+}
+
 module.exports = {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
+  syncRecentDecisionsFromLog,
   updateCompanyPlanForAgent,
 };

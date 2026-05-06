@@ -8,14 +8,24 @@ const {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
+  syncRecentDecisionsFromLog,
   updateCompanyPlanForAgent,
 } = require("./companyPlan");
+const {
+  createDecisionEntry,
+  createEmptyDecisionLog,
+  createMemoryEvent,
+  filterByRoom,
+  getDecisionDraft,
+  normalizeDecisionLog,
+} = require("./decisionLog");
 
 const app = express();
 
 app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
 app.locals.tasksFile = path.join(__dirname, "data", "tasks.json");
 app.locals.companyPlanFile = path.join(__dirname, "data", "company-plan.json");
+app.locals.decisionLogFile = path.join(__dirname, "data", "decision-log.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -89,6 +99,27 @@ function writeCompanyPlan(plan) {
   writeJsonFile(app.locals.companyPlanFile, normalizedPlan);
 
   return normalizedPlan;
+}
+
+function readDecisionLog() {
+  if (!fs.existsSync(app.locals.decisionLogFile)) {
+    const log = createEmptyDecisionLog();
+    writeJsonFile(app.locals.decisionLogFile, log);
+
+    return log;
+  }
+
+  const log = normalizeDecisionLog(readJsonFile(app.locals.decisionLogFile));
+  writeJsonFile(app.locals.decisionLogFile, log);
+
+  return log;
+}
+
+function writeDecisionLog(log) {
+  const normalizedLog = normalizeDecisionLog(log);
+  writeJsonFile(app.locals.decisionLogFile, normalizedLog);
+
+  return normalizedLog;
 }
 
 function getNextId(items) {
@@ -533,6 +564,28 @@ function storeTaskStatusMessage({ task, agentId, sessionId, messages }) {
   });
 }
 
+function maybeCreateTaskMemoryEvent(task) {
+  if (!task || task.status !== "done") {
+    return null;
+  }
+
+  const result = createMemoryEvent({
+    log: readDecisionLog(),
+    roomId: task.roomId,
+    type: "task_completed",
+    summary: `Completed "${task.title}".`,
+    importance: "high",
+  });
+
+  if (!result.entry) {
+    return null;
+  }
+
+  writeDecisionLog(result.log);
+
+  return result.entry;
+}
+
 function addTaskReference(reply, task) {
   if (!task) {
     return reply;
@@ -689,21 +742,71 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     roomId: normalizedRoomId,
     topic,
     task: selectedTask,
+    plan: companyPlan,
   });
 
   return storedMessage;
 }
 
-function maybeUpdateCompanyPlan({ agent, roomId, topic, task }) {
+function maybeCreateAutonomousDecision({ agent, roomId, topic, task, plan }) {
+  if (!agent || !["analyst", "host", "manager", "strategist"].includes(agent.id)) {
+    return null;
+  }
+
+  if (app.locals.agentThoughtIndex % 3 !== 0) {
+    return null;
+  }
+
+  const draft = getDecisionDraft({
+    agent,
+    roomName: getRoomName(roomId),
+    roomId,
+    topic,
+    task,
+    plan,
+  });
+  const result = createDecisionEntry({
+    log: readDecisionLog(),
+    ...draft,
+  });
+
+  if (!result.entry) {
+    return null;
+  }
+
+  writeDecisionLog(result.log);
+
+  return result.entry;
+}
+
+function syncCompanyPlanDecisions() {
+  const log = readDecisionLog();
+
+  if (log.decisions.length === 0) {
+    return readCompanyPlan();
+  }
+
+  return writeCompanyPlan(syncRecentDecisionsFromLog(readCompanyPlan(), log.decisions));
+}
+
+function maybeUpdateCompanyPlan({ agent, roomId, topic, task, plan }) {
   if (!agent) {
     return null;
   }
 
+  const decision = maybeCreateAutonomousDecision({
+    agent,
+    roomId,
+    topic,
+    task,
+    plan: plan || readCompanyPlan(),
+  });
+
   if ((agent.id === "host" || agent.id === "manager") && app.locals.agentThoughtIndex % 2 !== 0) {
-    return null;
+    return decision ? syncCompanyPlanDecisions() : null;
   }
 
-  const plan = updateCompanyPlanForAgent({
+  const updatedPlan = updateCompanyPlanForAgent({
     plan: readCompanyPlan(),
     agent,
     roomName: getRoomName(roomId),
@@ -711,7 +814,13 @@ function maybeUpdateCompanyPlan({ agent, roomId, topic, task }) {
     task,
   });
 
-  return writeCompanyPlan(plan);
+  const writtenPlan = writeCompanyPlan(updatedPlan);
+
+  if (decision) {
+    return syncCompanyPlanDecisions();
+  }
+
+  return writtenPlan;
 }
 
 function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
@@ -740,6 +849,8 @@ function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
   if (!updatedTask) {
     return null;
   }
+
+  maybeCreateTaskMemoryEvent(updatedTask);
 
   return storeTaskStatusMessage({
     task: updatedTask,
@@ -878,6 +989,20 @@ app.get("/api/company-plan", (req, res) => {
   res.json({ plan: readCompanyPlan() });
 });
 
+app.get("/api/decisions", (req, res) => {
+  const roomId = getValidText(req.query.roomId);
+  const log = readDecisionLog();
+
+  res.json({ decisions: filterByRoom(log.decisions, roomId) });
+});
+
+app.get("/api/memory-events", (req, res) => {
+  const roomId = getValidText(req.query.roomId);
+  const log = readDecisionLog();
+
+  res.json({ memoryEvents: filterByRoom(log.memoryEvents, roomId) });
+});
+
 app.get("/api/tasks", (req, res) => {
   const roomId = getRoomId(req.query.roomId);
   const tasks = getRoomTasks(readTasks(), roomId);
@@ -950,6 +1075,7 @@ app.patch("/api/tasks/:taskId", (req, res) => {
     sessionId: autonomousSessionId,
     messages: readMessages(),
   });
+  maybeCreateTaskMemoryEvent(updatedTask);
 
   return res.json(updatedTask);
 });
@@ -1040,11 +1166,13 @@ if (require.main === module) {
 
 app.locals.createAgentThought = createAgentThought;
 app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.readDecisionLogForTest = readDecisionLog;
 app.locals.readCompanyPlanForTest = readCompanyPlan;
 app.locals.readMessagesForTest = readMessages;
 app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.selectRoomTaskForTest = selectRoomTask;
+app.locals.writeDecisionLogForTest = writeDecisionLog;
 app.locals.writeCompanyPlanForTest = writeCompanyPlan;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 

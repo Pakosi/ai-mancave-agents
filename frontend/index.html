@@ -232,6 +232,7 @@
       padding: 1rem;
     }
 
+    .memory-panel,
     .plan-panel,
     .tasks-panel {
       background: #ffffff;
@@ -241,6 +242,7 @@
     }
 
     .activity h2,
+    .memory-panel h2,
     .plan-panel h2,
     .tasks-panel h2 {
       font-size: 1rem;
@@ -281,6 +283,53 @@
       line-height: 1.3;
       list-style: none;
       padding-left: 0.5rem;
+    }
+
+    .memory-section {
+      margin-top: 0.8rem;
+    }
+
+    .memory-section:first-child {
+      margin-top: 0;
+    }
+
+    .memory-title {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-bottom: 0.45rem;
+      text-transform: uppercase;
+    }
+
+    .memory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .memory-item {
+      border-left: 2px solid #cbd5e1;
+      padding-left: 0.55rem;
+    }
+
+    .memory-item-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .memory-item-summary {
+      color: #475569;
+      font-size: 0.8rem;
+      line-height: 1.3;
+      margin-top: 0.2rem;
+    }
+
+    .memory-meta {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
     }
 
     .task-list {
@@ -497,6 +546,11 @@
           <div id="companyPlan"></div>
         </section>
 
+        <section class="memory-panel">
+          <h2>Decisions / Memory</h2>
+          <div id="decisionMemory"></div>
+        </section>
+
         <section class="activity">
           <h2>Activity</h2>
           <div id="activityFeed" class="activity-feed" aria-live="polite"></div>
@@ -511,6 +565,7 @@
     const activeRoom = document.getElementById("activeRoom");
     const agentSelect = document.getElementById("agentSelect");
     const companyPlan = document.getElementById("companyPlan");
+    const decisionMemory = document.getElementById("decisionMemory");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
@@ -524,6 +579,8 @@
     let loadedAgents = [];
     let loadedRooms = [];
     let currentMessages = [];
+    let currentDecisions = [];
+    let currentMemoryEvents = [];
     let autonomousThinkingAgentId = "";
     let manualThinkingAgentId = "";
 
@@ -724,6 +781,64 @@
       );
     }
 
+    function renderMemorySection(titleText, items, mapItem) {
+      const section = document.createElement("div");
+      section.className = "memory-section";
+
+      const title = document.createElement("div");
+      title.className = "memory-title";
+      title.textContent = titleText;
+
+      const list = document.createElement("div");
+      list.className = "memory-list";
+
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "None yet.";
+        list.appendChild(empty);
+      } else {
+        items.slice(0, 3).forEach(item => {
+          const view = mapItem(item);
+          const node = document.createElement("div");
+          node.className = "memory-item";
+
+          const itemTitle = document.createElement("div");
+          itemTitle.className = "memory-item-title";
+          itemTitle.textContent = view.title || view.summary;
+
+          const summary = document.createElement("div");
+          summary.className = "memory-item-summary";
+          summary.textContent = view.title ? view.summary : "";
+
+          const meta = document.createElement("div");
+          meta.className = "memory-meta";
+          meta.textContent = view.meta;
+
+          node.append(itemTitle);
+
+          if (summary.textContent !== "") {
+            node.appendChild(summary);
+          }
+
+          node.appendChild(meta);
+          list.appendChild(node);
+        });
+      }
+
+      section.append(title, list);
+
+      return section;
+    }
+
+    function renderDecisionMemory() {
+      decisionMemory.textContent = "";
+      decisionMemory.append(
+        renderMemorySection("Decisions", currentDecisions, WOYSApp.mapDecisionForDisplay),
+        renderMemorySection("Memory", currentMemoryEvents, WOYSApp.mapMemoryEventForDisplay),
+      );
+    }
+
     function renderRoomActivity(activity) {
       const view = WOYSApp.getRoomActivityView(activity, roomSelect.value, loadedRooms);
 
@@ -779,6 +894,33 @@
           setError("Could not load company plan.");
         },
       }).catch(() => {});
+    }
+
+    function loadDecisionMemory() {
+      return Promise.all([
+        WOYSApp.loadDecisions({
+          roomId: roomSelect.value,
+          onDecisions(items) {
+            currentDecisions = items;
+          },
+          onError(err) {
+            console.error(err);
+            setError("Could not load decisions.");
+          },
+        }).catch(() => []),
+        WOYSApp.loadMemoryEvents({
+          roomId: roomSelect.value,
+          onMemoryEvents(items) {
+            currentMemoryEvents = items;
+          },
+          onError(err) {
+            console.error(err);
+            setError("Could not load memory events.");
+          },
+        }).catch(() => []),
+      ]).then(() => {
+        renderDecisionMemory();
+      });
     }
 
     function renderAgents(items) {
@@ -874,7 +1016,7 @@
           }).catch(() => {});
         })
         .then(() => {
-          return Promise.all([loadMessages(), loadTasks(), loadCompanyPlan()]);
+          return Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadDecisionMemory()]);
         })
         .catch(() => {})
         .finally(() => {
@@ -905,7 +1047,7 @@
       WOYSApp.saveSelectedRoomId(roomSelect.value);
       autonomousThinkingAgentId = "";
       renderRoomBrief();
-      Promise.all([loadMessages(), loadTasks(), loadCompanyPlan()]);
+      Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadDecisionMemory()]);
     });
 
     taskList.addEventListener("click", event => {
@@ -922,17 +1064,23 @@
           setError("Could not update task.");
         },
       })
-        .then(() => Promise.all([loadTasks(), loadMessages(), loadCompanyPlan()]))
+        .then(() => Promise.all([loadTasks(), loadMessages(), loadCompanyPlan(), loadDecisionMemory()]))
         .catch(() => {})
         .finally(() => {
           button.disabled = false;
         });
     });
 
-    Promise.all([loadAgents(), loadRooms()]).then(() => Promise.all([loadMessages(), loadTasks(), loadCompanyPlan()]));
+    Promise.all([loadAgents(), loadRooms()]).then(() => Promise.all([
+      loadMessages(),
+      loadTasks(),
+      loadCompanyPlan(),
+      loadDecisionMemory(),
+    ]));
     setInterval(loadMessages, 2000);
     setInterval(loadTasks, 4000);
     setInterval(loadCompanyPlan, 5000);
+    setInterval(loadDecisionMemory, 5000);
   </script>
 </body>
 </html>
