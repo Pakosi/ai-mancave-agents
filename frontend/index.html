@@ -328,13 +328,13 @@
       z-index: 2;
     }
 
-    .agent-node:nth-child(2) { animation-delay: 0.9s; }
-    .agent-node:nth-child(3) { animation-delay: 1.8s; }
-    .agent-node:nth-child(4) { animation-delay: 2.7s; }
-    .agent-node:nth-child(5) { animation-delay: 3.4s; }
-    .agent-node:nth-child(6) { animation-delay: 0.5s; }
-    .agent-node:nth-child(7) { animation-delay: 1.4s; }
-    .agent-node:nth-child(8) { animation-delay: 4.1s; }
+    .agent-node:nth-child(2) .char-wrap { animation-delay: 0.9s; }
+    .agent-node:nth-child(3) .char-wrap { animation-delay: 1.8s; }
+    .agent-node:nth-child(4) .char-wrap { animation-delay: 2.7s; }
+    .agent-node:nth-child(5) .char-wrap { animation-delay: 3.4s; }
+    .agent-node:nth-child(6) .char-wrap { animation-delay: 0.5s; }
+    .agent-node:nth-child(7) .char-wrap { animation-delay: 1.4s; }
+    .agent-node:nth-child(8) .char-wrap { animation-delay: 4.1s; }
 
     /* character figure */
     .char-wrap {
@@ -346,6 +346,7 @@
       position: relative;
       width: 4.7rem;
       transition: filter 200ms ease, transform 200ms ease;
+      transform-origin: center bottom;
     }
 
     .char-head {
@@ -359,6 +360,15 @@
       position: relative;
       transition: transform 180ms ease, box-shadow 180ms ease;
       width: 1.9rem;
+    }
+
+    .char-head::after,
+    .char-torso::before,
+    .char-torso::after,
+    .char-arm,
+    .char-leg,
+    .char-glow {
+      will-change: transform, opacity, filter;
     }
 
     .char-head::before {
@@ -451,6 +461,7 @@
       justify-content: center;
       margin-top: -0.12rem;
       width: 2.2rem;
+      transform-origin: center top;
     }
 
     .char-leg {
@@ -505,19 +516,45 @@
       z-index: -1;
     }
 
+    .char-wrap {
+      animation: idleFloat 6.8s ease-in-out infinite;
+    }
+
+    .char-head {
+      animation: headDrift 6.8s ease-in-out infinite;
+    }
+
+    .char-torso {
+      animation: torsoBreathe 5.8s ease-in-out infinite;
+    }
+
+    .char-legs {
+      animation: legsBalance 6.8s ease-in-out infinite;
+    }
+
     /* latest speaker — golden glow */
     .agent-node.latest .char-wrap {
-      filter: drop-shadow(0 0 9px rgba(200,160,55,0.75));
-      transform: translateY(-2px);
+      animation: speakingLift 0.9s ease-in-out infinite;
+      filter: drop-shadow(0 0 11px rgba(200,160,55,0.82));
     }
 
     .agent-node.latest .char-head {
       border-color: rgba(212,168,83,0.7);
-      transform: scale(1.08);
+      animation: headDrift 6.8s ease-in-out infinite, speakingHead 0.9s ease-in-out infinite;
     }
 
     .agent-node.latest .char-torso {
+      animation: torsoBreathe 5.8s ease-in-out infinite, speakingBounce 0.9s ease-in-out infinite;
       box-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,168,83,0.15);
+    }
+
+    .agent-node.latest .char-legs {
+      animation: legsBalance 6.8s ease-in-out infinite, speakingLegs 0.9s ease-in-out infinite;
+    }
+
+    .agent-node.latest .char-glow {
+      animation: speakingGlow 0.9s ease-in-out infinite;
+      opacity: 0.85;
     }
 
     .agent-node.latest .speech {
@@ -528,6 +565,66 @@
 
     .agent-node.latest .speech::after {
       border-top-color: #c8860a;
+    }
+
+    @keyframes idleFloat {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-1px) rotate(-0.2deg); }
+      50% { transform: translateY(1px) rotate(0.15deg); }
+      75% { transform: translateY(-0.5px) rotate(-0.1deg); }
+    }
+
+    @keyframes torsoBreathe {
+      0%, 100% { transform: scaleY(1) translateY(0); }
+      35% { transform: scaleY(1.02) translateY(0.02rem); }
+      65% { transform: scaleY(0.985) translateY(-0.02rem); }
+    }
+
+    @keyframes headDrift {
+      0%, 100% { transform: translateX(0) translateY(0) rotate(0deg); }
+      30% { transform: translateX(0.04rem) translateY(-0.02rem) rotate(0.6deg); }
+      60% { transform: translateX(-0.03rem) translateY(0.03rem) rotate(-0.45deg); }
+    }
+
+    @keyframes legsBalance {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      40% { transform: translateY(0.04rem) rotate(0.35deg); }
+      70% { transform: translateY(-0.03rem) rotate(-0.25deg); }
+    }
+
+    @keyframes speakingLift {
+      0%, 100% { transform: translateY(0); }
+      45% { transform: translateY(-3px); }
+      75% { transform: translateY(-1px); }
+    }
+
+    @keyframes speakingBounce {
+      0%, 100% { transform: translateY(0) scaleY(1); }
+      45% { transform: translateY(-1px) scaleY(1.03); }
+      75% { transform: translateY(0) scaleY(0.995); }
+    }
+
+    @keyframes speakingHead {
+      0%, 100% { transform: translateX(0) translateY(0) rotate(0deg) scale(1.02); }
+      50% { transform: translateX(0.02rem) translateY(-0.03rem) rotate(1deg) scale(1.06); }
+    }
+
+    @keyframes speakingLegs {
+      0%, 100% { transform: translateY(0) scaleY(1); }
+      50% { transform: translateY(1px) scaleY(0.98); }
+    }
+
+    @keyframes speakingGlow {
+      0%, 100% {
+        transform: translateX(-50%) scale(0.95);
+        opacity: 0.72;
+        filter: blur(1px);
+      }
+      50% {
+        transform: translateX(-50%) scale(1.08);
+        opacity: 1;
+        filter: blur(0.5px);
+      }
     }
 
     /* ── Speech Bubble ── */

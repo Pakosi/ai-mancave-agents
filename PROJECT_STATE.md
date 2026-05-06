@@ -49,9 +49,10 @@
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes now use simple full-body stylized characters with stable positioning, while preserving names, roles, and speech bubbles.
+- Phase 2B added lightweight CSS idle and talking animations: breathing, sway, head drift, body lift, and glow pulses.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
 - The frontend is visually collapsed into a single persistent HQ room and no longer exposes room switching in the visible shell.
-- Phase 2A is complete: the HQ room now shows fuller static agent characters, but no routing or movement system has been added.
+- Phase 2A introduced fuller static agent characters; Phase 2B layered idle/talking motion without adding routing or walking.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.
