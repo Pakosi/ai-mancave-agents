@@ -1777,6 +1777,84 @@
     };
   }
 
+  function getHQInteractionEvent(agent, motion, context = {}) {
+    if (!agent || !motion) {
+      return null;
+    }
+
+    const agentById = context.agentById || context.agentsById || new Map();
+    const phase = context.phase || "observe";
+    const stationId = motion.stationId || "";
+    const stationLabel = motion.stationLabel || "";
+    const routeReason = String(motion.routeReason || "").toLowerCase();
+    const targetAgent = motion.targetAgentId ? (agentById.get(motion.targetAgentId) || { id: motion.targetAgentId }) : null;
+    const targetDisplay = targetAgent ? getVisibleAgentDisplay(targetAgent) : null;
+    const targetName = targetDisplay ? targetDisplay.name : motion.targetAgentId || "";
+    let text = "";
+    let kind = "";
+    let importance = 0;
+
+    if (agent.id === "host" && motion.targetAgentId) {
+      text = `CEO checked ${targetName}`;
+      kind = "check-in";
+      importance = 5;
+    } else if (agent.id === "analyst" && (stationId === "analyst-desk" || routeReason.includes("risk") || routeReason.includes("review") || phase === "review")) {
+      text = "Analyst reviewed risk";
+      kind = "review";
+      importance = 4;
+    } else if (agent.id === "builder" && (stationId === "builder-workstation" || routeReason.includes("mvp") || routeReason.includes("build") || routeReason.includes("plan"))) {
+      text = "Builder updated MVP plan";
+      kind = "build";
+      importance = 4;
+    } else if (agent.id === "researcher" && (stationId === "research-library" || routeReason.includes("discover") || routeReason.includes("research"))) {
+      text = "Research Agent logged discovery";
+      kind = "discovery";
+      importance = 4;
+    } else if (agent.id === "sales" && (stationId === "trading-desk" || routeReason.includes("trade") || routeReason.includes("strategy") || routeReason.includes("revenue"))) {
+      text = "Trading Agent reviewed strategy";
+      kind = "strategy";
+      importance = 4;
+    } else if (agent.id === "strategist" && (stationId === "brainstorm-lounge" || routeReason.includes("plan") || routeReason.includes("priorit") || routeReason.includes("strategy"))) {
+      text = "Strategist refined priorities";
+      kind = "planning";
+      importance = 3;
+    } else {
+      return null;
+    }
+
+    return {
+      id: `${agent.id}:${stationId}:${kind}:${text}`,
+      agentId: agent.id,
+      targetAgentId: motion.targetAgentId || "",
+      targetIdeaId: motion.targetIdeaId || "",
+      stationId,
+      stationLabel,
+      text,
+      kind,
+      importance,
+      isImportant: importance >= 4,
+      routeReason: motion.routeReason || "",
+      createdAt: context.createdAt || new Date(context.now || Date.now()).toISOString(),
+    };
+  }
+
+  function getHQInteractionEvents(motions = [], agents = [], context = {}) {
+    const agentById = new Map(agents.map((agent) => [agent.id, agent]));
+    const phase = context.phase || "observe";
+
+    return motions
+      .map((entry) => getHQInteractionEvent(
+        agentById.get(entry.agentId) || { id: entry.agentId },
+        entry.motion || {},
+        {
+          ...context,
+          phase,
+          agentById,
+        },
+      ))
+      .filter(Boolean);
+  }
+
   function getHQAgentStationProfile(agent, context = {}) {
     const phase = context.phase || "observe";
     const tasks = Array.isArray(context.tasks) ? context.tasks : [];
@@ -1986,6 +2064,8 @@
     getHQAgentStationProfile,
     getHQAgentMotionState,
     getHQAgentRouteDecision,
+    getHQInteractionEvent,
+    getHQInteractionEvents,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,

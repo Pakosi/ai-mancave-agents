@@ -898,6 +898,62 @@
       z-index: 2;
     }
 
+    .room-events {
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+      z-index: 3;
+    }
+
+    .room-event {
+      align-items: center;
+      background: rgba(12,8,4,0.88);
+      border: 1px solid rgba(212,168,83,0.22);
+      border-radius: 999px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+      color: #f5e0ba;
+      display: inline-flex;
+      font-size: 0.58rem;
+      font-weight: 700;
+      gap: 0.3rem;
+      left: 0;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      padding: 0.2rem 0.45rem;
+      position: absolute;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+      transform: translate(-50%, -135%);
+      white-space: nowrap;
+      animation: roomEventFloat 2.8s ease-out both;
+      opacity: 0.95;
+    }
+
+    .room-event.event-check-in {
+      border-color: rgba(212,168,83,0.32);
+      color: #f8e7be;
+    }
+
+    .room-event.event-review {
+      border-color: rgba(164,180,197,0.34);
+      color: #edf2f7;
+    }
+
+    .room-event.event-build {
+      border-color: rgba(255,159,122,0.32);
+      color: #ffe4d7;
+    }
+
+    .room-event.event-discovery {
+      border-color: rgba(127,216,239,0.32);
+      color: #dff8ff;
+    }
+
+    .room-event.event-strategy,
+    .room-event.event-planning {
+      border-color: rgba(184,146,255,0.32);
+      color: #f4ebff;
+    }
+
     .agent-node:nth-child(2) .char-wrap { animation-delay: 0.9s; }
     .agent-node:nth-child(3) .char-wrap { animation-delay: 1.8s; }
     .agent-node:nth-child(4) .char-wrap { animation-delay: 2.7s; }
@@ -1932,6 +1988,14 @@
     .feed-item.agent-builder   { border-color: #dc2626; }
     .feed-item.agent-analyst   { border-color: #64748b; }
     .feed-item.agent-manager   { border-color: #d97706; }
+    .feed-item.room-event-feed {
+      border-color: rgba(212,168,83,0.22);
+      background: rgba(24,16,8,0.95);
+    }
+
+    .feed-item.room-event-feed .feed-meta {
+      color: #d4a853;
+    }
 
     .feed-meta {
       color: #5a4025;
@@ -2055,6 +2119,25 @@
       100% { background-position: 220% 0; }
     }
 
+    @keyframes roomEventFloat {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -120%) scale(0.96);
+      }
+      15% {
+        opacity: 0.96;
+        transform: translate(-50%, -135%) scale(1);
+      }
+      85% {
+        opacity: 0.92;
+        transform: translate(-50%, -142%) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -150%) scale(0.98);
+      }
+    }
+
     @media (max-width: 860px) {
       body {
         overflow: auto;
@@ -2117,6 +2200,7 @@
 
         <div id="workZones" class="work-zones" aria-hidden="true"></div>
         <div id="roomAgents"></div>
+        <div id="roomEvents" class="room-events" aria-hidden="true"></div>
 
         <div class="you-panel">
           <div class="you-label">You</div>
@@ -2226,6 +2310,7 @@
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
     const roomAgents = document.getElementById("roomAgents");
+    const roomEvents = document.getElementById("roomEvents");
     const workZones = document.getElementById("workZones");
     const roomBrief = document.getElementById("roomBrief");
     const roomNotice = document.getElementById("roomNotice");
@@ -2244,6 +2329,7 @@
     let currentAgentGoals = [];
     let currentMemoryEvents = [];
     let currentRhythm = {};
+    let currentRoomEvents = [];
     let autonomousThinkingAgentId = "";
     let manualThinkingAgentId = "";
 
@@ -2465,6 +2551,24 @@
       });
     }
 
+    function renderRoomEvents(events = []) {
+      roomEvents.textContent = "";
+
+      events
+        .slice()
+        .sort((first, second) => second.importance - first.importance)
+        .slice(0, 5)
+        .forEach((event) => {
+          const node = document.createElement("div");
+          node.className = `room-event event-${event.kind || "station"}`;
+          node.style.left = event.left;
+          node.style.top = event.top;
+          node.title = event.text;
+          node.textContent = event.text;
+          roomEvents.appendChild(node);
+        });
+    }
+
     function applyMotionToNode(node, roomAgent, index, now, state = {}) {
       const motion = WOYSApp.getHQAgentMotionState(roomAgent, {
         phase: currentRhythm.phase || "observe",
@@ -2514,6 +2618,7 @@
       const newestAgentMessage = WOYSApp.getNewestAgentMessage(items);
       const now = Date.now();
       const motions = [];
+      const agentsById = new Map(loadedAgents.map((agent) => [agent.id, agent]));
 
       roomAgents.textContent = "";
       youMessage.textContent = WOYSApp.getLatestUserMessage(items) || "No message yet.";
@@ -2620,6 +2725,12 @@
         });
       });
 
+      currentRoomEvents = WOYSApp.getHQInteractionEvents(motions, loadedAgents, {
+        phase: currentRhythm.phase || "observe",
+        agentsById,
+        now,
+      });
+      renderRoomEvents(currentRoomEvents);
       syncWorkZoneStates(motions);
     }
 
@@ -2659,13 +2770,29 @@
         node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
       });
 
+      currentRoomEvents = WOYSApp.getHQInteractionEvents(motions, loadedAgents, {
+        phase: currentRhythm.phase || "observe",
+        agentsById: new Map(loadedAgents.map((agent) => [agent.id, agent])),
+        now,
+      });
+      renderRoomEvents(currentRoomEvents);
       syncWorkZoneStates(motions);
     }
 
     function renderActivity(items) {
       activityFeed.textContent = "";
+      const importantEvents = currentRoomEvents.filter((event) => event.isImportant);
+      const syntheticEvents = importantEvents.map((event) => ({
+        id: event.id,
+        role: "event",
+        agentId: event.agentId,
+        message: event.text,
+        createdAt: event.createdAt,
+        kind: event.kind,
+      }));
+      const combined = items.concat(syntheticEvents);
 
-      if (items.length === 0) {
+      if (combined.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty";
         empty.textContent = "No activity yet.";
@@ -2673,11 +2800,27 @@
         return;
       }
 
-      items
+      combined
         .slice()
         .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
         .slice(0, 20)
         .forEach(item => {
+          if (item.role === "event") {
+            const feedItem = document.createElement("div");
+            feedItem.className = "feed-item room-event-feed";
+
+            const meta = document.createElement("div");
+            meta.className = "feed-meta";
+            meta.textContent = "room event";
+
+            const text = document.createElement("div");
+            text.textContent = item.message;
+
+            feedItem.append(meta, text);
+            activityFeed.appendChild(feedItem);
+            return;
+          }
+
           const view = WOYSApp.mapMessageForDisplay(item);
           const feedItem = document.createElement("div");
           feedItem.className = view.classes

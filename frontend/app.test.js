@@ -15,6 +15,7 @@ const {
   getHQAgentStationProfile,
   getHQAgentMotionState,
   getHQAgentRouteDecision,
+  getHQInteractionEvents,
   getHQWorkZones,
   getRoomActivityView,
   getSelectedRoom,
@@ -1408,6 +1409,81 @@ test("getHQHostCheckInTarget and host routing prioritize blocked agents before i
   assert.equal(hostDecision.targetAgentId, "sales");
   assert.equal(hostDecision.routeReason, "CEO check-in: sales");
   assert.equal(hostDecision.isRouteLocked, false);
+});
+
+test("getHQInteractionEvents maps route activity into concise room events", () => {
+  const events = getHQInteractionEvents([
+    {
+      agentId: "host",
+      motion: {
+        stationId: "trading-desk",
+        stationLabel: "Trading Desk",
+        routeReason: "CEO check-in: sales",
+        targetAgentId: "sales",
+        left: "20%",
+        top: "42%",
+      },
+    },
+    {
+      agentId: "analyst",
+      motion: {
+        stationId: "analyst-desk",
+        stationLabel: "Analyst Desk",
+        routeReason: "review pressure: risk",
+        left: "66%",
+        top: "58%",
+      },
+    },
+    {
+      agentId: "builder",
+      motion: {
+        stationId: "builder-workstation",
+        stationLabel: "Builder Workstation",
+        routeReason: "owned task: Build pricing MVP",
+        left: "33%",
+        top: "59%",
+      },
+    },
+    {
+      agentId: "researcher",
+      motion: {
+        stationId: "research-library",
+        stationLabel: "Research / Library",
+        routeReason: "idea category: research",
+        left: "14%",
+        top: "26%",
+      },
+    },
+    {
+      agentId: "sales",
+      motion: {
+        stationId: "trading-desk",
+        stationLabel: "Trading Desk",
+        routeReason: "idea category: trading",
+        left: "80%",
+        top: "47%",
+      },
+    },
+  ], [
+    { id: "host" },
+    { id: "sales" },
+    { id: "analyst" },
+    { id: "builder" },
+    { id: "researcher" },
+  ], {
+    phase: "review",
+    now: 1000,
+  });
+
+  assert.deepEqual(events.map((event) => event.text), [
+    "CEO checked Trading Agent",
+    "Analyst reviewed risk",
+    "Builder updated MVP plan",
+    "Research Agent logged discovery",
+    "Trading Agent reviewed strategy",
+  ]);
+  assert.equal(events.every((event) => event.isImportant === true || event.kind === "planning"), true);
+  assert.equal(events[0].stationId, "trading-desk");
 });
 
 test("getNewestAgentMessage returns latest agent message", () => {
