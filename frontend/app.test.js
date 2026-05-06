@@ -62,13 +62,22 @@ test("fetchJson rejects when response ok is false", async () => {
 test("loadMessages calls /api/messages, returns messages, and triggers onMessages", async () => {
   const calls = [];
   const callbacks = [];
+  const activityCallbacks = [];
   const responseMessages = [
     { id: 1, message: "one" },
     { id: 2, message: "two" },
   ];
+  const responseActivity = {
+    isThinking: true,
+    nextAgentId: "assistant",
+    topic: "onboarding",
+  };
   const fetch = (url, options) => {
     calls.push({ url, options });
-    return Promise.resolve(mockResponse({ messages: responseMessages }));
+    return Promise.resolve(mockResponse({
+      messages: responseMessages,
+      activity: responseActivity,
+    }));
   };
 
   const messages = await loadMessages({
@@ -79,10 +88,14 @@ test("loadMessages calls /api/messages, returns messages, and triggers onMessage
     onMessages(items) {
       callbacks.push(items);
     },
+    onActivity(activity) {
+      activityCallbacks.push(activity);
+    },
   });
 
   assert.deepEqual(messages, responseMessages);
   assert.deepEqual(callbacks, [responseMessages]);
+  assert.deepEqual(activityCallbacks, [responseActivity]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "http://test.local/api/messages?sessionId=session-1&roomId=support");
   assert.equal(calls[0].options, undefined);

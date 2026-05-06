@@ -99,6 +99,10 @@
 
     return fetchJson(`${apiBaseUrl}/api/messages?${query.toString()}`, undefined, options.fetch)
       .then((data) => {
+        if (options.onActivity) {
+          options.onActivity(data.activity || {});
+        }
+
         if (options.onMessages) {
           options.onMessages(data.messages);
         }

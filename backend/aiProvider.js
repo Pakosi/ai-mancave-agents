@@ -13,15 +13,15 @@ function getContextCue(agent, context) {
   const priorAgentContext = hasPriorAgentContext(messages, agent.id);
 
   if (target && target.role === "agent") {
-    return "Building on that agent's point, ";
+    return "I hear the point on the table, and ";
   }
 
   if (target && target.role === "user") {
-    return "Responding to the user's latest idea, ";
+    return "That gives us a useful starting point, so ";
   }
 
   if (priorAgentContext) {
-    return "Building on the team's earlier thinking, ";
+    return "The team is circling a useful direction, so ";
   }
 
   if (priorUserContext) {
@@ -34,11 +34,16 @@ function getContextCue(agent, context) {
 function generateAgentReply({ agent, message, context = {} }) {
   const contextCue = getContextCue(agent, context);
   const systemPrompt = (agent.systemPrompt || "").toLowerCase();
+  const topic = context.topic ? ` around ${context.topic}` : "";
   const variation = (context.variation || "expand").toLowerCase();
 
   if (systemPrompt.includes("friendly")) {
     if (variation === "challenge") {
-      return `${contextCue}what is the one question we need to answer before the team moves on?`;
+      return `${contextCue}what is the one question we need to answer before the team moves on${topic}?`;
+    }
+
+    if (variation === "question") {
+      return `${contextCue}who should own the next step, and what would make it feel finished?`;
     }
 
     if (variation === "agree") {
@@ -53,6 +58,10 @@ function generateAgentReply({ agent, message, context = {} }) {
       return `${contextCue}how do we make money from this without making the offer too broad?`;
     }
 
+    if (variation === "question") {
+      return `${contextCue}who pays first, and what outcome would make the offer easy to say yes to?`;
+    }
+
     if (variation === "agree") {
       return `${contextCue}there is a strong offer here if we frame the outcome clearly.`;
     }
@@ -62,6 +71,10 @@ function generateAgentReply({ agent, message, context = {} }) {
 
   if (variation === "challenge") {
     return `${contextCue}I would pressure-test the assumption and define what evidence would prove it.`;
+  }
+
+  if (variation === "question") {
+    return `${contextCue}what constraint should we solve for first: speed, cost, or customer confidence?`;
   }
 
   if (variation === "agree") {

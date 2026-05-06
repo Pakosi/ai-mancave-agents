@@ -9,6 +9,12 @@ const app = express();
 
 app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
 app.locals.agentThoughtIndex = 0;
+app.locals.agentThoughtState = {
+  isThinking: false,
+  nextAgentId: null,
+  topic: "",
+};
+app.locals.topicMemory = {};
 
 app.use(cors());
 app.use(express.json());
@@ -100,6 +106,7 @@ const thoughtPrompts = [
   "Connect the latest idea to revenue or customer value.",
 ];
 const thoughtVariations = ["expand", "agree", "challenge"];
+const agentResponseModes = ["agree", "expand", "question", "challenge"];
 
 function getPublicAgents() {
   return Object.values(agents).map(({ id, name, label, color }) => ({
@@ -114,6 +121,62 @@ function getRoomMessages(messages, sessionId, roomId) {
   return messages.filter((item) => (
     getSessionId(item.sessionId) === sessionId && getRoomId(item.roomId) === roomId
   ));
+}
+
+function getTopicKey(sessionId, roomId) {
+  return `${sessionId}:${roomId}`;
+}
+
+function extractTopic(messages) {
+  const recentText = messages
+    .slice(-5)
+    .map((item) => item.message)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ");
+  const stopWords = new Set([
+    "about",
+    "agent",
+    "around",
+    "build",
+    "could",
+    "first",
+    "from",
+    "have",
+    "hello",
+    "idea",
+    "into",
+    "make",
+    "next",
+    "offer",
+    "should",
+    "that",
+    "their",
+    "there",
+    "this",
+    "turn",
+    "useful",
+    "what",
+    "where",
+    "with",
+    "would",
+  ]);
+  const words = recentText
+    .split(/\s+/)
+    .filter((word) => word.length > 3 && !stopWords.has(word));
+
+  return words.slice(0, 3).join(" ");
+}
+
+function updateTopicMemory(sessionId, roomId, messages) {
+  const topic = extractTopic(messages);
+  const key = getTopicKey(sessionId, roomId);
+
+  if (topic) {
+    app.locals.topicMemory[key] = topic;
+  }
+
+  return app.locals.topicMemory[key] || "the current business idea";
 }
 
 function storeAgentMessage({ agentId, sessionId, roomId, message, messages }) {
@@ -139,26 +202,49 @@ function getLatestMessageByRole(messages, role) {
     .find((item) => item.role === role) || null;
 }
 
-function createAgentThought() {
+function getLatestMessage(messages) {
+  return messages[messages.length - 1] || null;
+}
+
+function chooseNextAgent(lastSpeakerId) {
   const agentList = Object.values(agents);
-  const agent = agentList[app.locals.agentThoughtIndex % agentList.length];
-  const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
-  const variation = thoughtVariations[app.locals.agentThoughtIndex % thoughtVariations.length];
+  const availableAgents = agentList.filter((agent) => agent.id !== lastSpeakerId);
+  const candidates = availableAgents.length > 0 ? availableAgents : agentList;
+  const agent = candidates[app.locals.agentThoughtIndex % candidates.length];
+
+  return agent;
+}
+
+function getAgentResponseMode(targetMessage) {
+  if (!targetMessage || targetMessage.role === "user") {
+    return thoughtVariations[app.locals.agentThoughtIndex % thoughtVariations.length];
+  }
+
+  return agentResponseModes[app.locals.agentThoughtIndex % agentResponseModes.length];
+}
+
+function createAgentThought(agentId) {
   const sessionId = "default";
   const roomId = "main";
   const allMessages = readMessages();
   const contextMessages = getRoomMessages(allMessages, sessionId, roomId);
-  const shouldTargetUser = app.locals.agentThoughtIndex % 2 === 0;
-  const targetMessage = shouldTargetUser
-    ? getLatestMessageByRole(contextMessages, "user")
-    : getLatestMessageByRole(contextMessages, "agent");
+  const lastMessage = getLatestMessage(contextMessages);
+  const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
+  const requestedAgent = agents[agentId];
+  const agent = requestedAgent && requestedAgent.id !== lastSpeakerId
+    ? requestedAgent
+    : chooseNextAgent(lastSpeakerId);
+  const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
+  const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const fallbackMessage = `${businessTopic} ${prompt}`;
   const selectedMessage = targetMessage ? targetMessage.message : fallbackMessage;
+  const topic = updateTopicMemory(sessionId, roomId, contextMessages);
+  const variation = getAgentResponseMode(targetMessage);
   const reply = generateAgentReply({
     agent,
     message: selectedMessage,
     context: {
-      topic: businessTopic,
+      topic,
       messages: contextMessages,
       target: targetMessage,
       variation,
@@ -167,13 +253,59 @@ function createAgentThought() {
 
   app.locals.agentThoughtIndex += 1;
 
-  return storeAgentMessage({
+  const storedMessage = storeAgentMessage({
     agentId: agent.id,
     sessionId,
     roomId,
     message: reply,
     messages: allMessages,
   });
+
+  app.locals.agentThoughtState = {
+    isThinking: false,
+    nextAgentId: null,
+    topic,
+  };
+
+  return storedMessage;
+}
+
+function getRandomThoughtDelay() {
+  return 2000 + Math.floor(Math.random() * 3001);
+}
+
+function getAgentThoughtActivity() {
+  return {
+    isThinking: Boolean(app.locals.agentThoughtState.isThinking),
+    nextAgentId: app.locals.agentThoughtState.nextAgentId,
+    topic: app.locals.agentThoughtState.topic || "",
+  };
+}
+
+function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
+  if (app.locals.agentThoughtTimer) {
+    clearTimeout(app.locals.agentThoughtTimer);
+  }
+
+  const sessionId = "default";
+  const roomId = "main";
+  const contextMessages = getRoomMessages(readMessages(), sessionId, roomId);
+  const lastMessage = getLatestMessage(contextMessages);
+  const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
+  const agent = chooseNextAgent(lastSpeakerId);
+  const topic = updateTopicMemory(sessionId, roomId, contextMessages);
+
+  app.locals.agentThoughtState = {
+    isThinking: true,
+    nextAgentId: agent.id,
+    topic,
+  };
+
+  app.locals.agentThoughtTimer = setTimeout(() => {
+    app.locals.agentThoughtTimer = null;
+    createAgentThought(agent.id);
+    scheduleNextAgentThought();
+  }, delay);
 }
 
 function startAgentThoughtLoop() {
@@ -181,8 +313,7 @@ function startAgentThoughtLoop() {
     return;
   }
 
-  app.locals.agentThoughtTimer = setInterval(createAgentThought, 15000);
-  setTimeout(createAgentThought, 3000);
+  scheduleNextAgentThought(getRandomThoughtDelay());
 }
 
 // test route
@@ -199,7 +330,10 @@ app.get("/api/messages", (req, res) => {
   const roomId = getRoomId(req.query.roomId);
   const messages = getRoomMessages(readMessages(), sessionId, roomId);
 
-  res.json({ messages });
+  res.json({
+    messages,
+    activity: getAgentThoughtActivity(),
+  });
 });
 
 app.get("/api/agents", (req, res) => {
@@ -289,6 +423,8 @@ if (require.main === module) {
 }
 
 app.locals.createAgentThought = createAgentThought;
+app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 
 module.exports = app;

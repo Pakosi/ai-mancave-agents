@@ -11,6 +11,18 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
 
 function resetMessages() {
   app.locals.messagesFile = path.join(testDataDir, `${Date.now()}-${Math.random()}.json`);
+  app.locals.agentThoughtIndex = 0;
+  app.locals.agentThoughtState = {
+    isThinking: false,
+    nextAgentId: null,
+    topic: "",
+  };
+  app.locals.topicMemory = {};
+
+  if (app.locals.agentThoughtTimer) {
+    clearTimeout(app.locals.agentThoughtTimer);
+    app.locals.agentThoughtTimer = null;
+  }
 }
 
 function listen() {
@@ -521,7 +533,6 @@ test("POST /api/agents/:agentId/reply stores agent role and agentId", async (t) 
 
 test("autonomous agent thought stores an agent message", () => {
   resetMessages();
-  app.locals.agentThoughtIndex = 0;
 
   const thought = app.locals.createAgentThought();
 
@@ -535,7 +546,6 @@ test("autonomous agent thought stores an agent message", () => {
 
 test("autonomous agent thought can respond to the latest user message", async (t) => {
   resetMessages();
-  app.locals.agentThoughtIndex = 0;
 
   const server = await listen();
 
@@ -550,22 +560,47 @@ test("autonomous agent thought can respond to the latest user message", async (t
   const thought = app.locals.createAgentThought();
 
   assert.equal(thought.role, "agent");
-  assert.match(thought.message, /Responding to the user's latest idea/);
+  assert.match(thought.message, /useful starting point|direction|question/);
   assert.doesNotMatch(thought.message, /Recent context/);
   assert.ok(thought.message.length < 180);
 });
 
 test("autonomous agent thoughts can respond to another agent", () => {
   resetMessages();
-  app.locals.agentThoughtIndex = 0;
 
   app.locals.createAgentThought();
   const secondThought = app.locals.createAgentThought();
 
   assert.equal(secondThought.role, "agent");
-  assert.match(secondThought.message, /Building on that agent's point/);
+  assert.match(secondThought.message, /point on the table/);
   assert.doesNotMatch(secondThought.message, /Recent context/);
   assert.ok(secondThought.message.length < 180);
+});
+
+test("autonomous agent thoughts avoid duplicate consecutive speakers", () => {
+  resetMessages();
+
+  const firstThought = app.locals.createAgentThought();
+  const secondThought = app.locals.createAgentThought(firstThought.agentId);
+  const thirdThought = app.locals.createAgentThought();
+
+  assert.notEqual(secondThought.agentId, firstThought.agentId);
+  assert.notEqual(thirdThought.agentId, secondThought.agentId);
+});
+
+test("scheduled autonomous thought chooses a different next speaker", () => {
+  resetMessages();
+
+  const firstThought = app.locals.createAgentThought();
+  app.locals.scheduleNextAgentThought(1000000);
+
+  const activity = app.locals.getAgentThoughtActivity();
+
+  assert.equal(activity.isThinking, true);
+  assert.notEqual(activity.nextAgentId, firstThought.agentId);
+
+  clearTimeout(app.locals.agentThoughtTimer);
+  app.locals.agentThoughtTimer = null;
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
