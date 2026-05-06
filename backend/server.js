@@ -28,6 +28,10 @@ const {
   createEmptyCeoDigest,
 } = require("./ceoDigest");
 const {
+  executeCommand,
+  parseCommandText,
+} = require("./commands");
+const {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
@@ -1528,6 +1532,70 @@ app.get("/api/business-ideas", (req, res) => {
 
 app.get("/api/ceo-digest", (req, res) => {
   res.json({ digest: refreshCeoDigest() });
+});
+
+app.post("/api/commands", (req, res) => {
+  const commandText = getValidMessage({
+    message: req.body && (req.body.command || req.body.message),
+  });
+  const sessionId = getSessionId(req.body && req.body.sessionId);
+  const roomId = getRoomId(req.body && req.body.roomId);
+
+  if (!commandText) {
+    return res.status(400).json({ error: "command is required" });
+  }
+
+  const result = executeCommand({
+    commandText,
+    plan: readCompanyPlan(),
+    goals: readAgentGoals(),
+    ideas: readBusinessIdeas(),
+    decisions: readDecisionLog().decisions,
+    tasks: readTasks(),
+    memoryEvents: readDecisionLog().memoryEvents,
+  });
+
+  if (!result.ok) {
+    return res.status(400).json({ error: result.error || "unknown command" });
+  }
+
+  if (result.plan) {
+    writeCompanyPlan(result.plan);
+  }
+
+  if (result.goals) {
+    writeAgentGoals(result.goals);
+  }
+
+  if (result.ideas) {
+    writeBusinessIdeas(result.ideas);
+  }
+
+  if (result.digest) {
+    writeCeoDigest(result.digest);
+  } else {
+    refreshCeoDigest();
+  }
+
+  const messages = readMessages();
+  const feedMessage = result.summary || `Command executed: ${commandText}`;
+  const commandMessage = storeAgentMessage({
+    agentId: "host",
+    sessionId,
+    roomId,
+    message: `Command: ${feedMessage}`,
+    messages,
+  });
+
+  return res.status(200).json({
+    command: parseCommandText(commandText),
+    summary: feedMessage,
+    message: commandMessage,
+    plan: result.plan || readCompanyPlan(),
+    goals: result.goals || readAgentGoals(),
+    ideas: result.ideas || readBusinessIdeas(),
+    digest: result.digest || readCeoDigest(),
+  });
 });
 
 app.get("/api/decisions", (req, res) => {

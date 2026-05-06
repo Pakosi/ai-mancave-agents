@@ -260,6 +260,37 @@
       });
   }
 
+  function parseCommandText(value) {
+    const rawText = typeof value === "string" ? value.trim() : "";
+    const text = rawText.toLowerCase();
+
+    if (text === "summarize today") {
+      return { type: "summarize_today", rawText };
+    }
+
+    if (text === "rank ideas") {
+      return { type: "rank_ideas", rawText };
+    }
+
+    if (text === "kill weak ideas") {
+      return { type: "kill_weak_ideas", rawText };
+    }
+
+    if (text.startsWith("focus ")) {
+      return { type: "focus_category", rawText, category: rawText.slice(6).trim() };
+    }
+
+    if (text.startsWith("prioritize ")) {
+      return { type: "prioritize_category", rawText, category: rawText.slice(11).trim() };
+    }
+
+    return null;
+  }
+
+  function isCommandText(value) {
+    return Boolean(parseCommandText(value));
+  }
+
   function loadDecisions(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = options.roomId || "";
@@ -429,6 +460,38 @@
       .then((data) => {
         if (options.onSent) {
           options.onSent(data);
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function sendCommand(command, options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const sessionId = options.sessionId || getSessionId(options.storage);
+    const roomId = options.roomId || getSelectedRoomId(options.storage);
+
+    return fetchJson(
+      `${apiBaseUrl}/api/commands`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ command, sessionId, roomId }),
+      },
+      options.fetch,
+    )
+      .then((data) => {
+        if (options.onCommand) {
+          options.onCommand(data);
         }
 
         return data;
@@ -1565,9 +1628,12 @@
     mapTaskForDisplay,
     getNewestAgentMessage,
     getLatestUserMessage,
+    isCommandText,
+    parseCommandText,
     saveSelectedAgentId,
     getSelectedRoomId,
     saveSelectedRoomId,
+    sendCommand,
     sendMessage,
     updateTaskStatus,
   };

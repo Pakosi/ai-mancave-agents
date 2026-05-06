@@ -98,6 +98,18 @@
       opacity: 1;
     }
 
+    .command-result {
+      background: #160e09;
+      border: 1px solid #3d2510;
+      border-radius: 8px;
+      color: #cfb48b;
+      font-size: 0.74rem;
+      line-height: 1.35;
+      min-height: 2rem;
+      padding: 0.5rem 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+
     .layout {
       display: grid;
       gap: 0.9rem;
@@ -1855,6 +1867,7 @@
           <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
           <button id="sendButton" type="submit">Send into room</button>
         </form>
+        <div id="commandResult" class="command-result empty">Commands will show here.</div>
 
         <section class="tasks-panel">
           <h2>Tasks</h2>
@@ -1904,6 +1917,7 @@
     const ceoDigest = document.getElementById("ceoDigest");
     const companyPlan = document.getElementById("companyPlan");
     const decisionMemory = document.getElementById("decisionMemory");
+    const commandResult = document.getElementById("commandResult");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
@@ -1931,6 +1945,11 @@
 
     function setError(message) {
       error.textContent = message || "";
+    }
+
+    function setCommandResult(message) {
+      commandResult.textContent = message || "Commands will show here.";
+      commandResult.classList.toggle("empty", !message);
     }
 
     function formatTime(value) {
@@ -2892,6 +2911,29 @@
         });
     }
 
+    function sendCommand(commandText) {
+      sendButton.disabled = true;
+
+      WOYSApp.sendCommand(commandText, {
+        onCommand(data) {
+          setCommandResult(data.summary || "Command applied.");
+          messageInput.value = "";
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not run command.");
+        },
+      })
+        .then(() => {
+          return Promise.all([loadMessages(), loadTasks(), loadBusinessIdeas(), loadCeoDigest(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
+        })
+        .catch(() => {})
+        .finally(() => {
+          sendButton.disabled = false;
+          messageInput.focus();
+        });
+    }
+
     messageForm.addEventListener("submit", event => {
       event.preventDefault();
 
@@ -2901,7 +2943,12 @@
         return;
       }
 
-      sendMessage(message);
+      if (WOYSApp.isCommandText(message)) {
+        sendCommand(message);
+      } else {
+        setCommandResult("");
+        sendMessage(message);
+      }
     });
 
     agentSelect.addEventListener("change", () => {

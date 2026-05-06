@@ -33,6 +33,8 @@ const {
   mapBusinessIdeaForDisplay,
   mapCeoDigestForDisplay,
   mapAgentForRoom,
+  isCommandText,
+  parseCommandText,
   mapCompanyPlanForDisplay,
   mapDecisionForDisplay,
   mapMemoryEventForDisplay,
@@ -42,6 +44,7 @@ const {
   mapTaskForDisplay,
   saveSelectedAgentId,
   saveSelectedRoomId,
+  sendCommand,
   sendMessage,
   updateTaskStatus,
 } = require("./app");
@@ -361,6 +364,56 @@ test("loadCeoDigest calls onError and rejects when fetch fails", async () => {
   );
 
   assert.deepEqual(errors, [fetchError]);
+});
+
+test("parseCommandText and isCommandText recognize supported commands", () => {
+  assert.deepEqual(parseCommandText("rank ideas"), {
+    type: "rank_ideas",
+    rawText: "rank ideas",
+  });
+  assert.deepEqual(parseCommandText("focus trading"), {
+    type: "focus_category",
+    rawText: "focus trading",
+    category: "trading",
+  });
+  assert.equal(isCommandText("summarize today"), true);
+  assert.equal(isCommandText("hello there"), false);
+});
+
+test("sendCommand sends POST to /api/commands and returns the result", async () => {
+  const calls = [];
+  const callbacks = [];
+  const response = {
+    summary: "Ranked ideas.",
+    command: { type: "rank_ideas" },
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse(response));
+  };
+
+  const result = await sendCommand("rank ideas", {
+    apiBaseUrl: "http://test.local",
+    fetch,
+    sessionId: "session-1",
+    roomId: "main",
+    onCommand(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(result, response);
+  assert.deepEqual(callbacks, [response]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/commands");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(calls[0].options.headers, {
+    "Content-Type": "application/json",
+  });
+  assert.equal(
+    calls[0].options.body,
+    JSON.stringify({ command: "rank ideas", sessionId: "session-1", roomId: "main" }),
+  );
 });
 
 test("loadDecisions calls /api/decisions with room filter", async () => {

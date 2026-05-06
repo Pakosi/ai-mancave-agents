@@ -13,6 +13,10 @@ const {
 const {
   buildCeoDigest,
 } = require("./ceoDigest");
+const {
+  executeCommand,
+  parseCommandText,
+} = require("./commands");
 const app = require("./server");
 
 const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
@@ -625,6 +629,164 @@ test("GET /api/ceo-digest returns digest summary", async (t) => {
   assert.equal(response.body.digest.topIdeas[0].title, "Auto idea");
   assert.equal(response.body.digest.highestConfidenceOpportunity.title, "Auto idea");
   assert.match(response.body.digest.recommendedNextAction, /Ship workflow/);
+});
+
+test("parseCommandText recognizes supported commands", () => {
+  assert.deepEqual(parseCommandText("summarize today"), {
+    type: "summarize_today",
+    rawText: "summarize today",
+  });
+  assert.deepEqual(parseCommandText("focus trading"), {
+    type: "focus_category",
+    category: "Trading",
+    rawText: "focus trading",
+  });
+  assert.deepEqual(parseCommandText("prioritize automation"), {
+    type: "prioritize_category",
+    category: "AI Automation",
+    rawText: "prioritize automation",
+  });
+  assert.equal(parseCommandText("hello"), null);
+});
+
+test("command execution updates plans, goals, ideas, and digest", () => {
+  resetMessages();
+
+  const plan = app.locals.readCompanyPlanForTest();
+  const goals = app.locals.readAgentGoalsForTest();
+  const ideas = [
+    {
+      id: 1,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Trading lead",
+      category: "Trading",
+      description: "Revenue opportunity.",
+      profitPotential: 6,
+      startupCost: 3,
+      risk: 4,
+      difficulty: 4,
+      confidence: 5,
+      status: "researching",
+      assignedAgentId: "sales",
+      nextAction: "Validate one dealer",
+      notes: "",
+    },
+    {
+      id: 2,
+      createdAt: "2026-05-06T11:10:00.000Z",
+      updatedAt: "2026-05-06T11:10:00.000Z",
+      title: "Automation lead",
+      category: "AI Automation",
+      description: "Workflow opportunity.",
+      profitPotential: 7,
+      startupCost: 2,
+      risk: 3,
+      difficulty: 3,
+      confidence: 6,
+      status: "researching",
+      assignedAgentId: "assistant",
+      nextAction: "Draft workflow",
+      notes: "",
+    },
+  ];
+
+  const focused = executeCommand({
+    commandText: "focus trading",
+    plan,
+    goals,
+    ideas,
+    decisions: [],
+    tasks: [],
+    memoryEvents: [],
+    now: "2026-05-06T14:00:00.000Z",
+  });
+
+  assert.equal(focused.ok, true);
+  assert.match(focused.plan.currentObjective, /Trading/);
+  assert.equal(focused.goals.find((goal) => goal.agentId === "sales").focusArea, "Trading");
+  assert.equal(focused.ideas.find((idea) => idea.id === 1).status, "promising");
+  assert.ok(focused.digest.topIdeas.some((idea) => idea.category === "Trading"));
+
+  const killed = executeCommand({
+    commandText: "kill weak ideas",
+    plan: focused.plan,
+    goals: focused.goals,
+    ideas: [
+      focused.ideas[0],
+      {
+        id: 3,
+        createdAt: "2026-05-06T11:20:00.000Z",
+        updatedAt: "2026-05-06T11:20:00.000Z",
+        title: "Weak idea",
+        category: "General",
+        description: "Bad fit.",
+        profitPotential: 1,
+        startupCost: 8,
+        risk: 8,
+        difficulty: 8,
+        confidence: 1,
+        status: "researching",
+        assignedAgentId: "assistant",
+        nextAction: "Drop it",
+        notes: "",
+      },
+    ],
+    decisions: [],
+    tasks: [],
+    memoryEvents: [],
+    now: "2026-05-06T14:05:00.000Z",
+  });
+
+  assert.equal(killed.ok, true);
+  assert.equal(killed.ideas.find((idea) => idea.title === "Weak idea").status, "killed");
+  assert.match(killed.summary, /Killed 1 weak idea/);
+});
+
+test("POST /api/commands returns a command summary and updates state", async (t) => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T11:20:00.000Z",
+      updatedAt: "2026-05-06T11:20:00.000Z",
+      title: "Weak idea",
+      category: "General",
+      description: "Bad fit.",
+      profitPotential: 1,
+      startupCost: 8,
+      risk: 8,
+      difficulty: 8,
+      confidence: 1,
+      status: "researching",
+      assignedAgentId: "assistant",
+      nextAction: "Drop it",
+      notes: "",
+    },
+  ]);
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await postJson(server, "/api/commands", {
+    command: "kill weak ideas",
+    roomId: "main",
+    sessionId: "alpha",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.command.type, "kill_weak_ideas");
+  assert.match(response.body.summary, /Killed 1 weak idea/);
+  assert.equal(app.locals.readBusinessIdeasForTest()[0].status, "killed");
+  assert.equal(app.locals.readCeoDigestForTest().pausedOrKilledIdeas[0].title, "Weak idea");
+
+  const messages = await getJson(server, "/api/messages?sessionId=alpha&roomId=main");
+
+  assert.equal(messages.body.messages.length, 1);
+  assert.match(messages.body.messages[0].message, /Command:/);
 });
 
 test("autonomous agents create business ideas", () => {

@@ -77,6 +77,12 @@
 - Phase 4C lets autonomous agents create and refine ideas, while host/manager review and rank them during the loop.
 - Phase 4D adds a JSON-backed CEO digest with ranked ideas, recent changes, risk and next-step summaries, exposed at `/api/ceo-digest` and shown in the sidebar.
 
+## Command Layer
+- Phase 5A adds a lightweight command parser and `POST /api/commands`.
+- Supported commands include `summarize today`, `focus trading`, `focus automation`, `rank ideas`, `kill weak ideas`, and `prioritize [category]`.
+- Commands update company plan, agent goals, business ideas, CEO digest, and feed messages in a deterministic way.
+- The frontend routes command-like input through the command endpoint and shows a compact response under the input.
+
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes show the agent name and role with stable lightweight positioning.
