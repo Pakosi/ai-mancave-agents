@@ -107,8 +107,7 @@
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
-- The central HQ room scene is now Canvas 2D rendered in a retro pixel/sim style, with the old DOM furniture and avatar layers hidden.
-- Agent bubbles and interaction labels sit over the canvas while the sidebar stays HTML.
+- Room agent nodes show the agent name and role with stable lightweight positioning.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
 - Task cards show the current owner (with `assigned → owner` notation when handed off) and a blocked-reason indicator when set.
 - Handoff feed messages appear in the regular activity feed.
