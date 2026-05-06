@@ -332,6 +332,28 @@
       });
   }
 
+  function getExportPanelEmptyMessage() {
+    return "Choose an export to view markdown, then use the buttons above to load a digest, ideas list, or idea report.";
+  }
+
+  function getExportPanelLoadedMessage({ title = "", kind = "export" } = {}) {
+    if (title) {
+      return kind === "idea" ? `Idea report: ${title}` : title;
+    }
+
+    return "Export loaded.";
+  }
+
+  function getExportCopyMessage({ clipboardAvailable = true, success = false } = {}) {
+    if (success) {
+      return "Copied export markdown.";
+    }
+
+    return clipboardAvailable
+      ? "Copy failed. Select the markdown text and copy it manually."
+      : "Copy unavailable. Select the markdown text and copy it manually.";
+  }
+
   function parseCommandText(value) {
     const rawText = typeof value === "string" ? value.trim() : "";
     const text = rawText.toLowerCase();
@@ -1701,6 +1723,9 @@
     mapMessageForDisplay,
     mapRoomForOption,
     mapTaskForDisplay,
+    getExportPanelEmptyMessage,
+    getExportPanelLoadedMessage,
+    getExportCopyMessage,
     getNewestAgentMessage,
     getLatestUserMessage,
     isCommandText,

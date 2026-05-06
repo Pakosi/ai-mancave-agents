@@ -86,7 +86,7 @@
 
 ## Exports
 - Markdown exports are available for the CEO digest, ranked business ideas, and single idea reports.
-- The frontend shows exported markdown in a compact sidebar panel and can copy the current export text.
+- The frontend shows exported markdown in a compact sidebar panel, includes copy success/failure feedback, and labels loaded idea reports by title.
 
 ## Provider Boundaries
 - `backend/aiProvider.js` exposes a mock AI provider factory.

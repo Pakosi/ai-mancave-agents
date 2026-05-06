@@ -45,6 +45,9 @@ const {
   mapMessageForDisplay,
   mapRoomForOption,
   mapTaskForDisplay,
+  getExportPanelEmptyMessage,
+  getExportPanelLoadedMessage,
+  getExportCopyMessage,
   saveSelectedAgentId,
   saveSelectedRoomId,
   sendCommand,
@@ -437,6 +440,15 @@ test("loadCeoDigestExport calls export endpoint and returns markdown", async () 
   assert.equal(exported, markdown);
   assert.equal(calls[0].url, "http://test.local/api/exports/ceo-digest");
   assert.equal(calls[0].options, undefined);
+});
+
+test("export panel helpers surface copy and empty-state messaging", () => {
+  assert.match(getExportPanelEmptyMessage(), /load a digest/i);
+  assert.equal(getExportPanelLoadedMessage({ title: "Auto idea", kind: "idea" }), "Idea report: Auto idea");
+  assert.equal(getExportPanelLoadedMessage({ kind: "export" }), "Export loaded.");
+  assert.equal(getExportCopyMessage({ success: true }), "Copied export markdown.");
+  assert.match(getExportCopyMessage({ clipboardAvailable: true }), /Copy failed/i);
+  assert.match(getExportCopyMessage({ clipboardAvailable: false }), /Copy unavailable/i);
 });
 
 test("parseCommandText and isCommandText recognize supported commands", () => {

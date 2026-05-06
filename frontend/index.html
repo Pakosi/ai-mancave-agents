@@ -1630,6 +1630,24 @@
       margin-bottom: 0.55rem;
     }
 
+    .export-status {
+      color: #d4a853;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 0.45rem;
+      min-height: 1rem;
+    }
+
+    .export-status.empty {
+      color: #5a4025;
+      font-weight: 600;
+    }
+
+    .export-status.error {
+      color: #fca5a5;
+    }
+
     .export-markdown {
       background: #0f0a06;
       border: 1px solid #3d2510;
@@ -1950,7 +1968,8 @@
             <button id="exportCeoDigestButton" class="mini-button" type="button">CEO digest</button>
             <button id="exportBusinessIdeasButton" class="mini-button" type="button">Top ideas</button>
           </div>
-          <pre id="exportMarkdown" class="export-markdown empty">Choose an export to view markdown.</pre>
+          <div id="exportStatus" class="export-status empty">Choose an export to view markdown, then use the buttons above to load a digest, ideas list, or idea report.</div>
+          <pre id="exportMarkdown" class="export-markdown empty">Export markdown will appear here.</pre>
         </section>
 
         <section class="tasks-panel">
@@ -2009,6 +2028,7 @@
     const decisionMemory = document.getElementById("decisionMemory");
     const commandResult = document.getElementById("commandResult");
     const exportMarkdown = document.getElementById("exportMarkdown");
+    const exportStatus = document.getElementById("exportStatus");
     const copyExportButton = document.getElementById("copyExportButton");
     const exportCeoDigestButton = document.getElementById("exportCeoDigestButton");
     const exportBusinessIdeasButton = document.getElementById("exportBusinessIdeasButton");
@@ -2051,22 +2071,38 @@
     function setExportMarkdown(text) {
       const value = text || "";
 
-      exportMarkdown.textContent = value || "Choose an export to view markdown.";
+      exportMarkdown.textContent = value || "Export markdown will appear here.";
       exportMarkdown.classList.toggle("empty", !value);
+    }
+
+    function setExportStatus(message, isError = false) {
+      exportStatus.textContent = message || WOYSApp.getExportPanelEmptyMessage();
+      exportStatus.classList.toggle("empty", !message || !isError);
+      exportStatus.classList.toggle("error", Boolean(isError));
     }
 
     function copyCurrentExport() {
       const text = exportMarkdown.textContent || "";
 
-      if (!text || text === "Choose an export to view markdown.") {
-        return Promise.resolve();
+      if (!text || text === "Export markdown will appear here.") {
+        setExportStatus(WOYSApp.getExportCopyMessage({ clipboardAvailable: Boolean(navigator.clipboard) }), true);
+        return Promise.resolve(false);
       }
 
       if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        return navigator.clipboard.writeText(text);
+        return navigator.clipboard.writeText(text)
+          .then(() => {
+            setExportStatus(WOYSApp.getExportCopyMessage({ success: true }));
+            return true;
+          })
+          .catch(() => {
+            setExportStatus(WOYSApp.getExportCopyMessage({ clipboardAvailable: true }), true);
+            return false;
+          });
       }
 
-      return Promise.resolve();
+      setExportStatus(WOYSApp.getExportCopyMessage({ clipboardAvailable: false }), true);
+      return Promise.resolve(false);
     }
 
     function formatTime(value) {
@@ -2893,14 +2929,15 @@
       }).catch(() => {});
     }
 
-    function showExportMarkdown(text) {
+    function showExportMarkdown(text, title, kind = "export") {
       setExportMarkdown(text);
+      setExportStatus(WOYSApp.getExportPanelLoadedMessage({ title, kind }));
     }
 
     function loadBusinessIdeasExport() {
       return WOYSApp.loadBusinessIdeasExport({
         onExport(text) {
-          showExportMarkdown(text);
+          showExportMarkdown(text, "Business ideas export", "export");
           setError("");
         },
         onError(err) {
@@ -2913,7 +2950,8 @@
     function loadBusinessIdeaExport(ideaId) {
       return WOYSApp.loadBusinessIdeaExport(ideaId, {
         onExport(text) {
-          showExportMarkdown(text);
+          const selectedIdea = currentIdeas.find((idea) => String(idea.id) === String(ideaId));
+          showExportMarkdown(text, selectedIdea ? selectedIdea.title : "selected idea", "idea");
           setError("");
         },
         onError(err) {
@@ -2939,7 +2977,7 @@
     function loadCeoDigestExport() {
       return WOYSApp.loadCeoDigestExport({
         onExport(text) {
-          showExportMarkdown(text);
+          showExportMarkdown(text, "CEO digest export", "export");
           setError("");
         },
         onError(err) {
