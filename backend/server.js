@@ -99,6 +99,7 @@ const thoughtPrompts = [
   "Look for a support or onboarding improvement.",
   "Connect the latest idea to revenue or customer value.",
 ];
+const thoughtVariations = ["expand", "agree", "challenge"];
 
 function getPublicAgents() {
   return Object.values(agents).map(({ id, name, label, color }) => ({
@@ -132,20 +133,35 @@ function storeAgentMessage({ agentId, sessionId, roomId, message, messages }) {
   return storedMessage;
 }
 
+function getLatestMessageByRole(messages, role) {
+  return [...messages]
+    .reverse()
+    .find((item) => item.role === role) || null;
+}
+
 function createAgentThought() {
   const agentList = Object.values(agents);
   const agent = agentList[app.locals.agentThoughtIndex % agentList.length];
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
+  const variation = thoughtVariations[app.locals.agentThoughtIndex % thoughtVariations.length];
   const sessionId = "default";
   const roomId = "main";
   const allMessages = readMessages();
   const contextMessages = getRoomMessages(allMessages, sessionId, roomId);
+  const shouldTargetUser = app.locals.agentThoughtIndex % 2 === 0;
+  const targetMessage = shouldTargetUser
+    ? getLatestMessageByRole(contextMessages, "user")
+    : getLatestMessageByRole(contextMessages, "agent");
+  const fallbackMessage = `${businessTopic} ${prompt}`;
+  const selectedMessage = targetMessage ? targetMessage.message : fallbackMessage;
   const reply = generateAgentReply({
     agent,
-    message: `${businessTopic} ${prompt}`,
+    message: selectedMessage,
     context: {
       topic: businessTopic,
       messages: contextMessages,
+      target: targetMessage,
+      variation,
     },
   });
 

@@ -533,7 +533,29 @@ test("autonomous agent thought stores an agent message", () => {
   assert.ok(thought.message.length < 180);
 });
 
-test("autonomous agent thoughts can reference prior agent messages", () => {
+test("autonomous agent thought can respond to the latest user message", async (t) => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 0;
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/message", {
+    message: "we should build a concierge onboarding offer",
+  });
+
+  const thought = app.locals.createAgentThought();
+
+  assert.equal(thought.role, "agent");
+  assert.match(thought.message, /Responding to the user's latest idea/);
+  assert.doesNotMatch(thought.message, /Recent context/);
+  assert.ok(thought.message.length < 180);
+});
+
+test("autonomous agent thoughts can respond to another agent", () => {
   resetMessages();
   app.locals.agentThoughtIndex = 0;
 
@@ -541,7 +563,7 @@ test("autonomous agent thoughts can reference prior agent messages", () => {
   const secondThought = app.locals.createAgentThought();
 
   assert.equal(secondThought.role, "agent");
-  assert.match(secondThought.message, /Building on the team's/);
+  assert.match(secondThought.message, /Building on that agent's point/);
   assert.doesNotMatch(secondThought.message, /Recent context/);
   assert.ok(secondThought.message.length < 180);
 });
