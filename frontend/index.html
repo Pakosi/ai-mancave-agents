@@ -1322,6 +1322,56 @@
       padding-right: 0.1rem;
     }
 
+    .sidebar details {
+      background: #110b05;
+      border: 1px solid #3d2510;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+
+    .sidebar details > summary {
+      align-items: center;
+      color: #d4a853;
+      cursor: pointer;
+      display: flex;
+      font-size: 0.82rem;
+      font-weight: 700;
+      gap: 0.5rem;
+      justify-content: space-between;
+      letter-spacing: 0.07em;
+      list-style: none;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    .sidebar details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .sidebar details > summary::after {
+      content: "▾";
+      color: #8a6b45;
+      font-size: 0.8rem;
+      transition: transform 160ms ease;
+    }
+
+    .sidebar details[open] > summary::after {
+      transform: rotate(180deg);
+    }
+
+    .sidebar details > :not(summary) {
+      margin-top: 0.75rem;
+    }
+
+    .panel-collapsible > .exports-panel,
+    .panel-collapsible > .plan-panel,
+    .panel-collapsible > .goals-panel,
+    .panel-collapsible > .memory-panel {
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
     .activity,
     .goals-panel,
     .ideas-panel,
@@ -1644,6 +1694,10 @@
       font-weight: 600;
     }
 
+    .export-status.collapsed-note {
+      font-size: 0.68rem;
+    }
+
     .export-status.error {
       color: #fca5a5;
     }
@@ -1958,19 +2012,26 @@
           <input id="messageInput" name="message" type="text" placeholder="Write a message" autocomplete="off" required>
           <button id="sendButton" type="submit">Send into room</button>
         </form>
-        <div id="commandResult" class="command-result empty">Commands will show here.</div>
-        <section class="exports-panel">
-          <h2 class="panel-title-row">
-            <span>Exports</span>
-            <button id="copyExportButton" class="mini-button" type="button">Copy</button>
-          </h2>
-          <div class="export-toolbar">
-            <button id="exportCeoDigestButton" class="mini-button" type="button">CEO digest</button>
-            <button id="exportBusinessIdeasButton" class="mini-button" type="button">Top ideas</button>
-          </div>
-          <div id="exportStatus" class="export-status empty">Choose an export to view markdown, then use the buttons above to load a digest, ideas list, or idea report.</div>
-          <pre id="exportMarkdown" class="export-markdown empty">Export markdown will appear here.</pre>
-        </section>
+        <details class="panel-collapsible">
+          <summary>Command Results</summary>
+          <div id="commandResult" class="command-result empty">Commands will show here.</div>
+        </details>
+
+        <details class="panel-collapsible">
+          <summary>Exports</summary>
+          <section class="exports-panel">
+            <h2 class="panel-title-row">
+              <span>Exports</span>
+              <button id="copyExportButton" class="mini-button" type="button">Copy</button>
+            </h2>
+            <div class="export-toolbar">
+              <button id="exportCeoDigestButton" class="mini-button" type="button">CEO digest</button>
+              <button id="exportBusinessIdeasButton" class="mini-button" type="button">Top ideas</button>
+            </div>
+            <div id="exportStatus" class="export-status empty">Choose an export to view markdown, then use the buttons above to load a digest, ideas list, or idea report.</div>
+            <pre id="exportMarkdown" class="export-markdown empty">Export markdown will appear here.</pre>
+          </section>
+        </details>
 
         <section class="tasks-panel">
           <h2>Tasks</h2>
@@ -1993,20 +2054,29 @@
           <div id="ceoDigest"></div>
         </section>
 
-        <section class="plan-panel">
-          <h2>Company Plan</h2>
-          <div id="companyPlan"></div>
-        </section>
+        <details class="panel-collapsible">
+          <summary>Company Plan</summary>
+          <section class="plan-panel">
+            <h2>Company Plan</h2>
+            <div id="companyPlan"></div>
+          </section>
+        </details>
 
-        <section class="goals-panel">
-          <h2>Agent Goals</h2>
-          <div id="agentGoals"></div>
-        </section>
+        <details class="panel-collapsible">
+          <summary>Agent Goals</summary>
+          <section class="goals-panel">
+            <h2>Agent Goals</h2>
+            <div id="agentGoals"></div>
+          </section>
+        </details>
 
-        <section class="memory-panel">
-          <h2>Decisions / Memory</h2>
-          <div id="decisionMemory"></div>
-        </section>
+        <details class="panel-collapsible">
+          <summary>Decisions / Memory</summary>
+          <section class="memory-panel">
+            <h2>Decisions / Memory</h2>
+            <div id="decisionMemory"></div>
+          </section>
+        </details>
 
         <section class="activity">
           <h2>Activity</h2>
