@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const {
   fetchJson,
+  createTask,
   getAgentReply,
   getSessionId,
   getSelectedAgentId,
@@ -13,13 +14,16 @@ const {
   loadAgents,
   loadMessages,
   loadRooms,
+  loadTasks,
   mapAgentForOption,
   mapAgentForRoom,
   mapMessageForDisplay,
   mapRoomForOption,
+  mapTaskForDisplay,
   saveSelectedAgentId,
   saveSelectedRoomId,
   sendMessage,
+  updateTaskStatus,
 } = require("./app");
 
 function mockResponse(body, options = {}) {
@@ -158,6 +162,33 @@ test("loadRooms calls /api/rooms and returns rooms", async () => {
   assert.equal(calls[0].options, undefined);
 });
 
+test("loadTasks calls /api/tasks for selected room and returns tasks", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseTasks = [
+    { id: 1, roomId: "auto", title: "Follow up", status: "open" },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ tasks: responseTasks }));
+  };
+
+  const tasks = await loadTasks({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    roomId: "auto",
+    onTasks(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(tasks, responseTasks);
+  assert.deepEqual(callbacks, [responseTasks]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/tasks?roomId=auto");
+  assert.equal(calls[0].options, undefined);
+});
+
 test("loadMessages calls onError and rejects when fetch fails", async () => {
   const fetchError = new Error("network down");
   const errors = [];
@@ -263,6 +294,79 @@ test("getAgentReply calls selected agent endpoint and triggers onReply", async (
   );
 });
 
+test("createTask sends POST with correct body and triggers onCreated", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseTask = {
+    id: 1,
+    roomId: "ops",
+    title: "Clean checklist",
+    description: "Remove duplicate steps",
+    assignedAgentId: "assistant",
+    status: "open",
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse(responseTask, { status: 201 }));
+  };
+
+  const task = await createTask({
+    roomId: "ops",
+    title: "Clean checklist",
+    description: "Remove duplicate steps",
+    assignedAgentId: "assistant",
+  }, {
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onCreated(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(task, responseTask);
+  assert.deepEqual(callbacks, [responseTask]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/tasks");
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(
+    calls[0].options.body,
+    JSON.stringify({
+      roomId: "ops",
+      title: "Clean checklist",
+      description: "Remove duplicate steps",
+      assignedAgentId: "assistant",
+    }),
+  );
+});
+
+test("updateTaskStatus sends PATCH with correct body and triggers onUpdated", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseTask = {
+    id: 7,
+    status: "in_progress",
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse(responseTask));
+  };
+
+  const task = await updateTaskStatus(7, "in_progress", {
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onUpdated(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(task, responseTask);
+  assert.deepEqual(callbacks, [responseTask]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/tasks/7");
+  assert.equal(calls[0].options.method, "PATCH");
+  assert.equal(calls[0].options.body, JSON.stringify({ status: "in_progress" }));
+});
+
 test("getAgentReply calls onError and rejects when fetch fails", async () => {
   const fetchError = new Error("network down");
   const errors = [];
@@ -334,6 +438,37 @@ test("mapRoomForOption maps backend room for dropdown use", () => {
     value: "marketing",
     text: "Marketing War Room",
   });
+});
+
+test("mapTaskForDisplay maps task state and next action", () => {
+  const task = mapTaskForDisplay({
+    id: 3,
+    title: "Draft pitch",
+    assignedAgentId: "sales",
+    status: "open",
+  }, [
+    { id: "sales", name: "Sales" },
+  ]);
+
+  assert.deepEqual(task, {
+    id: 3,
+    title: "Draft pitch",
+    assignedAgent: "Sales",
+    status: "open",
+    statusText: "open",
+    nextStatus: "in_progress",
+    nextStatusText: "in progress",
+  });
+
+  const done = mapTaskForDisplay({
+    id: 4,
+    title: "Done task",
+    assignedAgentId: "host",
+    status: "done",
+  }, []);
+
+  assert.equal(done.nextStatus, "");
+  assert.equal(done.nextStatusText, "");
 });
 
 test("mapAgentForRoom adds fixed position and latest agent message", () => {

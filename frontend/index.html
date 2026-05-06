@@ -216,9 +216,50 @@
       padding: 1rem;
     }
 
-    .activity h2 {
+    .tasks-panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .activity h2,
+    .tasks-panel h2 {
       font-size: 1rem;
       margin: 0 0 0.75rem;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .task-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.7rem;
+    }
+
+    .task-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 0.35rem;
+    }
+
+    .task-meta {
+      color: #64748b;
+      font-size: 0.78rem;
+      margin-bottom: 0.55rem;
+      text-transform: capitalize;
+    }
+
+    .task-action {
+      background: #0f766e;
+      font-size: 0.8rem;
+      padding: 0.5rem 0.65rem;
+      width: 100%;
     }
 
     .activity-feed {
@@ -385,6 +426,11 @@
           <button id="sendButton" type="submit">Send into room</button>
         </form>
 
+        <section class="tasks-panel">
+          <h2>Tasks</h2>
+          <div id="taskList" class="task-list"></div>
+        </section>
+
         <section class="activity">
           <h2>Activity</h2>
           <div id="activityFeed" class="activity-feed" aria-live="polite"></div>
@@ -405,6 +451,7 @@
     const roomNotice = document.getElementById("roomNotice");
     const roomSelect = document.getElementById("roomSelect");
     const sendButton = document.getElementById("sendButton");
+    const taskList = document.getElementById("taskList");
     const youMessage = document.getElementById("youMessage");
     let loadedAgents = [];
     let loadedRooms = [];
@@ -514,6 +561,46 @@
       renderActivity(items);
     }
 
+    function renderTasks(items) {
+      taskList.textContent = "";
+
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No tasks yet.";
+        taskList.appendChild(empty);
+        return;
+      }
+
+      items.forEach(item => {
+        const view = WOYSApp.mapTaskForDisplay(item, loadedAgents);
+        const taskItem = document.createElement("div");
+        taskItem.className = "task-item";
+
+        const title = document.createElement("div");
+        title.className = "task-title";
+        title.textContent = view.title;
+
+        const meta = document.createElement("div");
+        meta.className = "task-meta";
+        meta.textContent = `${view.assignedAgent} · ${view.statusText}`;
+
+        taskItem.append(title, meta);
+
+        if (view.nextStatus) {
+          const button = document.createElement("button");
+          button.className = "task-action";
+          button.type = "button";
+          button.dataset.taskId = view.id;
+          button.dataset.status = view.nextStatus;
+          button.textContent = `Mark ${view.nextStatusText}`;
+          taskItem.appendChild(button);
+        }
+
+        taskList.appendChild(taskItem);
+      });
+    }
+
     function renderRoomActivity(activity) {
       const view = WOYSApp.getRoomActivityView(activity, roomSelect.value, loadedRooms);
 
@@ -535,6 +622,19 @@
         onError(err) {
           console.error(err);
           setError("Could not load messages.");
+        },
+      }).catch(() => {});
+    }
+
+    function loadTasks() {
+      return WOYSApp.loadTasks({
+        onTasks(items) {
+          renderTasks(items);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not load tasks.");
         },
       }).catch(() => {});
     }
@@ -630,7 +730,7 @@
           }).catch(() => {});
         })
         .then(() => {
-          return loadMessages();
+          return Promise.all([loadMessages(), loadTasks()]);
         })
         .catch(() => {})
         .finally(() => {
@@ -660,11 +760,33 @@
     roomSelect.addEventListener("change", () => {
       WOYSApp.saveSelectedRoomId(roomSelect.value);
       autonomousThinkingAgentId = "";
-      loadMessages();
+      Promise.all([loadMessages(), loadTasks()]);
     });
 
-    Promise.all([loadAgents(), loadRooms()]).then(loadMessages);
+    taskList.addEventListener("click", event => {
+      const button = event.target.closest("button[data-task-id]");
+
+      if (!button) {
+        return;
+      }
+
+      button.disabled = true;
+      WOYSApp.updateTaskStatus(button.dataset.taskId, button.dataset.status, {
+        onError(err) {
+          console.error(err);
+          setError("Could not update task.");
+        },
+      })
+        .then(loadTasks)
+        .catch(() => {})
+        .finally(() => {
+          button.disabled = false;
+        });
+    });
+
+    Promise.all([loadAgents(), loadRooms()]).then(() => Promise.all([loadMessages(), loadTasks()]));
     setInterval(loadMessages, 2000);
+    setInterval(loadTasks, 4000);
   </script>
 </body>
 </html>

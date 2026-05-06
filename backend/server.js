@@ -8,6 +8,7 @@ const { generateAgentReply } = require("./aiProvider");
 const app = express();
 
 app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
+app.locals.tasksFile = path.join(__dirname, "data", "tasks.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -22,32 +23,52 @@ app.locals.topicMemory = {};
 app.use(cors());
 app.use(express.json());
 
-function ensureMessagesFile() {
-  const dataDir = path.dirname(app.locals.messagesFile);
+function ensureJsonFile(filePath) {
+  const dataDir = path.dirname(filePath);
 
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  if (!fs.existsSync(app.locals.messagesFile)) {
-    fs.writeFileSync(app.locals.messagesFile, "[]\n");
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, "[]\n");
   }
 }
 
-function readMessages() {
-  ensureMessagesFile();
+function readJsonFile(filePath) {
+  ensureJsonFile(filePath);
 
-  const data = fs.readFileSync(app.locals.messagesFile, "utf8");
+  const data = fs.readFileSync(filePath, "utf8");
   return JSON.parse(data);
 }
 
+function writeJsonFile(filePath, items) {
+  ensureJsonFile(filePath);
+  fs.writeFileSync(filePath, `${JSON.stringify(items, null, 2)}\n`);
+}
+
+function readMessages() {
+  return readJsonFile(app.locals.messagesFile);
+}
+
 function writeMessages(messages) {
-  ensureMessagesFile();
-  fs.writeFileSync(app.locals.messagesFile, `${JSON.stringify(messages, null, 2)}\n`);
+  writeJsonFile(app.locals.messagesFile, messages);
+}
+
+function readTasks() {
+  return readJsonFile(app.locals.tasksFile);
+}
+
+function writeTasks(tasks) {
+  writeJsonFile(app.locals.tasksFile, tasks);
+}
+
+function getNextId(items) {
+  return items.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
 }
 
 function getNextMessageId(messages) {
-  return messages.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
+  return getNextId(messages);
 }
 
 function getValidMessage(body) {
@@ -58,6 +79,26 @@ function getValidMessage(body) {
   }
 
   return message.trim();
+}
+
+function getValidText(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return null;
+  }
+
+  return value.trim();
+}
+
+function getValidDescription(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim();
 }
 
 function getSessionId(value) {
@@ -129,6 +170,7 @@ const thoughtPrompts = [
 ];
 const thoughtVariations = ["expand", "agree", "challenge"];
 const agentResponseModes = ["agree", "expand", "question", "challenge"];
+const taskStatuses = new Set(["open", "in_progress", "done"]);
 const autonomousSessionId = "default";
 
 function getPublicAgents() {
@@ -211,6 +253,29 @@ function updateTopicMemory(sessionId, roomId, messages) {
   }
 
   return app.locals.topicMemory[key] || "the current business idea";
+}
+
+function getRoomTasks(tasks, roomId) {
+  return tasks.filter((item) => getRoomId(item.roomId) === roomId);
+}
+
+function createTask({ roomId, title, description, assignedAgentId, tasks }) {
+  const now = new Date().toISOString();
+  const task = {
+    id: getNextId(tasks),
+    roomId,
+    title,
+    description,
+    status: "open",
+    assignedAgentId,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  tasks.push(task);
+  writeTasks(tasks);
+
+  return task;
 }
 
 function storeAgentMessage({ agentId, sessionId, roomId, message, messages }) {
@@ -310,7 +375,39 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     topic,
   };
 
+  maybeCreateAutonomousTask({
+    agentId: agent.id,
+    roomId: normalizedRoomId,
+    topic,
+    message: reply,
+  });
+
   return storedMessage;
+}
+
+function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
+  if (app.locals.agentThoughtIndex % 4 !== 0) {
+    return null;
+  }
+
+  const tasks = readTasks();
+  const openRoomTasks = getRoomTasks(tasks, roomId).filter((task) => task.status !== "done");
+
+  if (openRoomTasks.length >= 3) {
+    return null;
+  }
+
+  const cleanTopic = topic && topic !== "the current business idea" ? topic : "next room idea";
+  const title = `Clarify ${cleanTopic}`.slice(0, 80);
+  const description = `Follow up on: ${message}`.slice(0, 160);
+
+  return createTask({
+    roomId,
+    title,
+    description,
+    assignedAgentId: agentId,
+    tasks,
+  });
 }
 
 function getRandomThoughtDelay() {
@@ -408,6 +505,69 @@ app.get("/api/rooms", (req, res) => {
   res.json({ rooms: getPublicRooms() });
 });
 
+app.get("/api/tasks", (req, res) => {
+  const roomId = getRoomId(req.query.roomId);
+  const tasks = getRoomTasks(readTasks(), roomId);
+
+  res.json({ tasks });
+});
+
+app.post("/api/tasks", (req, res) => {
+  const roomId = getRoomId(req.body && req.body.roomId);
+  const title = getValidText(req.body && req.body.title);
+  const description = getValidDescription(req.body && req.body.description);
+  const assignedAgentId = getValidText(req.body && req.body.assignedAgentId);
+
+  if (!title) {
+    return res.status(400).json({ error: "title is required" });
+  }
+
+  if (description === null) {
+    return res.status(400).json({ error: "description must be a string" });
+  }
+
+  if (!assignedAgentId || !agents[assignedAgentId]) {
+    return res.status(400).json({ error: "valid assignedAgentId is required" });
+  }
+
+  const tasks = readTasks();
+  const task = createTask({
+    roomId,
+    title,
+    description,
+    assignedAgentId,
+    tasks,
+  });
+
+  return res.status(201).json(task);
+});
+
+app.patch("/api/tasks/:taskId", (req, res) => {
+  const taskId = Number(req.params.taskId);
+  const status = req.body && req.body.status;
+
+  if (!Number.isInteger(taskId) || taskId < 1) {
+    return res.status(400).json({ error: "invalid taskId" });
+  }
+
+  if (!taskStatuses.has(status)) {
+    return res.status(400).json({ error: "valid status is required" });
+  }
+
+  const tasks = readTasks();
+  const task = tasks.find((item) => item.id === taskId);
+
+  if (!task) {
+    return res.status(404).json({ error: "task not found" });
+  }
+
+  task.status = status;
+  task.updatedAt = new Date().toISOString();
+  writeTasks(tasks);
+
+  return res.json(task);
+});
+
 app.post("/api/message", (req, res) => {
   const message = getValidMessage(req.body);
   const sessionId = getSessionId(req.body && req.body.sessionId);
@@ -493,6 +653,7 @@ if (require.main === module) {
 
 app.locals.createAgentThought = createAgentThought;
 app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 

@@ -170,6 +170,94 @@
       });
   }
 
+  function loadTasks(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const roomId = options.roomId || getSelectedRoomId(options.storage);
+    const query = new URLSearchParams({ roomId });
+
+    return fetchJson(`${apiBaseUrl}/api/tasks?${query.toString()}`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onTasks) {
+          options.onTasks(data.tasks);
+        }
+
+        return data.tasks;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function createTask(task, options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+    const roomId = task.roomId || options.roomId || getSelectedRoomId(options.storage);
+
+    return fetchJson(
+      `${apiBaseUrl}/api/tasks`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          roomId,
+          title: task.title,
+          description: task.description,
+          assignedAgentId: task.assignedAgentId,
+        }),
+      },
+      options.fetch,
+    )
+      .then((data) => {
+        if (options.onCreated) {
+          options.onCreated(data);
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function updateTaskStatus(taskId, status, options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(
+      `${apiBaseUrl}/api/tasks/${encodeURIComponent(taskId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      },
+      options.fetch,
+    )
+      .then((data) => {
+        if (options.onUpdated) {
+          options.onUpdated(data);
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function sendMessage(message, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
@@ -266,6 +354,33 @@
     };
   }
 
+  function getNextTaskStatus(status) {
+    if (status === "open") {
+      return "in_progress";
+    }
+
+    if (status === "in_progress") {
+      return "done";
+    }
+
+    return "";
+  }
+
+  function mapTaskForDisplay(task, agents = []) {
+    const agent = agents.find((item) => item.id === task.assignedAgentId);
+    const nextStatus = getNextTaskStatus(task.status);
+
+    return {
+      id: task.id,
+      title: task.title,
+      assignedAgent: agent ? agent.name : task.assignedAgentId,
+      status: task.status,
+      statusText: task.status.replace("_", " "),
+      nextStatus,
+      nextStatusText: nextStatus ? nextStatus.replace("_", " ") : "",
+    };
+  }
+
   function getRoomName(rooms = [], roomId) {
     const room = rooms.find((item) => item.id === roomId);
 
@@ -320,6 +435,7 @@
 
   const api = {
     fetchJson,
+    createTask,
     getAgentReply,
     getSessionId,
     getSelectedAgentId,
@@ -328,16 +444,19 @@
     loadAgents,
     loadMessages,
     loadRooms,
+    loadTasks,
     mapAgentForOption,
     mapAgentForRoom,
     mapMessageForDisplay,
     mapRoomForOption,
+    mapTaskForDisplay,
     getNewestAgentMessage,
     getLatestUserMessage,
     saveSelectedAgentId,
     getSelectedRoomId,
     saveSelectedRoomId,
     sendMessage,
+    updateTaskStatus,
   };
 
   if (typeof module !== "undefined" && module.exports) {

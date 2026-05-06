@@ -11,6 +11,7 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
 
 function resetMessages() {
   app.locals.messagesFile = path.join(testDataDir, `${Date.now()}-${Math.random()}.json`);
+  app.locals.tasksFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-tasks.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -26,6 +27,47 @@ function resetMessages() {
     clearTimeout(app.locals.agentThoughtTimer);
     app.locals.agentThoughtTimer = null;
   }
+}
+
+function patchJson(server, path, data) {
+  const { port } = server.address();
+  const body = JSON.stringify(data);
+
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path,
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let responseBody = "";
+
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          responseBody += chunk;
+        });
+        res.on("end", () => {
+          try {
+            resolve({
+              statusCode: res.statusCode,
+              body: JSON.parse(responseBody),
+            });
+          } catch (err) {
+            reject(err);
+          }
+        });
+      },
+    );
+
+    req.on("error", reject);
+    req.end(body);
+  });
 }
 
 function listen() {
@@ -452,6 +494,152 @@ test("messages persist through file storage", async (t) => {
   assert.deepEqual(messages.body.messages, [created.body]);
 });
 
+test("POST /api/tasks creates a task and GET /api/tasks returns it", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "marketing",
+    title: "Draft launch plan",
+    description: "Outline the first campaign",
+    assignedAgentId: "assistant",
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.id, 1);
+  assert.equal(created.body.roomId, "marketing");
+  assert.equal(created.body.title, "Draft launch plan");
+  assert.equal(created.body.description, "Outline the first campaign");
+  assert.equal(created.body.status, "open");
+  assert.equal(created.body.assignedAgentId, "assistant");
+  assert.equal(typeof created.body.createdAt, "string");
+  assert.equal(typeof created.body.updatedAt, "string");
+
+  const tasks = await getJson(server, "/api/tasks?roomId=marketing");
+
+  assert.equal(tasks.statusCode, 200);
+  assert.deepEqual(tasks.body.tasks, [created.body]);
+});
+
+test("PATCH /api/tasks/:taskId updates task status", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Document handoff",
+    description: "Make the workflow clear",
+    assignedAgentId: "host",
+  });
+  const updated = await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "in_progress",
+  });
+
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.status, "in_progress");
+  assert.equal(updated.body.id, created.body.id);
+  assert.notEqual(updated.body.updatedAt, undefined);
+
+  const done = await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "done",
+  });
+
+  assert.equal(done.statusCode, 200);
+  assert.equal(done.body.status, "done");
+});
+
+test("GET /api/tasks keeps rooms separate", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const auto = await postJson(server, "/api/tasks", {
+    roomId: "auto",
+    title: "Call dealer leads",
+    description: "Prioritize warm prospects",
+    assignedAgentId: "sales",
+  });
+  const ops = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Clean checklist",
+    description: "Remove duplicate steps",
+    assignedAgentId: "assistant",
+  });
+
+  const autoTasks = await getJson(server, "/api/tasks?roomId=auto");
+  const opsTasks = await getJson(server, "/api/tasks?roomId=ops");
+
+  assert.equal(autoTasks.statusCode, 200);
+  assert.equal(opsTasks.statusCode, 200);
+  assert.deepEqual(autoTasks.body.tasks, [auto.body]);
+  assert.deepEqual(opsTasks.body.tasks, [ops.body]);
+});
+
+test("POST /api/tasks validates title, description, and assigned agent", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const missingTitle = await postJson(server, "/api/tasks", {
+    assignedAgentId: "host",
+  });
+  const invalidDescription = await postJson(server, "/api/tasks", {
+    title: "Bad description",
+    description: 123,
+    assignedAgentId: "host",
+  });
+  const invalidAgent = await postJson(server, "/api/tasks", {
+    title: "Bad agent",
+    assignedAgentId: "unknown",
+  });
+
+  assert.equal(missingTitle.statusCode, 400);
+  assert.deepEqual(missingTitle.body, { error: "title is required" });
+  assert.equal(invalidDescription.statusCode, 400);
+  assert.deepEqual(invalidDescription.body, { error: "description must be a string" });
+  assert.equal(invalidAgent.statusCode, 400);
+  assert.deepEqual(invalidAgent.body, { error: "valid assignedAgentId is required" });
+});
+
+test("PATCH /api/tasks/:taskId validates status", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const created = await postJson(server, "/api/tasks", {
+    title: "Status check",
+    assignedAgentId: "host",
+  });
+  const invalid = await patchJson(server, `/api/tasks/${created.body.id}`, {
+    status: "blocked",
+  });
+
+  assert.equal(invalid.statusCode, 400);
+  assert.deepEqual(invalid.body, { error: "valid status is required" });
+});
+
 test("POST /api/agents/:agentId/reply returns correct structure for each agent", async (t) => {
   resetMessages();
 
@@ -688,6 +876,22 @@ test("autonomous room context stays isolated", async (t) => {
   assert.doesNotMatch(app.locals.topicMemory["default:auto"], /campaign|funnel/);
   assert.match(app.locals.topicMemory["default:marketing"], /campaign|funnel/);
   assert.doesNotMatch(app.locals.topicMemory["default:marketing"], /dealership|pipeline/);
+});
+
+test("autonomous agent thoughts sometimes create room tasks", () => {
+  resetMessages();
+
+  app.locals.createAgentThought();
+  app.locals.createAgentThought();
+  app.locals.createAgentThought();
+  const thought = app.locals.createAgentThought();
+
+  const tasks = app.locals.readTasksForTest();
+
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].roomId, thought.roomId);
+  assert.equal(tasks[0].status, "open");
+  assert.equal(tasks[0].assignedAgentId, thought.agentId);
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {
