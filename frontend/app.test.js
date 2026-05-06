@@ -1241,9 +1241,9 @@ test("getHQWorkZones returns the workstation layout", () => {
     label: "CEO Command Desk",
     className: "command",
     left: 50,
-    top: 58,
-    width: 17,
-    height: 8.4,
+    top: 61,
+    width: 19,
+    height: 8.6,
     poseClass: "station-command",
     workClass: "working-command",
     accent: "#d4a853",
@@ -1254,6 +1254,10 @@ test("getHQWorkZones returns the workstation layout", () => {
   assert.equal(zoneById["automation-station"].left > zoneById["command-desk"].left, true);
   assert.equal(zoneById["analyst-desk"].left > zoneById["command-desk"].left, true);
   assert.equal(zoneById["brainstorm-lounge"].top < zoneById["command-desk"].top, true);
+  assert.equal(zoneById["research-library"].top < zoneById["command-desk"].top, true);
+  assert.equal(zoneById["automation-station"].top < zoneById["command-desk"].top, true);
+  assert.equal(zoneById["builder-workstation"].top > zoneById["brainstorm-lounge"].top, true);
+  assert.equal(zoneById["analyst-desk"].top > zoneById["brainstorm-lounge"].top, true);
   assert.equal(zones.some((zone) => zone.id === "trading-desk"), true);
 });
 

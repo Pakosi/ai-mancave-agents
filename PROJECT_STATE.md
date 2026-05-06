@@ -72,6 +72,7 @@
 - Agent position changes now transition smoothly rather than snapping, and animation state is preserved between data refreshes.
 - The current HQ station layout now places research and builder stations on the left, trading/automation/analyst stations on the right, the CEO command desk centered and dominant, and the lounge back-center for cleaner spacing and readability.
 - Latest spatial polish tightened speech bubbles, removed the always-visible agent zone line, and increased room depth/contrast so the scene reads more calmly at a glance without changing routing or behavior.
+- The current HQ composition now centers the CEO command desk as the focal point, pulls research/automation into the back corners, and places builder/trading/analyst along the lower lanes so the room reads like a command center with clearer flow.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.
