@@ -68,6 +68,8 @@
 - Phase 3C makes movement more intentional with route reasons, task/idea-driven zone switches, host patrol priorities, and a simple cooldown/dwell guard against rapid station hopping.
 - Phase 3D adds short visible interaction events for station work and check-ins, shown in-room and promoted into the activity feed when important.
 - Stabilization pass tightened label density and card readability across the HQ scene, digest, ideas, command result, and interaction event surfaces without adding new systems.
+- The latest frontend motion pass keeps room agent DOM nodes stable across refreshes with a cache keyed by agent id, so polling updates no longer rebuild the scene and reset character motion each tick.
+- Agent position changes now transition smoothly rather than snapping, and animation state is preserved between data refreshes.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

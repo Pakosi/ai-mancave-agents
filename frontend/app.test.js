@@ -16,6 +16,7 @@ const {
   getHQAgentMotionState,
   getHQAgentRouteDecision,
   getHQInteractionEvents,
+  getHQAgentRenderKey,
   getHQWorkZones,
   getRoomActivityView,
   getSelectedRoom,
@@ -1209,6 +1210,11 @@ test("mapAgentForRoom includes specialized agent role and stable position", () =
     latestMessage: "Thinking...",
     latestMessageId: null,
   });
+});
+
+test("getHQAgentRenderKey stays stable for cached room nodes", () => {
+  assert.equal(getHQAgentRenderKey({ id: "builder" }), "builder");
+  assert.equal(getHQAgentRenderKey({}), "");
 });
 
 test("getAgentCharacterStyle returns a distinct fixed style per agent", () => {

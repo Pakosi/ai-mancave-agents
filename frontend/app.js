@@ -2038,6 +2038,10 @@
     };
   }
 
+  function getHQAgentRenderKey(agent = {}) {
+    return agent.id ? String(agent.id) : "";
+  }
+
   function getNewestAgentMessage(messages = []) {
     return [...messages]
       .reverse()
@@ -2091,6 +2095,7 @@
     getHQAgentRouteDecision,
     getHQInteractionEvent,
     getHQInteractionEvents,
+    getHQAgentRenderKey,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,

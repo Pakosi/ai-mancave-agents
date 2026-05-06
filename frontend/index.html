@@ -879,7 +879,8 @@
       overflow: visible;
       position: absolute;
       transform: translate(-50%, -50%);
-      transition: left 1.4s ease-in-out, top 1.4s ease-in-out;
+      transition: left 850ms linear, top 850ms linear, transform 180ms ease, opacity 180ms ease;
+      will-change: left, top, transform;
       width: 8.4rem;
       z-index: 2;
     }
@@ -2323,6 +2324,7 @@
     let currentMemoryEvents = [];
     let currentRhythm = {};
     let currentRoomEvents = [];
+    const roomAgentNodeCache = new Map();
     let autonomousThinkingAgentId = "";
     let manualThinkingAgentId = "";
 
@@ -2617,111 +2619,154 @@
       return motion;
     }
 
+    function getRoomAgentCacheKey(agentId) {
+      return WOYSApp.getHQAgentRenderKey ? WOYSApp.getHQAgentRenderKey({ id: agentId }) : String(agentId || "");
+    }
+
+    function createRoomAgentNode(roomAgent, newestAgentMessage) {
+      const node = document.createElement("div");
+      node.className = "agent-node";
+      node.dataset.agentId = roomAgent.id;
+
+      if (newestAgentMessage && newestAgentMessage.agentId === roomAgent.id) {
+        node.classList.add("latest");
+      }
+
+      const speech = document.createElement("div");
+      speech.className = "speech";
+      speech.textContent = shortenRoomText(roomAgent.latestMessage, 30);
+
+      const charWrap = document.createElement("div");
+      charWrap.className = "char-wrap";
+      charWrap.style.setProperty("--char-head", roomAgent.appearance.head);
+      charWrap.style.setProperty("--char-torso", roomAgent.appearance.torso);
+      charWrap.style.setProperty("--char-trim", roomAgent.appearance.trim);
+      charWrap.style.setProperty("--char-accent", roomAgent.appearance.accent);
+      charWrap.style.setProperty("--char-shadow", roomAgent.appearance.shadow);
+
+      const charGlow = document.createElement("div");
+      charGlow.className = "char-glow";
+
+      const charHead = document.createElement("div");
+      charHead.className = "char-head";
+
+      const charShoulders = document.createElement("div");
+      charShoulders.className = "char-shoulders";
+
+      const charTorso = document.createElement("div");
+      charTorso.className = "char-torso";
+
+      const charArms = document.createElement("div");
+      charArms.className = "char-arms";
+
+      const leftArm = document.createElement("div");
+      leftArm.className = "char-arm left";
+
+      const rightArm = document.createElement("div");
+      rightArm.className = "char-arm right";
+      charArms.append(leftArm, rightArm);
+
+      const charLegs = document.createElement("div");
+      charLegs.className = "char-legs";
+
+      const leftLeg = document.createElement("div");
+      leftLeg.className = "char-leg left";
+
+      const rightLeg = document.createElement("div");
+      rightLeg.className = "char-leg right";
+
+      const leftFoot = document.createElement("div");
+      leftFoot.className = "char-foot";
+      const rightFoot = document.createElement("div");
+      rightFoot.className = "char-foot";
+      leftLeg.appendChild(leftFoot);
+      rightLeg.appendChild(rightFoot);
+      charLegs.append(leftLeg, rightLeg);
+
+      charWrap.append(charGlow, charHead, charShoulders, charTorso, charArms, charLegs);
+
+      const name = document.createElement("div");
+      name.className = "agent-name";
+      name.textContent = roomAgent.name;
+
+      const role = document.createElement("div");
+      role.className = "agent-role";
+
+      const zone = document.createElement("div");
+      zone.className = "agent-zone";
+
+      node.append(speech, charWrap, name, role, zone);
+      return node;
+    }
+
+    function updateRoomAgentNode(node, roomAgent, index, now, state = {}) {
+      const motion = applyMotionToNode(node, roomAgent, index, now, state);
+      const thinkingAgentId = manualThinkingAgentId || autonomousThinkingAgentId;
+      const speech = node.querySelector(".speech");
+      const zone = node.querySelector(".agent-zone");
+
+      node.classList.toggle("latest", Boolean(state.isLatest));
+      node.classList.toggle("thinking", Boolean(state.isSpeaking));
+
+      if (speech) {
+        if (state.isSpeaking) {
+          speech.classList.add("thinking");
+          speech.textContent = "thinking...";
+        } else {
+          speech.classList.remove("thinking");
+          speech.textContent = shortenRoomText(roomAgent.latestMessage, 30);
+        }
+      }
+
+      if (zone) {
+        zone.textContent = shortenRoomText(motion.routeReason || motion.stationPurpose, 20);
+      }
+
+      node.title = `${roomAgent.name} · ${motion.stationLabel}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
+      node.dataset.lastUpdatedAt = String(now);
+      node.dataset.motionState = state.isSpeaking ? "speaking" : (motion.isWalking ? "walking" : "idle");
+      return motion;
+    }
+
     function renderRoom(items) {
       const newestAgentMessage = WOYSApp.getNewestAgentMessage(items);
       const now = Date.now();
       const motions = [];
       const agentsById = new Map(loadedAgents.map((agent) => [agent.id, agent]));
 
-      roomAgents.textContent = "";
       youMessage.textContent = WOYSApp.getLatestUserMessage(items) || "No message yet.";
 
       loadedAgents.forEach((agent, index) => {
         const thinkingAgentId = manualThinkingAgentId || autonomousThinkingAgentId;
         const roomAgent = WOYSApp.mapAgentForRoom(agent, items);
-        const node = document.createElement("div");
-        node.className = "agent-node";
-        node.dataset.agentId = roomAgent.id;
+        const cacheKey = getRoomAgentCacheKey(roomAgent.id);
+        let node = roomAgentNodeCache.get(cacheKey);
+
+        if (!node) {
+          node = createRoomAgentNode(roomAgent, newestAgentMessage);
+          roomAgentNodeCache.set(cacheKey, node);
+          roomAgents.appendChild(node);
+        }
 
         if (newestAgentMessage && newestAgentMessage.agentId === roomAgent.id) {
           node.classList.add("latest");
+        } else {
+          node.classList.remove("latest");
         }
 
         if (thinkingAgentId === roomAgent.id) {
           node.classList.add("thinking");
-        }
-
-        const speech = document.createElement("div");
-        speech.className = "speech";
-
-        if (thinkingAgentId === roomAgent.id) {
-          speech.classList.add("thinking");
-          speech.textContent = "thinking...";
         } else {
-          speech.textContent = shortenRoomText(roomAgent.latestMessage, 30);
+          node.classList.remove("thinking");
         }
 
-        const charWrap = document.createElement("div");
-        charWrap.className = "char-wrap";
-        charWrap.style.setProperty("--char-head", roomAgent.appearance.head);
-        charWrap.style.setProperty("--char-torso", roomAgent.appearance.torso);
-        charWrap.style.setProperty("--char-trim", roomAgent.appearance.trim);
-        charWrap.style.setProperty("--char-accent", roomAgent.appearance.accent);
-        charWrap.style.setProperty("--char-shadow", roomAgent.appearance.shadow);
-
-        const charGlow = document.createElement("div");
-        charGlow.className = "char-glow";
-
-        const charHead = document.createElement("div");
-        charHead.className = "char-head";
-
-        const charShoulders = document.createElement("div");
-        charShoulders.className = "char-shoulders";
-
-        const charTorso = document.createElement("div");
-        charTorso.className = "char-torso";
-
-        const charArms = document.createElement("div");
-        charArms.className = "char-arms";
-
-        const leftArm = document.createElement("div");
-        leftArm.className = "char-arm left";
-
-        const rightArm = document.createElement("div");
-        rightArm.className = "char-arm right";
-        charArms.append(leftArm, rightArm);
-
-        const charLegs = document.createElement("div");
-        charLegs.className = "char-legs";
-
-        const leftLeg = document.createElement("div");
-        leftLeg.className = "char-leg left";
-
-        const rightLeg = document.createElement("div");
-        rightLeg.className = "char-leg right";
-
-        const leftFoot = document.createElement("div");
-        leftFoot.className = "char-foot";
-        const rightFoot = document.createElement("div");
-        rightFoot.className = "char-foot";
-        leftLeg.appendChild(leftFoot);
-        rightLeg.appendChild(rightFoot);
-        charLegs.append(leftLeg, rightLeg);
-
-        charWrap.append(charGlow, charHead, charShoulders, charTorso, charArms, charLegs);
-        const motion = applyMotionToNode(node, roomAgent, index, now);
-
-        const name = document.createElement("div");
-        name.className = "agent-name";
-        name.textContent = roomAgent.name;
-
-        const role = document.createElement("div");
-        role.className = "agent-role";
-        role.textContent = roomAgent.role;
-
-        const zone = document.createElement("div");
-        zone.className = "agent-zone";
-        zone.textContent = motion.routeReason || motion.stationPurpose;
-
-        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
-
-        node.append(speech, charWrap, name, role, zone);
-        roomAgents.appendChild(node);
+        const motion = updateRoomAgentNode(node, roomAgent, index, now, {
+          isSpeaking: thinkingAgentId === roomAgent.id,
+          isLatest: newestAgentMessage && newestAgentMessage.agentId === roomAgent.id,
+        });
         motions.push({
           agentId: roomAgent.id,
-          motion: applyMotionToNode(node, roomAgent, index, now, {
-            isSpeaking: thinkingAgentId === roomAgent.id,
-          }),
+          motion,
           isSpeaking: thinkingAgentId === roomAgent.id,
         });
       });
@@ -2736,7 +2781,7 @@
     }
 
     function updateRoomMotion() {
-      if (loadedAgents.length === 0 || roomAgents.children.length === 0) {
+      if (loadedAgents.length === 0 || roomAgentNodeCache.size === 0) {
         return;
       }
 
@@ -2744,15 +2789,15 @@
       const motions = [];
 
       loadedAgents.forEach((agent, index) => {
-        const node = roomAgents.querySelector(`[data-agent-id="${agent.id}"]`);
+        const node = roomAgentNodeCache.get(getRoomAgentCacheKey(agent.id));
 
         if (!node) {
           return;
         }
 
         const roomAgent = WOYSApp.mapAgentForRoom(agent, currentMessages);
-        const isSpeaking = node.classList.contains("speaking");
-        const motion = applyMotionToNode(node, roomAgent, index, now, {
+        const isSpeaking = node.classList.contains("thinking");
+        const motion = updateRoomAgentNode(node, roomAgent, index, now, {
           isSpeaking,
         });
         motions.push({
@@ -2760,13 +2805,6 @@
           motion,
           isSpeaking,
         });
-
-        const zone = node.querySelector(".agent-zone");
-        if (zone) {
-          zone.textContent = motion.routeReason || motion.stationPurpose;
-        }
-
-        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
       });
 
       currentRoomEvents = WOYSApp.getHQInteractionEvents(motions, loadedAgents, {
