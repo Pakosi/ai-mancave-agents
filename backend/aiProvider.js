@@ -1,3 +1,5 @@
+// Mock-first AI provider boundary. Keep local behavior here until a real local LLM adapter exists.
+
 function hasPriorUserContext(messages) {
   return messages.some((item) => item.role === "user");
 }
@@ -150,6 +152,21 @@ function generateAgentReply({ agent, message, context = {} }) {
   return `${contextCue}I would turn this into a short plan with one owner and one measurable next step.`;
 }
 
+function createMockAiProvider() {
+  return {
+    id: "mock-ai",
+    kind: "mock",
+    name: "Mock AI Provider",
+    generateReply: generateAgentReply,
+  };
+}
+
+function getAiProvider() {
+  return createMockAiProvider();
+}
+
 module.exports = {
+  createMockAiProvider,
   generateAgentReply,
+  getAiProvider,
 };

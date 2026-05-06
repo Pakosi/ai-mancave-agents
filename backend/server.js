@@ -3,7 +3,7 @@ const cors = require("cors");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { generateAgentReply } = require("./aiProvider");
+const { getAiProvider } = require("./aiProvider");
 const {
   createDefaultAgentGoals,
   getGoalForAgent,
@@ -50,6 +50,12 @@ const {
   getDecisionDraft,
   normalizeDecisionLog,
 } = require("./decisionLog");
+const {
+  getMarketProvider,
+} = require("./marketProvider");
+const {
+  getResearchProvider,
+} = require("./researchProvider");
 
 const app = express();
 
@@ -60,6 +66,11 @@ app.locals.decisionLogFile = path.join(__dirname, "data", "decision-log.json");
 app.locals.agentGoalsFile = path.join(__dirname, "data", "agent-goals.json");
 app.locals.businessIdeasFile = path.join(__dirname, "data", "business-ideas.json");
 app.locals.ceoDigestFile = path.join(__dirname, "data", "ceo-digest.json");
+app.locals.providers = {
+  ai: getAiProvider(),
+  market: getMarketProvider(),
+  research: getResearchProvider(),
+};
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -998,7 +1009,7 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     : targetMessage ? `${targetMessage.message} Phase: ${rhythm.phase}. Goal: ${agentGoal ? agentGoal.currentGoal : "no goal"}. Objective: ${companyPlan.currentObjective}` : fallbackMessage;
   const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
-  const reply = addRoomBriefCue(addTaskReference(generateAgentReply({
+  const reply = addRoomBriefCue(addTaskReference(app.locals.providers.ai.generateReply({
     agent,
     message: selectedMessage,
     context: {
@@ -1213,15 +1224,16 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
   const isCoordinator = ["host", "manager"].includes(agent.id);
 
   if (currentIdeas.length === 0) {
-    const draft = getBusinessIdeaDraft({
-      agent,
-      roomName: getRoomName(roomId),
-      topic,
-      task,
-      plan: plan || readCompanyPlan(),
-      goal,
-      rhythm,
-    });
+      const draft = getBusinessIdeaDraft({
+        agent,
+        roomName: getRoomName(roomId),
+        topic,
+        task,
+        plan: plan || readCompanyPlan(),
+        goal,
+        rhythm,
+        providers: app.locals.providers,
+      });
     const created = createBusinessIdeaEntry({
       ideas: currentIdeas,
       ...draft,
@@ -1301,6 +1313,7 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
       plan: plan || readCompanyPlan(),
       goal,
       rhythm,
+      providers: app.locals.providers,
     });
     const created = createBusinessIdeaEntry({
       ideas: currentIdeas,
@@ -1331,6 +1344,7 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
     plan: plan || readCompanyPlan(),
     goal,
     rhythm,
+    providers: app.locals.providers,
   });
   const updateResult = updateBusinessIdea({
     ideas: currentIdeas,
@@ -1838,7 +1852,7 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   const sessionMessages = getRoomMessages(allMessages, sessionId, roomId);
   const topic = updateTopicMemory(sessionId, roomId, sessionMessages);
   const roomBrief = getRoomBrief(roomId);
-  const reply = addRoomBriefCue(generateAgentReply({
+  const reply = addRoomBriefCue(app.locals.providers.ai.generateReply({
     agent,
     message: `${message} Room brief: ${roomBrief}`,
     context: {

@@ -21,6 +21,9 @@ const {
   executeCommand,
   parseCommandText,
 } = require("./commands");
+const { createMockAiProvider, getAiProvider } = require("./aiProvider");
+const { createMockMarketProvider, getMarketProvider } = require("./marketProvider");
+const { createMockResearchProvider, getResearchProvider } = require("./researchProvider");
 const app = require("./server");
 
 const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
@@ -752,6 +755,38 @@ test("CEO digest markdown export includes ranked summary sections", () => {
   assert.match(markdown, /## Top Ideas/);
   assert.match(markdown, /## Recommended Next Action/);
   assert.match(markdown, /Auto idea/);
+});
+
+test("mock provider contracts expose deterministic fallback behavior", () => {
+  const aiProvider = createMockAiProvider();
+  const marketProvider = createMockMarketProvider();
+  const researchProvider = createMockResearchProvider();
+
+  assert.equal(getAiProvider().kind, "mock");
+  assert.equal(getMarketProvider().kind, "mock");
+  assert.equal(getResearchProvider().kind, "mock");
+
+  assert.equal(typeof aiProvider.generateReply, "function");
+  assert.match(aiProvider.generateReply({
+    agent: {
+      id: "host",
+      role: "Discussion coordinator",
+      systemPrompt: "Friendly, short replies.",
+    },
+    message: "hello",
+    context: {},
+  }), /next step|organized|clear/i);
+
+  assert.match(marketProvider.summarizeOpportunity({
+    category: "Trading",
+    topic: "dealer follow-up",
+    roomName: "HQ",
+  }), /Trading|dealer follow-up|validate/i);
+
+  assert.match(researchProvider.summarizeEvidence({
+    topic: "user research",
+    roomName: "Marketing War Room",
+  }), /user, market, and competitor/i);
 });
 
 test("GET /api/exports endpoints return markdown text", async (t) => {

@@ -254,10 +254,24 @@ function getBusinessIdeaFocus({ agent, roomName, topic, task, plan, goal }) {
   };
 }
 
-function getBusinessIdeaDraft({ agent, roomName, topic, task, plan, goal, rhythm }) {
+function getProviderSummary({ providers = {}, agent, roomName, topic, task, plan, goal }) {
+  const researchProvider = providers.research || null;
+  const marketProvider = providers.market || null;
+  const researchSummary = researchProvider && typeof researchProvider.summarizeEvidence === "function"
+    ? researchProvider.summarizeEvidence({ agent, roomName, topic, task, plan, goal })
+    : "";
+  const marketSummary = marketProvider && typeof marketProvider.summarizeOpportunity === "function"
+    ? marketProvider.summarizeOpportunity({ agent, roomName, topic, task, plan, goal, category: getBusinessIdeaCategoryForAgent(agent.id) })
+    : "";
+
+  return [researchSummary, marketSummary].filter(Boolean).join(" ");
+}
+
+function getBusinessIdeaDraft({ agent, roomName, topic, task, plan, goal, rhythm, providers = {} }) {
   const category = getBusinessIdeaCategoryForAgent(agent.id);
   const focus = getBusinessIdeaFocus({ agent, roomName, topic, task, plan, goal });
   const titleHint = getBusinessIdeaTitleHintForAgent(agent.id);
+  const providerSummary = getProviderSummary({ providers, agent, roomName, topic, task, plan, goal });
   const baseConfidenceByAgent = {
     sales: 7,
     assistant: 6,
@@ -327,13 +341,14 @@ function getBusinessIdeaDraft({ agent, roomName, topic, task, plan, goal, rhythm
     status: phaseBias.status,
     assignedAgentId: agent.id,
     nextAction: focus.nextAction,
-    notes: `${agent.name} reviewed ${roomName}. ${goal && goal.currentGoal ? goal.currentGoal : plan.currentObjective}`.slice(0, maxTextLength),
+    notes: `${agent.name} reviewed ${roomName}. ${goal && goal.currentGoal ? goal.currentGoal : plan.currentObjective}. ${providerSummary}`.trim().slice(0, maxTextLength),
   };
 }
 
-function getBusinessIdeaPatch({ agent, currentIdea, task, plan, goal, rhythm }) {
+function getBusinessIdeaPatch({ agent, currentIdea, task, plan, goal, rhythm, providers = {} }) {
   const taskFocus = task && task.title ? task.title : "";
   const goalFocus = goal && goal.currentGoal ? goal.currentGoal : "";
+  const providerSummary = getProviderSummary({ providers, agent, roomName: currentIdea.category, topic: currentIdea.title, task, plan, goal });
   const currentStatus = currentIdea.status;
   const nextStatusByPhase = {
     observe: "researching",
@@ -356,7 +371,7 @@ function getBusinessIdeaPatch({ agent, currentIdea, task, plan, goal, rhythm }) 
   const nextAction = taskFocus
     ? `Advance "${taskFocus}" into the next step`
     : currentIdea.nextAction || `Refine ${currentIdea.category}`;
-  const notes = `${agent.name} updated ${currentIdea.title}. ${goalFocus || plan.currentObjective}`.trim();
+  const notes = `${agent.name} updated ${currentIdea.title}. ${goalFocus || plan.currentObjective}. ${providerSummary}`.trim();
 
   return {
     status,

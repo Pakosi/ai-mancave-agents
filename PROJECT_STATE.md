@@ -11,6 +11,7 @@
 - Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, `backend/data/agent-goals.json`, and `backend/data/business-ideas.json`.
 - Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
 - API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, `/api/operating-rhythm`, and markdown export routes under `/api/exports/...`.
+- Provider boundaries exist for mock-first AI, market data, and research adapters. They currently return deterministic local output and are ready for future real integrations.
 
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
@@ -86,6 +87,12 @@
 ## Exports
 - Markdown exports are available for the CEO digest, ranked business ideas, and single idea reports.
 - The frontend shows exported markdown in a compact sidebar panel and can copy the current export text.
+
+## Provider Boundaries
+- `backend/aiProvider.js` exposes a mock AI provider factory.
+- `backend/marketProvider.js` exposes a deterministic market snapshot provider.
+- `backend/researchProvider.js` exposes a deterministic research provider.
+- Server logic uses these providers through local mock implementations only.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
