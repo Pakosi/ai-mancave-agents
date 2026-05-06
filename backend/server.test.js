@@ -12,6 +12,7 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
 function resetMessages() {
   app.locals.messagesFile = path.join(testDataDir, `${Date.now()}-${Math.random()}.json`);
   app.locals.tasksFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-tasks.json`);
+  app.locals.companyPlanFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-company-plan.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -263,6 +264,27 @@ test("GET /api/rooms returns public rooms", async (t) => {
     assert.equal(typeof room.brief, "string");
     assert.ok(room.brief.length > 10);
   }
+});
+
+test("GET /api/company-plan returns shared planning state", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/company-plan");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(typeof response.body.plan.currentObjective, "string");
+  assert.ok(response.body.plan.currentObjective.length > 10);
+  assert.ok(Array.isArray(response.body.plan.activePriorities));
+  assert.ok(Array.isArray(response.body.plan.keyRisks));
+  assert.ok(Array.isArray(response.body.plan.nextRecommendedActions));
+  assert.ok(Array.isArray(response.body.plan.recentDecisions));
+  assert.equal(typeof response.body.plan.updatedAt, "string");
 });
 
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
@@ -1075,6 +1097,75 @@ test("autonomous task creation uses agent tendencies", () => {
   assert.equal(tasks[0].assignedAgentId, thought.agentId);
   assert.match(tasks[0].title, /Research evidence/);
   assert.match(tasks[0].description, /Discovery lead/);
+});
+
+test("autonomous agents update company plan by specialization", () => {
+  resetMessages();
+
+  app.locals.createAgentThought("strategist", "marketing");
+  app.locals.createAgentThought("analyst", "main");
+  app.locals.createAgentThought("builder", "ops");
+  app.locals.agentThoughtIndex = 1;
+  app.locals.createAgentThought("manager", "ops");
+
+  const plan = app.locals.readCompanyPlanForTest();
+
+  assert.match(plan.activePriorities[0], /Prioritize/);
+  assert.match(plan.keyRisks[0], /success metrics|decision risks/);
+  assert.match(plan.nextRecommendedActions[0], /Assign owner|Ship the next product step/);
+  assert.match(plan.recentDecisions[0], /Coordinate/);
+});
+
+test("autonomous task creation includes current objective from company plan", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 3;
+  app.locals.writeCompanyPlanForTest({
+    currentObjective: "Launch the WOYS pilot with dealership teams",
+    activePriorities: ["Validate dealership buyer workflow"],
+    keyRisks: ["Pilot scope may drift"],
+    nextRecommendedActions: ["Interview dealer operators"],
+    recentDecisions: ["Focus on auto sales lab"],
+    updatedAt: new Date().toISOString(),
+  });
+
+  app.locals.createAgentThought("sales", "auto");
+  const tasks = app.locals.readTasksForTest();
+
+  assert.equal(tasks.length, 1);
+  assert.match(tasks[0].description, /Launch the WOYS pilot with dealership teams/);
+});
+
+test("task selection can use company plan priorities", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  app.locals.writeCompanyPlanForTest({
+    currentObjective: "Improve delivery",
+    activePriorities: ["Tighten onboarding checklist"],
+    keyRisks: ["Unclear owner"],
+    nextRecommendedActions: ["Pick one handoff"],
+    recentDecisions: ["Focus operations"],
+    updatedAt: new Date().toISOString(),
+  });
+  await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Generic ops cleanup",
+    assignedAgentId: "assistant",
+  });
+  const priorityTask = await postJson(server, "/api/tasks", {
+    roomId: "ops",
+    title: "Tighten onboarding checklist",
+    assignedAgentId: "assistant",
+  });
+
+  const selectedTask = app.locals.selectRoomTaskForTest(app.locals.readTasksForTest(), "ops");
+
+  assert.equal(selectedTask.id, priorityTask.body.id);
 });
 
 test("autonomous agent thought can advance a task and store update message", async (t) => {

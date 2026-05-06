@@ -3,9 +3,11 @@
 ## Current Architecture
 - Backend: Node/Express in `backend/server.js`.
 - Mock agent logic: `backend/aiProvider.js`; no OpenAI or external AI APIs.
+- Company plan helpers: `backend/companyPlan.js`.
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
-- Persistence: JSON files in `backend/data/messages.json` and `backend/data/tasks.json`.
+- Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, and `backend/data/company-plan.json`.
 - Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
+- API includes `/api/company-plan` for shared planning state.
 
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
@@ -15,14 +17,21 @@
 ## Autonomous Behavior
 - The autonomous loop rotates across rooms and avoids repeating the same speaker back-to-back where possible.
 - Speaker selection favors agents whose `preferredRooms` include the active room.
-- Active task selection favors tasks assigned to, or matching tendencies of, the acting agent.
+- Active task selection favors tasks assigned to, matching tendencies of, or matching plan priorities for the acting agent.
 - Agents can create or advance tasks only when their `allowedActions` permit it.
 - Specialized task drafts reflect agent tendencies, such as research, planning, building, analysis, revenue validation, and coordination.
+- Strategist, analyst, builder, researcher, sales, host, and manager feed updates into the shared company plan.
+
+## Company Plan
+- Tracks current objective, active priorities, key risks, next recommended actions, and recent decisions.
+- Manager and host occasionally add coordination decisions.
+- Strategist influences priorities; analyst influences risks; builder, researcher, and sales influence next actions.
+- Autonomous task creation includes the current objective so tasks stay tied to the plan.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes show the agent name and role with stable lightweight positioning.
-- The UI still shows room brief, activity feed, and tasks without adding frameworks.
+- The UI shows room brief, activity feed, tasks, and a compact Company Plan panel without adding frameworks.
 
 ## Tests
 - Backend: `cd backend && npm test`.

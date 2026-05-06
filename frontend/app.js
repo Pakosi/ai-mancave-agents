@@ -192,6 +192,26 @@
       });
   }
 
+  function loadCompanyPlan(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/company-plan`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onPlan) {
+          options.onPlan(data.plan);
+        }
+
+        return data.plan;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function createTask(task, options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = task.roomId || options.roomId || getSelectedRoomId(options.storage);
@@ -398,6 +418,16 @@
     };
   }
 
+  function mapCompanyPlanForDisplay(plan = {}) {
+    return {
+      currentObjective: plan.currentObjective || "No objective set.",
+      activePriorities: Array.isArray(plan.activePriorities) ? plan.activePriorities : [],
+      keyRisks: Array.isArray(plan.keyRisks) ? plan.keyRisks : [],
+      nextRecommendedActions: Array.isArray(plan.nextRecommendedActions) ? plan.nextRecommendedActions : [],
+      recentDecisions: Array.isArray(plan.recentDecisions) ? plan.recentDecisions : [],
+    };
+  }
+
   function getRoomName(rooms = [], roomId) {
     const room = rooms.find((item) => item.id === roomId);
 
@@ -467,11 +497,13 @@
     getRoomActivityView,
     getSelectedRoom,
     loadAgents,
+    loadCompanyPlan,
     loadMessages,
     loadRooms,
     loadTasks,
     mapAgentForOption,
     mapAgentForRoom,
+    mapCompanyPlanForDisplay,
     mapMessageForDisplay,
     mapRoomForOption,
     mapTaskForDisplay,

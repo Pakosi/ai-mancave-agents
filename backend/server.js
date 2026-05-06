@@ -4,11 +4,18 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { generateAgentReply } = require("./aiProvider");
+const {
+  createDefaultCompanyPlan,
+  getPrimaryPlanFocus,
+  normalizeCompanyPlan,
+  updateCompanyPlanForAgent,
+} = require("./companyPlan");
 
 const app = express();
 
 app.locals.messagesFile = path.join(__dirname, "data", "messages.json");
 app.locals.tasksFile = path.join(__dirname, "data", "tasks.json");
+app.locals.companyPlanFile = path.join(__dirname, "data", "company-plan.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -61,6 +68,27 @@ function readTasks() {
 
 function writeTasks(tasks) {
   writeJsonFile(app.locals.tasksFile, tasks);
+}
+
+function readCompanyPlan() {
+  if (!fs.existsSync(app.locals.companyPlanFile)) {
+    const plan = createDefaultCompanyPlan();
+    writeJsonFile(app.locals.companyPlanFile, plan);
+
+    return plan;
+  }
+
+  const plan = normalizeCompanyPlan(readJsonFile(app.locals.companyPlanFile));
+  writeJsonFile(app.locals.companyPlanFile, plan);
+
+  return plan;
+}
+
+function writeCompanyPlan(plan) {
+  const normalizedPlan = normalizeCompanyPlan(plan);
+  writeJsonFile(app.locals.companyPlanFile, normalizedPlan);
+
+  return normalizedPlan;
 }
 
 function getNextId(items) {
@@ -374,6 +402,18 @@ function getActiveRoomTasks(tasks, roomId) {
   ));
 }
 
+function textMatchesTerms(text, terms) {
+  return terms.some((term) => {
+    const words = term
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 4);
+
+    return words.some((word) => text.includes(word));
+  });
+}
+
 function taskMatchesAgent(task, agent) {
   if (!agent) {
     return false;
@@ -385,10 +425,20 @@ function taskMatchesAgent(task, agent) {
 
   const text = `${task.title} ${task.description || ""}`.toLowerCase();
 
-  return agent.taskTendencies.some((tendency) => text.includes(tendency));
+  return textMatchesTerms(text, agent.taskTendencies);
 }
 
-function selectRoomTask(tasks, roomId, agent) {
+function taskMatchesPlan(task, plan) {
+  const text = `${task.title} ${task.description || ""}`.toLowerCase();
+  const terms = [
+    plan.currentObjective,
+    ...plan.activePriorities,
+  ];
+
+  return textMatchesTerms(text, terms);
+}
+
+function selectRoomTask(tasks, roomId, agent, plan = readCompanyPlan()) {
   const activeTasks = getActiveRoomTasks(tasks, roomId);
 
   if (activeTasks.length === 0) {
@@ -396,7 +446,15 @@ function selectRoomTask(tasks, roomId, agent) {
   }
 
   const specializedTasks = activeTasks.filter((task) => taskMatchesAgent(task, agent));
-  const candidates = specializedTasks.length > 0 ? specializedTasks : activeTasks;
+  const planTasks = activeTasks.filter((task) => taskMatchesPlan(task, plan));
+  const planSpecializedTasks = specializedTasks.filter((task) => taskMatchesPlan(task, plan));
+  const candidates = planSpecializedTasks.length > 0
+    ? planSpecializedTasks
+    : specializedTasks.length > 0
+      ? specializedTasks
+      : planTasks.length > 0
+        ? planTasks
+        : activeTasks;
 
   return candidates[app.locals.agentThoughtIndex % candidates.length];
 }
@@ -524,9 +582,10 @@ function chooseNextAgent(lastSpeakerId, roomId) {
   return agent;
 }
 
-function getAgentTaskDraft(agent, roomId, topic, message) {
+function getAgentTaskDraft(agent, roomId, topic, message, plan = readCompanyPlan()) {
   const roomBrief = getRoomBrief(roomId);
-  const cleanTopic = topic && topic !== "the current business idea" ? topic : roomBrief;
+  const planFocus = getPrimaryPlanFocus(plan);
+  const cleanTopic = topic && topic !== "the current business idea" ? topic : planFocus;
   const tendency = agent.taskTendencies[app.locals.agentThoughtIndex % agent.taskTendencies.length];
   const prefixByAgent = {
     analyst: "Define metrics and risks for",
@@ -541,7 +600,7 @@ function getAgentTaskDraft(agent, roomId, topic, message) {
 
   return {
     title: `${prefix} ${cleanTopic}`.slice(0, 80),
-    description: `${agent.role}: ${roomBrief} Follow up on: ${message}`.slice(0, 180),
+    description: `${agent.role}: ${roomBrief} Objective: ${plan.currentObjective} Follow up on: ${message}`.slice(0, 220),
   };
 }
 
@@ -564,6 +623,7 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const normalizedRoomId = getRoomId(roomId);
   const allMessages = readMessages();
   const allTasks = readTasks();
+  const companyPlan = readCompanyPlan();
   const contextMessages = getRoomMessages(allMessages, sessionId, normalizedRoomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
@@ -571,14 +631,14 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
   const agent = requestedAgent && requestedAgent.id !== lastSpeakerId
     ? requestedAgent
     : chooseNextAgent(lastSpeakerId, normalizedRoomId);
-  const selectedTask = selectRoomTask(allTasks, normalizedRoomId, agent);
+  const selectedTask = selectRoomTask(allTasks, normalizedRoomId, agent, companyPlan);
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const roomBrief = getRoomBrief(normalizedRoomId);
-  const fallbackMessage = `${businessTopic} ${roomBrief} ${prompt}`;
+  const fallbackMessage = `${businessTopic} ${roomBrief} Objective: ${companyPlan.currentObjective} ${prompt}`;
   const selectedMessage = selectedTask
     ? `${targetMessage ? targetMessage.message : fallbackMessage} Task focus: ${selectedTask.title}`
-    : targetMessage ? targetMessage.message : fallbackMessage;
+    : targetMessage ? `${targetMessage.message} Objective: ${companyPlan.currentObjective}` : fallbackMessage;
   const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
   const reply = addRoomBriefCue(addTaskReference(generateAgentReply({
@@ -622,9 +682,36 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     roomId: normalizedRoomId,
     topic,
     message: reply,
+    plan: companyPlan,
+  });
+  maybeUpdateCompanyPlan({
+    agent,
+    roomId: normalizedRoomId,
+    topic,
+    task: selectedTask,
   });
 
   return storedMessage;
+}
+
+function maybeUpdateCompanyPlan({ agent, roomId, topic, task }) {
+  if (!agent) {
+    return null;
+  }
+
+  if ((agent.id === "host" || agent.id === "manager") && app.locals.agentThoughtIndex % 2 !== 0) {
+    return null;
+  }
+
+  const plan = updateCompanyPlanForAgent({
+    plan: readCompanyPlan(),
+    agent,
+    roomName: getRoomName(roomId),
+    topic,
+    task,
+  });
+
+  return writeCompanyPlan(plan);
 }
 
 function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
@@ -662,7 +749,7 @@ function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks }) {
   });
 }
 
-function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
+function maybeCreateAutonomousTask({ agentId, roomId, topic, message, plan = readCompanyPlan() }) {
   const agent = agents[agentId];
 
   if (!agent || !agent.allowedActions.includes("create_tasks")) {
@@ -680,7 +767,7 @@ function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
     return null;
   }
 
-  const draft = getAgentTaskDraft(agent, roomId, topic, message);
+  const draft = getAgentTaskDraft(agent, roomId, topic, message, plan);
 
   return createTask({
     roomId,
@@ -785,6 +872,10 @@ app.get("/api/agents", (req, res) => {
 
 app.get("/api/rooms", (req, res) => {
   res.json({ rooms: getPublicRooms() });
+});
+
+app.get("/api/company-plan", (req, res) => {
+  res.json({ plan: readCompanyPlan() });
 });
 
 app.get("/api/tasks", (req, res) => {
@@ -949,10 +1040,12 @@ if (require.main === module) {
 
 app.locals.createAgentThought = createAgentThought;
 app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
+app.locals.readCompanyPlanForTest = readCompanyPlan;
 app.locals.readMessagesForTest = readMessages;
 app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.selectRoomTaskForTest = selectRoomTask;
+app.locals.writeCompanyPlanForTest = writeCompanyPlan;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 
 module.exports = app;

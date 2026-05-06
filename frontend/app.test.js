@@ -13,11 +13,13 @@ const {
   getRoomActivityView,
   getSelectedRoom,
   loadAgents,
+  loadCompanyPlan,
   loadMessages,
   loadRooms,
   loadTasks,
   mapAgentForOption,
   mapAgentForRoom,
+  mapCompanyPlanForDisplay,
   mapMessageForDisplay,
   mapRoomForOption,
   mapTaskForDisplay,
@@ -188,6 +190,54 @@ test("loadTasks calls /api/tasks for selected room and returns tasks", async () 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "http://test.local/api/tasks?roomId=auto");
   assert.equal(calls[0].options, undefined);
+});
+
+test("loadCompanyPlan calls /api/company-plan and returns plan", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responsePlan = {
+    currentObjective: "Launch WOYS pilot",
+    activePriorities: ["Validate workflow"],
+    keyRisks: ["Scope drift"],
+    nextRecommendedActions: ["Interview users"],
+    recentDecisions: ["Focus pilot"],
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ plan: responsePlan }));
+  };
+
+  const plan = await loadCompanyPlan({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onPlan(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(plan, responsePlan);
+  assert.deepEqual(callbacks, [responsePlan]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/company-plan");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadCompanyPlan calls onError and rejects when fetch fails", async () => {
+  const fetchError = new Error("network down");
+  const errors = [];
+  const fetch = () => Promise.reject(fetchError);
+
+  await assert.rejects(
+    loadCompanyPlan({
+      fetch,
+      onError(err) {
+        errors.push(err);
+      },
+    }),
+    /network down/,
+  );
+
+  assert.deepEqual(errors, [fetchError]);
 });
 
 test("loadMessages calls onError and rejects when fetch fails", async () => {
@@ -500,6 +550,36 @@ test("mapTaskForDisplay maps task state and next action", () => {
   assert.equal(done.isRecentlyUpdated, false);
   assert.equal(done.nextStatus, "");
   assert.equal(done.nextStatusText, "");
+});
+
+test("mapCompanyPlanForDisplay maps compact plan data", () => {
+  const plan = mapCompanyPlanForDisplay({
+    currentObjective: "Launch WOYS pilot",
+    activePriorities: ["Validate workflow"],
+    keyRisks: ["Scope drift"],
+    nextRecommendedActions: ["Interview users"],
+    recentDecisions: ["Focus pilot"],
+  });
+
+  assert.deepEqual(plan, {
+    currentObjective: "Launch WOYS pilot",
+    activePriorities: ["Validate workflow"],
+    keyRisks: ["Scope drift"],
+    nextRecommendedActions: ["Interview users"],
+    recentDecisions: ["Focus pilot"],
+  });
+});
+
+test("mapCompanyPlanForDisplay handles missing plan fields", () => {
+  const plan = mapCompanyPlanForDisplay({});
+
+  assert.deepEqual(plan, {
+    currentObjective: "No objective set.",
+    activePriorities: [],
+    keyRisks: [],
+    nextRecommendedActions: [],
+    recentDecisions: [],
+  });
 });
 
 test("mapAgentForRoom adds fixed position and latest agent message", () => {
