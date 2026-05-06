@@ -120,12 +120,15 @@
 
     /* ── Room Scene ── */
     .room {
-      background: linear-gradient(180deg, #0f0b08 0%, #080604 100%);
-      border: 1px solid #4a3014;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(212,168,83,0.08) 0%, transparent 42%),
+        linear-gradient(180deg, #120d09 0%, #080604 100%);
+      border: 1px solid #563815;
       border-radius: 12px;
       box-shadow:
-        inset 0 0 0 1px rgba(200, 168, 83, 0.08),
-        inset 0 -1px 0 rgba(255,255,255,0.03);
+        inset 0 0 0 1px rgba(200, 168, 83, 0.1),
+        inset 0 -1px 0 rgba(255,255,255,0.03),
+        0 0 0 1px rgba(0,0,0,0.4);
       height: 100%;
       overflow: hidden;
       position: relative;
@@ -137,6 +140,7 @@
       top: 0; left: 0; right: 0;
       height: 58%;
       background:
+        radial-gradient(circle at 50% 40%, rgba(0,0,0,0.24) 0%, transparent 58%),
         repeating-linear-gradient(
           90deg,
           transparent 0px, transparent 79px,
@@ -188,6 +192,22 @@
       );
     }
 
+    .room-floor::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), transparent 20%),
+        linear-gradient(90deg, rgba(200,168,83,0.06), transparent 18%, transparent 82%, rgba(200,168,83,0.05)),
+        linear-gradient(90deg,
+          transparent 0%, #5a3e1b 20%,
+          #c8860a 50%, #5a3e1b 80%, transparent 100%);
+      background-position: 0 0, 0 0, 0 0;
+      background-size: auto, auto, 100% 2px;
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+
     .room-floor::after {
       content: '';
       position: absolute;
@@ -196,21 +216,9 @@
         linear-gradient(90deg, rgba(200,168,83,0.08) 0 1px, transparent 1px 13px),
         linear-gradient(180deg, rgba(200,168,83,0.04) 0 1px, transparent 1px 13px);
       background-size: 14px 14px;
-      opacity: 0.5;
+      opacity: 0.38;
       pointer-events: none;
     }
-
-    /* floor/wall seam */
-    .room-floor::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg,
-        transparent 0%, #5a3e1b 20%,
-        #c8860a 50%, #5a3e1b 80%, transparent 100%);
-    }
-
     /* ── Furniture ── */
     .furn { position: absolute; }
 
@@ -402,8 +410,8 @@
 
     .station::before {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 55%),
-        linear-gradient(180deg, rgba(12,8,4,0.9) 0%, rgba(18,12,6,0.82) 100%);
+        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 38%),
+        linear-gradient(180deg, rgba(12,8,4,0.92) 0%, rgba(18,12,6,0.86) 100%);
       content: '';
       inset: 0;
       position: absolute;
@@ -420,14 +428,19 @@
     }
 
     .station-label {
-      color: #f3dfbb;
-      font-size: 0.58rem;
+      background: rgba(12,8,4,0.7);
+      border: 1px solid rgba(212,168,83,0.08);
+      border-radius: 999px;
+      color: #f7e7c8;
+      font-size: 0.62rem;
       font-weight: 700;
       left: 0.55rem;
       letter-spacing: 0.08em;
+      padding: 0.08rem 0.34rem;
       position: absolute;
       text-transform: uppercase;
       top: 0.4rem;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.55);
       z-index: 2;
     }
 
@@ -475,32 +488,32 @@
 
     .station-automation .station-glow {
       background: radial-gradient(circle, rgba(140,192,255,0.55) 0%, transparent 70%);
-      animation: monitorFlicker 3.3s ease-in-out infinite;
+      animation: monitorFlicker 3.3s ease-in-out infinite, tinyLightPulse 4.7s ease-in-out infinite;
     }
 
     .station-trading .station-glow {
       background: radial-gradient(circle, rgba(246,179,90,0.55) 0%, transparent 70%);
-      animation: chartFlicker 2.9s ease-in-out infinite;
+      animation: chartFlicker 2.9s ease-in-out infinite, tinyLightPulse 3.6s ease-in-out infinite;
     }
 
     .station-research .station-glow {
       background: radial-gradient(circle, rgba(127,216,239,0.45) 0%, transparent 70%);
-      animation: readingPulse 4.4s ease-in-out infinite;
+      animation: readingPulse 4.4s ease-in-out infinite, tinyLightPulse 5.4s ease-in-out infinite;
     }
 
     .station-builder .station-glow {
       background: radial-gradient(circle, rgba(255,159,122,0.5) 0%, transparent 70%);
-      animation: monitorFlicker 3.7s ease-in-out infinite;
+      animation: monitorFlicker 3.7s ease-in-out infinite, tinyLightPulse 4.8s ease-in-out infinite;
     }
 
     .station-analyst .station-glow {
       background: radial-gradient(circle, rgba(164,180,197,0.5) 0%, transparent 70%);
-      animation: chartFlicker 3.1s ease-in-out infinite;
+      animation: chartFlicker 3.1s ease-in-out infinite, tinyLightPulse 4.9s ease-in-out infinite;
     }
 
     .station-lounge .station-glow {
       background: radial-gradient(circle, rgba(184,146,255,0.45) 0%, transparent 70%);
-      animation: whiteboardPulse 4.1s ease-in-out infinite;
+      animation: whiteboardPulse 4.1s ease-in-out infinite, tinyLightPulse 6s ease-in-out infinite;
     }
 
     .station-screen,
@@ -657,6 +670,23 @@
       animation: monitorFlicker 3.9s ease-in-out infinite;
     }
 
+    .station-screen::before,
+    .station-monitor-stack::before,
+    .station-chart::before,
+    .station-trade-chart::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 48%, transparent 52%),
+        linear-gradient(180deg, rgba(255,255,255,0.08), transparent 45%);
+      background-size: 220% 100%, 100% 100%;
+      opacity: 0.9;
+      animation: panelScan 4.8s linear infinite;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+
     .station-console {
       background: linear-gradient(180deg, rgba(212,168,83,0.3), rgba(64,36,12,0.95));
       bottom: 0.7rem;
@@ -678,6 +708,7 @@
       left: 1.15rem;
       top: 1.35rem;
       width: calc(100% - 2.3rem);
+      animation: tinyLightPulse 3.8s ease-in-out infinite;
     }
 
     .station-books {
@@ -710,6 +741,7 @@
       height: 0.45rem;
       left: 1rem;
       width: calc(100% - 2rem);
+      animation: monitorFlicker 6s ease-in-out infinite;
     }
 
     .station-blueprint {
@@ -737,6 +769,7 @@
       left: 1rem;
       right: 1rem;
       top: 2.05rem;
+      animation: tinyLightPulse 5.6s ease-in-out infinite;
     }
 
     .station-chart {
@@ -759,6 +792,7 @@
       height: 0.8rem;
       left: 1rem;
       width: calc(100% - 2rem);
+      animation: chartScroll 5.2s linear infinite;
     }
 
     .station-monitor-stack {
@@ -777,6 +811,7 @@
       height: 0.45rem;
       left: 1rem;
       width: calc(100% - 2rem);
+      animation: panelScan 4.7s linear infinite;
     }
 
     .station-trade-chart {
@@ -799,6 +834,7 @@
       height: 0.7rem;
       left: 1rem;
       width: calc(100% - 2rem);
+      animation: chartScroll 4.2s linear infinite;
     }
 
     .station-sofa {
@@ -830,6 +866,7 @@
       height: 0.55rem;
       left: 1rem;
       width: calc(100% - 2rem);
+      animation: chartScroll 6.1s linear infinite;
     }
 
     /* ── Agent Nodes ── */
@@ -868,6 +905,7 @@
       width: 4.7rem;
       transition: filter 200ms ease, transform 200ms ease;
       transform-origin: center bottom;
+      filter: drop-shadow(0 0.18rem 0.32rem rgba(0,0,0,0.5));
     }
 
     .char-head {
@@ -876,7 +914,7 @@
         linear-gradient(180deg, color-mix(in srgb, var(--char-head) 88%, white 12%) 0%, var(--char-head) 55%, color-mix(in srgb, var(--char-head) 76%, black 24%) 100%);
       border-radius: 44% 44% 42% 42%;
       border: 1px solid rgba(255,255,255,0.16);
-      box-shadow: 0 1px 6px rgba(36,24,14,0.42);
+      box-shadow: 0 1px 6px rgba(36,24,14,0.42), 0 0 0 1px rgba(0,0,0,0.12);
       height: 1.8rem;
       position: relative;
       transition: transform 180ms ease, box-shadow 180ms ease;
@@ -920,7 +958,7 @@
         linear-gradient(180deg, color-mix(in srgb, var(--char-torso) 88%, white 12%) 0%, var(--char-torso) 48%, color-mix(in srgb, var(--char-torso) 74%, black 26%) 100%);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 0.6rem 0.6rem 0.4rem 0.4rem;
-      box-shadow: 0 3px 8px rgba(36,24,14,0.34);
+      box-shadow: 0 3px 8px rgba(36,24,14,0.34), 0 0 0 1px rgba(0,0,0,0.12);
       height: 2.35rem;
       position: relative;
       width: 2.4rem;
@@ -957,7 +995,7 @@
       background: linear-gradient(180deg, color-mix(in srgb, var(--char-torso) 82%, white 18%) 0%, color-mix(in srgb, var(--char-torso) 65%, black 35%) 100%);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 999px;
-      box-shadow: 0 1px 4px rgba(36,24,14,0.24);
+      box-shadow: 0 1px 4px rgba(36,24,14,0.24), 0 0 0 1px rgba(0,0,0,0.08);
       height: 1.65rem;
       position: absolute;
       top: 0;
@@ -988,7 +1026,7 @@
     .char-leg {
       background: linear-gradient(180deg, color-mix(in srgb, var(--char-shadow) 20%, var(--char-torso) 80%) 0%, var(--char-shadow) 100%);
       border-radius: 0.18rem 0.18rem 0.28rem 0.28rem;
-      box-shadow: 0 2px 4px rgba(36,24,14,0.2);
+      box-shadow: 0 2px 4px rgba(36,24,14,0.2), 0 0 0 1px rgba(0,0,0,0.08);
       height: 2rem;
       position: relative;
       width: 0.58rem;
@@ -1029,7 +1067,7 @@
       filter: blur(1px);
       height: 1rem;
       left: 50%;
-      opacity: 0.65;
+      opacity: 0.72;
       pointer-events: none;
       position: absolute;
       transform: translateX(-50%);
@@ -1273,18 +1311,20 @@
     /* ── Speech Bubble ── */
     .speech {
       animation: bubbleIn 270ms ease-out;
-      background: rgba(18,10,4,0.93);
-      border: 1px solid #3d2510;
+      background: rgba(18,10,4,0.96);
+      border: 1px solid rgba(93,60,24,0.98);
       border-radius: 10px;
-      box-shadow: 0 5px 18px rgba(0,0,0,0.65);
-      color: #c8b08a;
-      font-size: 0.8rem;
-      line-height: 1.35;
+      box-shadow: 0 7px 20px rgba(0,0,0,0.66);
+      color: #ecd7b0;
+      font-size: 0.76rem;
+      line-height: 1.3;
       min-height: 3.5rem;
-      opacity: 0.6;
+      opacity: 0.92;
       padding: 0.55rem 0.65rem;
       position: relative;
       transition: border-color 180ms ease, opacity 180ms ease, transform 180ms ease;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+      max-width: 8.8rem;
       width: 100%;
     }
 
@@ -1307,22 +1347,24 @@
 
     /* ── Agent Labels ── */
     .agent-name {
-      background: rgba(8,5,2,0.9);
-      border: 1px solid #3d2510;
+      background: rgba(8,5,2,0.92);
+      border: 1px solid rgba(93,60,24,0.9);
       border-radius: 999px;
-      color: #d4a853;
-      font-size: 0.73rem;
+      color: #f0d9ab;
+      font-size: 0.71rem;
       font-weight: 700;
       padding: 0.18rem 0.42rem;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
     }
 
     .agent-role {
-      color: #5a4425;
+      color: #8c6c42;
       font-size: 0.66rem;
       font-weight: 700;
       letter-spacing: 0.04em;
       text-align: center;
       text-transform: uppercase;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.35);
     }
 
     /* ── You Panel ── */
@@ -1970,6 +2012,21 @@
     @keyframes whiteboardPulse {
       0%, 100% { opacity: 0.72; transform: scale(1); }
       50% { opacity: 1; transform: scale(1.02); }
+    }
+
+    @keyframes tinyLightPulse {
+      0%, 100% { opacity: 0.42; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes panelScan {
+      0% { background-position: -120% 0, 0 0; }
+      100% { background-position: 120% 0, 0 0; }
+    }
+
+    @keyframes chartScroll {
+      0% { background-position: 0 0; }
+      100% { background-position: 220% 0; }
     }
 
     @media (max-width: 860px) {
