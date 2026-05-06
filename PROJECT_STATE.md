@@ -61,6 +61,7 @@
 - Phase 2A introduced fuller static agent characters; Phase 2B layered idle/talking motion, Phase 2C added ambient walking, Phase 2D added workstation interaction visuals, and Phase 3A connected the station behavior to live simulation state without adding routing or pathfinding.
 - Visible agent motion now keeps each agent near a preferred home station, with the CEO/Principal checking in only when blocked tasks or similar pressure justify it.
 - The room art was pushed a little closer to a stylized luxury mancave with warmer panels, stronger station contrast, and transparent character containers so avatars no longer sit on dark blocks.
+- The HQ room visuals now lean more pixel/stylized: sharper panels, blockier furniture, tiled floor depth, and chunkier agent silhouettes while preserving layout and animations.
 - Visual readability polish now leans into a cleaner pixel/stylized language with stronger depth separation, clearer station labels, more readable speech bubbles, and subtle ambient station activity like blinking monitors, scrolling bars, and panel glow.
 - Phase 3B adds explicit zone metadata for every HQ station and surfaces each zone's purpose in-room and on agent hover/detail text without changing motion logic.
 - Phase 3C makes movement more intentional with route reasons, task/idea-driven zone switches, host patrol priorities, and a simple cooldown/dwell guard against rapid station hopping.
