@@ -876,6 +876,147 @@
     },
   };
 
+  const hqWorkZones = [
+    {
+      id: "command-desk",
+      label: "CEO Command Desk",
+      className: "command",
+      left: 50,
+      top: 64,
+      width: 14,
+      height: 7.5,
+      poseClass: "station-command",
+      workClass: "working-command",
+      accent: "#d4a853",
+    },
+    {
+      id: "research-library",
+      label: "Research / Library",
+      className: "research",
+      left: 14,
+      top: 26,
+      width: 11,
+      height: 8,
+      poseClass: "station-reading",
+      workClass: "working-reading",
+      accent: "#7fd8ef",
+    },
+    {
+      id: "builder-workstation",
+      label: "Builder Workstation",
+      className: "builder",
+      left: 33,
+      top: 59,
+      width: 11,
+      height: 6.5,
+      poseClass: "station-typing",
+      workClass: "working-typing",
+      accent: "#ff9f7a",
+    },
+    {
+      id: "analyst-desk",
+      label: "Analyst Desk",
+      className: "analyst",
+      left: 67,
+      top: 59,
+      width: 11,
+      height: 6.5,
+      poseClass: "station-charting",
+      workClass: "working-charting",
+      accent: "#a4b4c5",
+    },
+    {
+      id: "automation-station",
+      label: "Automation Station",
+      className: "automation",
+      left: 50,
+      top: 27,
+      width: 11,
+      height: 6.8,
+      poseClass: "station-automation",
+      workClass: "working-automation",
+      accent: "#8cc0ff",
+    },
+    {
+      id: "trading-desk",
+      label: "Trading Desk",
+      className: "trading",
+      left: 80,
+      top: 47,
+      width: 10.5,
+      height: 6.5,
+      poseClass: "station-charting",
+      workClass: "working-charting",
+      accent: "#f6b35a",
+    },
+    {
+      id: "brainstorm-lounge",
+      label: "Brainstorm Lounge",
+      className: "lounge",
+      left: 26,
+      top: 43,
+      width: 11.5,
+      height: 6.5,
+      poseClass: "station-whiteboard",
+      workClass: "working-whiteboard",
+      accent: "#b892ff",
+    },
+  ];
+
+  const hqWorkZoneMap = hqWorkZones.reduce((map, zone) => {
+    map[zone.id] = zone;
+    return map;
+  }, {});
+
+  const agentWorkZoneAssignments = {
+    host: "command-desk",
+    assistant: "automation-station",
+    sales: "trading-desk",
+    strategist: "brainstorm-lounge",
+    researcher: "research-library",
+    builder: "builder-workstation",
+    analyst: "analyst-desk",
+    manager: "command-desk",
+  };
+
+  const hostCheckInRoutes = {
+    observe: ["command-desk", "research-library", "builder-workstation", "analyst-desk", "trading-desk", "brainstorm-lounge", "command-desk"],
+    plan: ["command-desk", "brainstorm-lounge", "automation-station", "trading-desk", "command-desk"],
+    execute: ["command-desk", "automation-station", "builder-workstation", "command-desk"],
+    review: ["command-desk", "analyst-desk", "research-library", "command-desk"],
+  };
+
+  const workLoopOffsets = {
+    observe: [
+      { left: -0.4, top: 0.1 },
+      { left: 0.25, top: -0.15 },
+      { left: 0.15, top: 0.05 },
+      { left: -0.1, top: 0 },
+    ],
+    plan: [
+      { left: 0, top: 0 },
+      { left: -0.3, top: -0.1 },
+      { left: 0.25, top: 0.08 },
+      { left: 0.1, top: 0 },
+    ],
+    execute: [
+      { left: -0.25, top: 0.05 },
+      { left: 0.25, top: -0.05 },
+      { left: 0.12, top: 0.02 },
+      { left: -0.08, top: 0 },
+    ],
+    review: [
+      { left: 0, top: 0 },
+      { left: -0.15, top: 0.1 },
+      { left: 0.2, top: -0.08 },
+      { left: 0.05, top: 0 },
+    ],
+  };
+
+  function getHQWorkZones() {
+    return hqWorkZones.map((zone) => ({ ...zone }));
+  }
+
   function parsePercent(value) {
     return Number.parseFloat(String(value).replace("%", "")) || 0;
   }
@@ -895,39 +1036,63 @@
     const phase = options.phase || "observe";
     const now = options.now || Date.now();
     const orderIndex = options.index || 0;
-    const routes = agentMotionRoutes[agent.id] || agentMotionRoutes.default;
-    const route = routes[phase] || routes.observe || agentMotionRoutes.default.observe;
-    const cycleMs = routes.cycleMs || 24000;
-    const offset = (agent.id.length * 937) + (orderIndex * 791);
-    const routePoints = route.length > 1 ? route : agentMotionRoutes.default.observe;
-    const segmentCount = routePoints.length - 1;
+    const zoneId = agentWorkZoneAssignments[agent.id] || "command-desk";
+    const homeZone = hqWorkZoneMap[zoneId] || hqWorkZoneMap["command-desk"];
+    const cycleSeed = (agent.id.length * 937) + (orderIndex * 791);
 
-    if (segmentCount <= 0) {
-      const home = agentRoomPositions[agent.id] || agentRoomPositions.manager;
+    if (agent.id === "host") {
+      const routeIds = hostCheckInRoutes[phase] || hostCheckInRoutes.observe;
+      const route = routeIds.map((id) => hqWorkZoneMap[id] || homeZone);
+      const cycleMs = 22000;
+      const elapsed = (now + cycleSeed) % cycleMs;
+      const segmentCount = Math.max(1, route.length - 1);
+      const segmentMs = cycleMs / segmentCount;
+      const segmentIndex = Math.min(segmentCount - 1, Math.floor(elapsed / segmentMs));
+      const segmentProgress = (elapsed % segmentMs) / segmentMs;
+      const dwellProgress = segmentProgress < 0.18 || segmentProgress > 0.82;
+      const eased = segmentProgress * segmentProgress * (3 - (2 * segmentProgress));
+      const start = route[segmentIndex];
+      const end = route[(segmentIndex + 1) % route.length];
+      const point = interpolatePoint(start, end, eased);
+      const activeZone = dwellProgress ? end : start;
 
       return {
-        left: home.left,
-        top: home.top,
-        zIndex: Math.round(100 + parsePercent(home.top)),
-        isWalking: false,
+        left: formatPercent(point.left),
+        top: formatPercent(point.top),
+        zIndex: Math.round(100 + point.top),
+        isWalking: !dwellProgress,
+        stationId: activeZone.id,
+        stationLabel: activeZone.label,
+        poseClass: activeZone.poseClass,
+        workClass: activeZone.workClass,
+        isCheckingIn: activeZone.id !== "command-desk",
+        isWorkingAtStation: activeZone.id === "command-desk",
       };
     }
 
-    const elapsed = (now + offset) % cycleMs;
+    const offsets = workLoopOffsets[phase] || workLoopOffsets.observe;
+    const cycleMs = 26000 + (agent.id.length * 250);
+    const elapsed = (now + cycleSeed) % cycleMs;
+    const segmentCount = offsets.length - 1;
     const segmentMs = cycleMs / segmentCount;
     const segmentIndex = Math.min(segmentCount - 1, Math.floor(elapsed / segmentMs));
     const segmentProgress = (elapsed % segmentMs) / segmentMs;
     const eased = segmentProgress * segmentProgress * (3 - (2 * segmentProgress));
-    const start = routePoints[segmentIndex];
-    const end = routePoints[(segmentIndex + 1) % routePoints.length];
-    const point = interpolatePoint(start, end, eased);
-    const isWalking = segmentProgress > 0.08 && segmentProgress < 0.92;
+    const point = interpolatePoint(offsets[segmentIndex], offsets[(segmentIndex + 1) % offsets.length], eased);
+    const baseLeft = homeZone.left + point.left;
+    const baseTop = homeZone.top + point.top;
 
     return {
-      left: formatPercent(point.left),
-      top: formatPercent(point.top),
-      zIndex: Math.round(100 + point.top),
-      isWalking,
+      left: formatPercent(baseLeft),
+      top: formatPercent(baseTop),
+      zIndex: Math.round(100 + baseTop),
+      isWalking: segmentProgress > 0.1 && segmentProgress < 0.9,
+      stationId: homeZone.id,
+      stationLabel: homeZone.label,
+      poseClass: homeZone.poseClass,
+      workClass: homeZone.workClass,
+      isCheckingIn: false,
+      isWorkingAtStation: true,
     };
   }
 
@@ -987,6 +1152,7 @@
     mapAgentGoalForDisplay,
     mapAgentForRoom,
     getAgentCharacterStyle,
+    getHQWorkZones,
     getHQAgentMotionState,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,

@@ -316,6 +316,456 @@
       box-shadow: -7px 4px 0 #1a4a1a, 7px 2px 0 #0f3a0f;
     }
 
+    .work-zones {
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+      z-index: 1;
+    }
+
+    .station {
+      border: 1px solid rgba(200,168,83,0.14);
+      border-radius: 10px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.03),
+        0 12px 26px rgba(0,0,0,0.42);
+      overflow: hidden;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+
+    .station::before {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 55%),
+        linear-gradient(180deg, rgba(12,8,4,0.9) 0%, rgba(18,12,6,0.82) 100%);
+      content: '';
+      inset: 0;
+      position: absolute;
+    }
+
+    .station::after {
+      background: linear-gradient(90deg, transparent 0%, rgba(212,168,83,0.18) 50%, transparent 100%);
+      bottom: 0.25rem;
+      content: '';
+      height: 1px;
+      left: 0.65rem;
+      position: absolute;
+      right: 0.65rem;
+    }
+
+    .station-label {
+      color: #f3dfbb;
+      font-size: 0.58rem;
+      font-weight: 700;
+      left: 0.55rem;
+      letter-spacing: 0.08em;
+      position: absolute;
+      text-transform: uppercase;
+      top: 0.4rem;
+      z-index: 2;
+    }
+
+    .station-panel {
+      border-radius: 8px;
+      height: 100%;
+      position: relative;
+      width: 100%;
+      z-index: 1;
+    }
+
+    .station-glow {
+      border-radius: 50%;
+      filter: blur(1px);
+      height: 2rem;
+      opacity: 0.75;
+      pointer-events: none;
+      position: absolute;
+      right: 0.6rem;
+      top: 0.4rem;
+      width: 2rem;
+      z-index: 1;
+    }
+
+    .station-automation,
+    .station-command,
+    .station-trading {
+      background: linear-gradient(180deg, rgba(20,14,8,0.96), rgba(8,5,2,0.98));
+    }
+
+    .station-research,
+    .station-lounge {
+      background: linear-gradient(180deg, rgba(18,12,6,0.92), rgba(9,6,3,0.98));
+    }
+
+    .station-builder,
+    .station-analyst {
+      background: linear-gradient(180deg, rgba(15,9,4,0.95), rgba(10,6,3,0.98));
+    }
+
+    .station-command .station-glow {
+      background: radial-gradient(circle, rgba(212,168,83,0.65) 0%, transparent 70%);
+      animation: monitorFlicker 4.1s ease-in-out infinite;
+    }
+
+    .station-automation .station-glow {
+      background: radial-gradient(circle, rgba(140,192,255,0.55) 0%, transparent 70%);
+      animation: monitorFlicker 3.3s ease-in-out infinite;
+    }
+
+    .station-trading .station-glow {
+      background: radial-gradient(circle, rgba(246,179,90,0.55) 0%, transparent 70%);
+      animation: chartFlicker 2.9s ease-in-out infinite;
+    }
+
+    .station-research .station-glow {
+      background: radial-gradient(circle, rgba(127,216,239,0.45) 0%, transparent 70%);
+      animation: readingPulse 4.4s ease-in-out infinite;
+    }
+
+    .station-builder .station-glow {
+      background: radial-gradient(circle, rgba(255,159,122,0.5) 0%, transparent 70%);
+      animation: monitorFlicker 3.7s ease-in-out infinite;
+    }
+
+    .station-analyst .station-glow {
+      background: radial-gradient(circle, rgba(164,180,197,0.5) 0%, transparent 70%);
+      animation: chartFlicker 3.1s ease-in-out infinite;
+    }
+
+    .station-lounge .station-glow {
+      background: radial-gradient(circle, rgba(184,146,255,0.45) 0%, transparent 70%);
+      animation: whiteboardPulse 4.1s ease-in-out infinite;
+    }
+
+    .station-screen,
+    .station-chart,
+    .station-books,
+    .station-tool-rack,
+    .station-board,
+    .station-monitor-stack,
+    .station-sofa {
+      position: absolute;
+    }
+
+    .station-command .station-panel {
+      background:
+        linear-gradient(180deg, rgba(212,168,83,0.08) 0%, transparent 35%),
+        linear-gradient(180deg, rgba(30,18,7,0.95), rgba(10,6,3,0.96));
+    }
+
+    .station-command .station-panel::before {
+      background: linear-gradient(90deg, rgba(200,168,83,0.28), rgba(255,255,255,0.04), rgba(200,168,83,0.16));
+      border-radius: 999px;
+      content: '';
+      height: 0.18rem;
+      left: 1rem;
+      position: absolute;
+      right: 1rem;
+      top: 1.4rem;
+    }
+
+    .station-command .station-panel::after {
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent);
+      border-radius: 0.3rem;
+      content: '';
+      height: 1.6rem;
+      left: 1rem;
+      position: absolute;
+      right: 1rem;
+      bottom: 0.8rem;
+    }
+
+    .station-automation .station-panel::before,
+    .station-trading .station-panel::before,
+    .station-analyst .station-panel::before {
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent);
+      content: '';
+      inset: 0.8rem 0.8rem 1rem;
+      position: absolute;
+    }
+
+    .station-automation .station-panel::after,
+    .station-trading .station-panel::after,
+    .station-analyst .station-panel::after {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.08) 0 0.4rem,
+        transparent 0.4rem 0.75rem
+      );
+      bottom: 1rem;
+      content: '';
+      height: 1.9rem;
+      left: 0.8rem;
+      position: absolute;
+      right: 0.8rem;
+    }
+
+    .station-research .station-panel::before {
+      background:
+        linear-gradient(90deg, rgba(127,216,239,0.12) 0.25rem, transparent 0.25rem 0.55rem, rgba(127,216,239,0.08) 0.55rem 0.85rem, transparent 0.85rem 1.15rem),
+        linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+      content: '';
+      inset: 0.8rem 1rem 0.9rem;
+      position: absolute;
+    }
+
+    .station-research .station-panel::after {
+      background: linear-gradient(180deg, rgba(127,216,239,0.12), rgba(127,216,239,0.02));
+      bottom: 0.8rem;
+      content: '';
+      height: 1.1rem;
+      left: 0.9rem;
+      position: absolute;
+      right: 0.9rem;
+    }
+
+    .station-builder .station-panel::before {
+      background:
+        linear-gradient(135deg, rgba(255,159,122,0.16) 0 0.55rem, transparent 0.55rem 100%),
+        linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+      content: '';
+      inset: 0.8rem 0.75rem 0.95rem;
+      position: absolute;
+    }
+
+    .station-builder .station-panel::after {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255,159,122,0.18) 0 0.22rem,
+        transparent 0.22rem 0.45rem
+      );
+      bottom: 0.9rem;
+      content: '';
+      height: 1.2rem;
+      left: 0.85rem;
+      position: absolute;
+      right: 0.85rem;
+    }
+
+    .station-lounge .station-panel::before {
+      background:
+        linear-gradient(180deg, rgba(184,146,255,0.12), transparent),
+        radial-gradient(circle at 45% 45%, rgba(184,146,255,0.1) 0%, transparent 55%);
+      content: '';
+      inset: 0.8rem 0.8rem 0.9rem;
+      position: absolute;
+    }
+
+    .station-lounge .station-panel::after {
+      background: linear-gradient(180deg, rgba(184,146,255,0.16), rgba(184,146,255,0.04));
+      bottom: 0.9rem;
+      content: '';
+      height: 1rem;
+      left: 0.85rem;
+      position: absolute;
+      right: 0.85rem;
+    }
+
+    .station-typing .station-panel,
+    .station-charting .station-panel,
+    .station-reading .station-panel,
+    .station-automation .station-panel,
+    .station-whiteboard .station-panel,
+    .station-command .station-panel {
+      animation: whiteboardPulse 5s ease-in-out infinite;
+    }
+
+    .station-screen,
+    .station-monitor-stack,
+    .station-chart,
+    .station-books,
+    .station-blueprint,
+    .station-whiteboard,
+    .station-trade-chart,
+    .station-terminal {
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    .station-screen {
+      background: linear-gradient(180deg, rgba(140,192,255,0.35), rgba(18,24,34,0.95));
+      height: 1.5rem;
+      left: 1rem;
+      top: 1.6rem;
+      width: calc(100% - 2rem);
+      animation: monitorFlicker 3.9s ease-in-out infinite;
+    }
+
+    .station-console {
+      background: linear-gradient(180deg, rgba(212,168,83,0.3), rgba(64,36,12,0.95));
+      bottom: 0.7rem;
+      height: 0.7rem;
+      left: 1rem;
+      position: absolute;
+      right: 1rem;
+      border-radius: 999px;
+    }
+
+    .station-lights {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(212,168,83,0.8) 0 0.25rem,
+        rgba(140,192,255,0.65) 0.25rem 0.5rem,
+        rgba(255,255,255,0.45) 0.5rem 0.75rem
+      );
+      height: 0.18rem;
+      left: 1.15rem;
+      top: 1.35rem;
+      width: calc(100% - 2.3rem);
+    }
+
+    .station-books {
+      background:
+        repeating-linear-gradient(
+          90deg,
+          #6b3520 0 0.45rem,
+          #4a2e10 0.45rem 0.65rem,
+          #1a3a5a 0.65rem 0.95rem,
+          #2a4a1a 0.95rem 1.2rem
+        );
+      height: 1.9rem;
+      left: 0.9rem;
+      top: 1.5rem;
+      width: calc(100% - 1.8rem);
+    }
+
+    .station-lamp {
+      background: radial-gradient(circle, rgba(127,216,239,0.75) 0%, transparent 68%);
+      height: 1.4rem;
+      right: 0.9rem;
+      top: 1.3rem;
+      width: 1.4rem;
+      animation: readingPulse 4.2s ease-in-out infinite;
+    }
+
+    .station-index {
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+      bottom: 0.85rem;
+      height: 0.45rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
+    .station-blueprint {
+      background:
+        linear-gradient(90deg, rgba(255,159,122,0.08) 0 0.2rem, transparent 0.2rem 0.4rem, rgba(255,159,122,0.08) 0.4rem 0.6rem, transparent 0.6rem 0.8rem),
+        linear-gradient(180deg, rgba(255,159,122,0.22), rgba(49,20,10,0.95));
+      height: 1.7rem;
+      left: 0.9rem;
+      top: 1.55rem;
+      width: calc(100% - 1.8rem);
+      animation: chartFlicker 3s ease-in-out infinite;
+    }
+
+    .station-tool-rack {
+      background: linear-gradient(180deg, rgba(255,159,122,0.15), rgba(255,159,122,0.02));
+      bottom: 0.8rem;
+      height: 0.7rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
+    .station-terminal {
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      height: 0.5rem;
+      left: 1rem;
+      right: 1rem;
+      top: 2.05rem;
+    }
+
+    .station-chart {
+      background:
+        linear-gradient(180deg, rgba(164,180,197,0.12), rgba(7,12,18,0.9));
+      height: 1.8rem;
+      left: 0.9rem;
+      top: 1.5rem;
+      width: calc(100% - 1.8rem);
+      animation: chartFlicker 2.8s ease-in-out infinite;
+    }
+
+    .station-metrics {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(164,180,197,0.8) 0 0.2rem,
+        transparent 0.2rem 0.45rem
+      );
+      bottom: 0.82rem;
+      height: 0.8rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
+    .station-monitor-stack {
+      background:
+        linear-gradient(180deg, rgba(140,192,255,0.15), rgba(10,18,28,0.95));
+      height: 1.95rem;
+      left: 0.88rem;
+      top: 1.45rem;
+      width: calc(100% - 1.76rem);
+      animation: monitorFlicker 3.1s ease-in-out infinite;
+    }
+
+    .station-status {
+      background: linear-gradient(90deg, rgba(140,192,255,0.6), rgba(255,255,255,0.08), rgba(140,192,255,0.45));
+      bottom: 0.85rem;
+      height: 0.45rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
+    .station-trade-chart {
+      background:
+        linear-gradient(180deg, rgba(246,179,90,0.2), rgba(36,18,6,0.95));
+      height: 1.7rem;
+      left: 0.9rem;
+      top: 1.55rem;
+      width: calc(100% - 1.8rem);
+      animation: chartFlicker 2.7s ease-in-out infinite;
+    }
+
+    .station-ticker {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(246,179,90,0.8) 0 0.18rem,
+        transparent 0.18rem 0.38rem
+      );
+      bottom: 0.84rem;
+      height: 0.7rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
+    .station-sofa {
+      background: linear-gradient(180deg, rgba(184,146,255,0.2), rgba(60,34,90,0.82));
+      border-radius: 0.45rem;
+      height: 1rem;
+      left: 0.95rem;
+      top: 2.35rem;
+      width: calc(100% - 1.9rem);
+    }
+
+    .station-whiteboard {
+      background:
+        linear-gradient(180deg, rgba(232,213,183,0.24), rgba(36,24,14,0.95));
+      height: 1.75rem;
+      left: 0.9rem;
+      top: 1.5rem;
+      width: calc(100% - 1.8rem);
+      animation: whiteboardPulse 4.1s ease-in-out infinite;
+    }
+
+    .station-notes {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(184,146,255,0.7) 0 0.18rem,
+        transparent 0.18rem 0.42rem
+      );
+      bottom: 0.84rem;
+      height: 0.55rem;
+      left: 1rem;
+      width: calc(100% - 2rem);
+    }
+
     /* ── Agent Nodes ── */
     .agent-node {
       align-items: center;
@@ -589,6 +1039,58 @@
       filter: blur(0.8px);
     }
 
+    .agent-node.working .char-wrap {
+      filter: drop-shadow(0 0 6px rgba(212,168,83,0.2));
+    }
+
+    .agent-node.station-command .char-head {
+      transform: translateY(-0.02rem) scale(1.03);
+    }
+
+    .agent-node.station-reading .char-head {
+      transform: translateY(-0.04rem) rotate(-7deg);
+    }
+
+    .agent-node.station-reading .char-arms {
+      opacity: 0.7;
+    }
+
+    .agent-node.station-typing .char-head {
+      transform: translateY(0.01rem) rotate(2deg);
+    }
+
+    .agent-node.station-typing .char-arm.right {
+      animation: walkArmRight 0.55s ease-in-out infinite, typingTap 0.42s ease-in-out infinite;
+    }
+
+    .agent-node.station-charting .char-head {
+      transform: translateY(-0.02rem) rotate(3deg);
+    }
+
+    .agent-node.station-charting .char-glow {
+      opacity: 0.92;
+    }
+
+    .agent-node.station-automation .char-head {
+      transform: translateY(-0.02rem) rotate(-1deg);
+    }
+
+    .agent-node.station-whiteboard .char-head {
+      transform: translateY(-0.03rem) rotate(-3deg);
+    }
+
+    .agent-node.station-whiteboard .char-torso {
+      transform: skewX(-1deg);
+    }
+
+    .agent-node.checking-in .char-wrap {
+      filter: drop-shadow(0 0 10px rgba(212,168,83,0.42));
+    }
+
+    .agent-node.checking-in .speech {
+      border-color: #d4a853;
+    }
+
     @keyframes idleFloat {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-1px) rotate(-0.2deg); }
@@ -669,6 +1171,11 @@
     @keyframes walkArmRight {
       0%, 100% { transform: rotate(-18deg) translateY(0); }
       50% { transform: rotate(-7deg) translateY(0.05rem); }
+    }
+
+    @keyframes typingTap {
+      0%, 100% { transform: rotate(-7deg) translateY(0); }
+      50% { transform: rotate(-1deg) translateY(0.05rem); }
     }
 
     /* ── Speech Bubble ── */
@@ -1076,6 +1583,22 @@
       50%       { opacity: 1; }
     }
 
+    @keyframes chartFlicker {
+      0%, 100% { opacity: 0.72; transform: translateY(0); }
+      45% { opacity: 1; transform: translateY(-1px); }
+      70% { opacity: 0.82; transform: translateY(0.5px); }
+    }
+
+    @keyframes readingPulse {
+      0%, 100% { opacity: 0.7; filter: brightness(1); }
+      50% { opacity: 1; filter: brightness(1.2); }
+    }
+
+    @keyframes whiteboardPulse {
+      0%, 100% { opacity: 0.72; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.02); }
+    }
+
     @media (max-width: 860px) {
       body {
         overflow: auto;
@@ -1136,6 +1659,7 @@
         <div class="furn furn-desk"></div>
         <div class="furn furn-plant"></div>
 
+        <div id="workZones" class="work-zones" aria-hidden="true"></div>
         <div id="roomAgents"></div>
 
         <div class="you-panel">
@@ -1191,6 +1715,7 @@
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
     const roomAgents = document.getElementById("roomAgents");
+    const workZones = document.getElementById("workZones");
     const roomBrief = document.getElementById("roomBrief");
     const roomNotice = document.getElementById("roomNotice");
     const roomBadge = document.getElementById("roomBadge");
@@ -1219,6 +1744,122 @@
       });
     }
 
+    const motionStationClasses = [
+      "station-command",
+      "station-reading",
+      "station-typing",
+      "station-charting",
+      "station-automation",
+      "station-whiteboard",
+    ];
+
+    const motionWorkClasses = [
+      "working-command",
+      "working-reading",
+      "working-typing",
+      "working-charting",
+      "working-automation",
+      "working-whiteboard",
+    ];
+
+    function renderWorkZones() {
+      const zones = WOYSApp.getHQWorkZones();
+
+      workZones.textContent = "";
+
+      zones.forEach(zone => {
+        const node = document.createElement("div");
+        node.className = `station station-${zone.className}`;
+        node.dataset.stationId = zone.id;
+        node.style.left = `${zone.left}%`;
+        node.style.top = `${zone.top}%`;
+        node.style.width = `${zone.width}rem`;
+        node.style.height = `${zone.height}rem`;
+
+        const glow = document.createElement("div");
+        glow.className = "station-glow";
+
+        const panel = document.createElement("div");
+        panel.className = "station-panel";
+
+        const label = document.createElement("div");
+        label.className = "station-label";
+        label.textContent = zone.label;
+
+        switch (zone.id) {
+          case "command-desk": {
+            panel.append(
+              makeStationProp("station-screen"),
+              makeStationProp("station-console"),
+              makeStationProp("station-lights"),
+            );
+            break;
+          }
+          case "research-library": {
+            panel.append(
+              makeStationProp("station-books"),
+              makeStationProp("station-lamp"),
+              makeStationProp("station-index"),
+            );
+            break;
+          }
+          case "builder-workstation": {
+            panel.append(
+              makeStationProp("station-blueprint"),
+              makeStationProp("station-tool-rack"),
+              makeStationProp("station-terminal"),
+            );
+            break;
+          }
+          case "analyst-desk": {
+            panel.append(
+              makeStationProp("station-chart"),
+              makeStationProp("station-metrics"),
+              makeStationProp("station-terminal"),
+            );
+            break;
+          }
+          case "automation-station": {
+            panel.append(
+              makeStationProp("station-monitor-stack"),
+              makeStationProp("station-status"),
+              makeStationProp("station-terminal"),
+            );
+            break;
+          }
+          case "trading-desk": {
+            panel.append(
+              makeStationProp("station-trade-chart"),
+              makeStationProp("station-ticker"),
+              makeStationProp("station-terminal"),
+            );
+            break;
+          }
+          case "brainstorm-lounge": {
+            panel.append(
+              makeStationProp("station-sofa"),
+              makeStationProp("station-whiteboard"),
+              makeStationProp("station-notes"),
+            );
+            break;
+          }
+          default:
+            panel.append(makeStationProp("station-terminal"));
+        }
+
+        node.append(glow, panel, label);
+        workZones.appendChild(node);
+      });
+    }
+
+    function makeStationProp(className) {
+      const prop = document.createElement("div");
+      prop.className = className;
+      return prop;
+    }
+
+    renderWorkZones();
+
     function applyMotionToNode(node, roomAgent, index, now) {
       const motion = WOYSApp.getHQAgentMotionState(roomAgent, {
         phase: currentRhythm.phase || "observe",
@@ -1226,10 +1867,21 @@
         index,
       });
 
+      node.dataset.stationId = motion.stationId || "";
       node.style.left = motion.left;
       node.style.top = motion.top;
       node.style.zIndex = String(motion.zIndex);
       node.classList.toggle("walking", motion.isWalking);
+      node.classList.toggle("working", motion.isWorkingAtStation);
+      node.classList.toggle("checking-in", motion.isCheckingIn);
+
+      motionStationClasses.forEach(className => {
+        node.classList.toggle(className, className === motion.poseClass);
+      });
+
+      motionWorkClasses.forEach(className => {
+        node.classList.toggle(className, className === motion.workClass);
+      });
     }
 
     function renderRoom(items) {

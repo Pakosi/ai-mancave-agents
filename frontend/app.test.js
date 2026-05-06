@@ -12,6 +12,7 @@ const {
   getNewestAgentMessage,
   getHQLayoutConfig,
   getHQAgentMotionState,
+  getHQWorkZones,
   getRoomActivityView,
   getSelectedRoom,
   getAgentCharacterStyle,
@@ -862,22 +863,58 @@ test("getAgentCharacterStyle returns a distinct fixed style per agent", () => {
   });
 });
 
-test("getHQAgentMotionState returns a patrol motion for the host", () => {
+test("getHQWorkZones returns the workstation layout", () => {
+  const zones = getHQWorkZones();
+
+  assert.equal(zones.length >= 7, true);
+  assert.deepEqual(zones[0], {
+    id: "command-desk",
+    label: "CEO Command Desk",
+    className: "command",
+    left: 50,
+    top: 64,
+    width: 14,
+    height: 7.5,
+    poseClass: "station-command",
+    workClass: "working-command",
+    accent: "#d4a853",
+  });
+  assert.equal(zones.some((zone) => zone.id === "trading-desk"), true);
+});
+
+test("getHQAgentMotionState returns a station-aware patrol motion for the host", () => {
   const motion = getHQAgentMotionState({ id: "host" }, {
     phase: "plan",
-    now: 1000,
+    now: 2500,
     index: 0,
   });
 
-  assert.equal(motion.isWalking, true);
+  assert.equal(motion.isWalking, false);
+  assert.equal(motion.isCheckingIn, true);
+  assert.equal(motion.stationId, "automation-station");
+  assert.equal(motion.poseClass, "station-automation");
   assert.match(motion.left, /%$/);
   assert.match(motion.top, /%$/);
   assert.equal(motion.zIndex > 100, true);
   assert.deepEqual(motion, getHQAgentMotionState({ id: "host" }, {
     phase: "plan",
-    now: 1000,
+    now: 2500,
     index: 0,
   }));
+});
+
+test("getHQAgentMotionState keeps builders near their workstation", () => {
+  const motion = getHQAgentMotionState({ id: "builder" }, {
+    phase: "execute",
+    now: 1200,
+    index: 0,
+  });
+
+  assert.equal(motion.stationId, "builder-workstation");
+  assert.equal(motion.workClass, "working-typing");
+  assert.equal(motion.isWorkingAtStation, true);
+  assert.match(motion.left, /%$/);
+  assert.match(motion.top, /%$/);
 });
 
 test("getNewestAgentMessage returns latest agent message", () => {
