@@ -1319,6 +1319,10 @@
     return map;
   }, {});
 
+  const hqRouteState = new Map();
+  const HQ_ROUTE_COOLDOWN_MS = 12000;
+  const HQ_ROUTE_DWELL_MS = 9000;
+
   const agentWorkZoneAssignments = {
     host: "command-desk",
     assistant: "automation-station",
@@ -1383,6 +1387,40 @@
     return keywords.some((keyword) => text.includes(keyword));
   }
 
+  function getHQZoneForCategory(category = "") {
+    const text = String(category).toLowerCase();
+
+    if (includesAny(text, ["trade", "revenue", "client", "offer"])) {
+      return "trading-desk";
+    }
+
+    if (includesAny(text, ["automation", "ops", "tool"])) {
+      return "automation-station";
+    }
+
+    if (includesAny(text, ["arbitrage", "market"])) {
+      return "trading-desk";
+    }
+
+    if (includesAny(text, ["research", "discover", "validate", "niche"])) {
+      return "research-library";
+    }
+
+    if (includesAny(text, ["build", "mvp", "product", "implementation"])) {
+      return "builder-workstation";
+    }
+
+    if (includesAny(text, ["risk", "analysis", "decision", "score"])) {
+      return "analyst-desk";
+    }
+
+    if (includesAny(text, ["strategy", "plan", "priorit", "position"])) {
+      return "brainstorm-lounge";
+    }
+
+    return "command-desk";
+  }
+
   function getTaskStationId(task, phase, agentId) {
     const assignedStation = agentWorkZoneAssignments[agentId] || "command-desk";
     const text = getTextBlob([
@@ -1395,18 +1433,183 @@
     ]);
 
     if (agentId === "host" || agentId === "manager") {
-      if (phase === "review" && includesAny(text, ["summary", "check-in", "checkpoint", "decision", "coordinate", "handoff"])) {
-        return "command-desk";
-      }
-
-      if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "roadmap", "positioning"])) {
-        return "brainstorm-lounge";
-      }
-
       return assignedStation;
     }
 
+    if (task.category) {
+      return getHQZoneForCategory(task.category);
+    }
+
+    if (includesAny(text, ["trade", "revenue", "client", "offer"])) {
+      return "trading-desk";
+    }
+
+    if (includesAny(text, ["automation", "ops", "tool"])) {
+      return "automation-station";
+    }
+
+    if (includesAny(text, ["research", "discover", "validate", "niche"])) {
+      return "research-library";
+    }
+
+    if (includesAny(text, ["build", "mvp", "product", "implementation"])) {
+      return "builder-workstation";
+    }
+
+    if (includesAny(text, ["risk", "analysis", "decision", "score"])) {
+      return "analyst-desk";
+    }
+
+    if (includesAny(text, ["strategy", "plan", "priorit", "position"])) {
+      return "brainstorm-lounge";
+    }
+
     return assignedStation;
+  }
+
+  function getRelevantIdeaForAgent(agent, ideas = [], phase = "observe") {
+    const agentText = getTextBlob([agent.id, agent.role, agent.specialty, ...(agent.taskTendencies || [])]);
+
+    return ideas
+      .filter((idea) => idea && idea.status !== "killed")
+      .map((idea) => {
+        const text = getTextBlob([
+          idea.title,
+          idea.category,
+          idea.description,
+          idea.nextAction,
+          idea.notes,
+        ]);
+        const categoryZoneId = getHQZoneForCategory(idea.category);
+        let score = 0;
+
+        if (includesAny(text, agentText.split(" ").filter(Boolean))) {
+          score += 5;
+        }
+
+        if (categoryZoneId === (agentWorkZoneAssignments[agent.id] || "command-desk")) {
+          score += 4;
+        }
+
+        if (idea.status === "building") {
+          score += 4;
+        } else if (idea.status === "promising") {
+          score += 3;
+        } else if (idea.status === "validating") {
+          score += 2;
+        } else if (idea.status === "researching") {
+          score += 1;
+        }
+
+        score += Math.max(0, Math.min(10, Number(idea.confidence) || 0)) / 4;
+        score += Math.max(0, Math.min(10, Number(idea.profitPotential) || 0)) / 5;
+
+        if (phase === "plan" && includesAny(text, ["plan", "strategy", "priorit", "position", "roadmap"])) {
+          score += 3;
+        }
+
+        if (phase === "review" && includesAny(text, ["risk", "decision", "summary", "review", "rank"])) {
+          score += 3;
+        }
+
+        if (phase === "execute" && includesAny(text, ["build", "launch", "ship", "test", "validate"])) {
+          score += 2;
+        }
+
+        return { idea, score, categoryZoneId };
+      })
+      .sort((first, second) => {
+        if (second.score !== first.score) {
+          return second.score - first.score;
+        }
+
+        const firstUpdatedAt = first.idea.updatedAt || first.idea.createdAt || "";
+        const secondUpdatedAt = second.idea.updatedAt || second.idea.createdAt || "";
+
+        return String(secondUpdatedAt).localeCompare(String(firstUpdatedAt));
+      })[0] || null;
+  }
+
+  function getHQHostCheckInTarget(context = {}) {
+    const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+    const decisions = Array.isArray(context.decisions) ? context.decisions : [];
+    const ideas = Array.isArray(context.ideas) ? context.ideas : [];
+    const scores = new Map();
+
+    function scoreAgent(agentId, points) {
+      if (!agentId) {
+        return;
+      }
+
+      scores.set(agentId, (scores.get(agentId) || 0) + points);
+    }
+
+    tasks.forEach((task) => {
+      const taskOwnerId = task.ownerAgentId || task.assignedAgentId || null;
+      const assignedByAgentId = task.assignedByAgentId || null;
+
+      if (task.blockedReason) {
+        scoreAgent(taskOwnerId, 8);
+        scoreAgent(assignedByAgentId, 2);
+      }
+
+      if (task.handoffReason || task.lastHandoffAt) {
+        scoreAgent(taskOwnerId, 5);
+        scoreAgent(assignedByAgentId, 2);
+      }
+
+      if (task.status === "in_progress") {
+        scoreAgent(taskOwnerId, 1);
+      }
+    });
+
+    decisions.forEach((decision) => {
+      if (decision.agentId) {
+        scoreAgent(decision.agentId, 3);
+      }
+
+      if (decision.relatedTaskId) {
+        const relatedTask = tasks.find((task) => String(task.id) === String(decision.relatedTaskId));
+        if (relatedTask) {
+          scoreAgent(relatedTask.ownerAgentId || relatedTask.assignedAgentId, 2);
+        }
+      }
+    });
+
+    ideas
+      .filter((idea) => idea && idea.status !== "killed")
+      .forEach((idea) => {
+        const category = getHQZoneForCategory(idea.category);
+        const ideaScore = Math.max(0, Math.min(10, Number(idea.confidence) || 0)) + Math.max(0, Math.min(10, Number(idea.profitPotential) || 0));
+        if (idea.status === "building" || idea.status === "promising") {
+          const targetAgent = hqZoneMetadata.find((zone) => zone.id === category)?.primaryAgentIds?.[0] || "";
+          scoreAgent(targetAgent, 2 + Math.round(ideaScore / 4));
+        }
+      });
+
+    let bestAgentId = "";
+    let bestScore = 0;
+
+    Array.from(scores.entries()).forEach(([agentId, score]) => {
+      if (score > bestScore) {
+        bestScore = score;
+        bestAgentId = agentId;
+      }
+    });
+
+    if (!bestAgentId || bestScore < 6) {
+      return {
+        targetAgentId: "",
+        targetZoneId: "",
+        routeReason: "",
+      };
+    }
+
+    return {
+      targetAgentId: bestAgentId,
+      targetZoneId: agentWorkZoneAssignments[bestAgentId] || "command-desk",
+      routeReason: `CEO check-in: ${bestAgentId}`,
+    };
   }
 
   function getRelevantTaskForAgent(agent, tasks = [], phase = "observe") {
@@ -1470,156 +1673,139 @@
       })[0]?.task || null;
   }
 
-  function getHQHostCheckInTargetAgentId(context = {}) {
+  function getHQAgentRouteDecision(agent, context = {}, routingState = hqRouteState, now = Date.now()) {
+    const phase = context.phase || "observe";
     const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+    const ideas = Array.isArray(context.ideas) ? context.ideas : [];
     const decisions = Array.isArray(context.decisions) ? context.decisions : [];
-    const scores = new Map();
+    const memoryEvents = Array.isArray(context.memoryEvents) ? context.memoryEvents : [];
+    const assignedStationId = agentWorkZoneAssignments[agent.id] || "command-desk";
+    const homeZone = hqWorkZoneMap[assignedStationId] || hqWorkZoneMap["command-desk"];
+    const current = routingState.get(agent.id) || {};
 
-    function scoreAgent(agentId, points) {
-      if (!agentId) {
-        return;
-      }
+    let stationId = assignedStationId;
+    let routeReason = `home station: ${homeZone.name}`;
+    let targetAgentId = "";
+    let targetIdeaId = "";
 
-      scores.set(agentId, (scores.get(agentId) || 0) + points);
-    }
+    if (agent.id === "host") {
+      const hostTarget = getHQHostCheckInTarget({ tasks, decisions, ideas, memoryEvents });
+      if (hostTarget.targetAgentId) {
+        stationId = hostTarget.targetZoneId || assignedStationId;
+        routeReason = hostTarget.routeReason || `CEO check-in: ${hostTarget.targetAgentId}`;
+        targetAgentId = hostTarget.targetAgentId;
+      } else {
+        const rankedIdea = ideas
+          .filter((idea) => idea && idea.status !== "killed")
+          .map((idea) => ({
+            idea,
+            score:
+              (idea.status === "building" ? 5 : idea.status === "promising" ? 4 : 0) +
+              (Math.max(0, Math.min(10, Number(idea.confidence) || 0)) / 2) +
+              (Math.max(0, Math.min(10, Number(idea.profitPotential) || 0)) / 3),
+          }))
+          .sort((first, second) => second.score - first.score)[0];
 
-    tasks.forEach((task) => {
-      const taskOwnerId = task.ownerAgentId || task.assignedAgentId || null;
-      const assignedByAgentId = task.assignedByAgentId || null;
-
-      if (task.blockedReason) {
-        scoreAgent(taskOwnerId, 6);
-        scoreAgent(assignedByAgentId, 2);
-      }
-
-      if (task.handoffReason || task.lastHandoffAt) {
-        scoreAgent(taskOwnerId, 4);
-        scoreAgent(assignedByAgentId, 2);
-      }
-    });
-
-    decisions.forEach((decision) => {
-      if (decision.agentId) {
-        scoreAgent(decision.agentId, 3);
-      }
-
-      if (decision.relatedTaskId) {
-        const relatedTask = tasks.find((task) => String(task.id) === String(decision.relatedTaskId));
-        if (relatedTask) {
-          scoreAgent(relatedTask.ownerAgentId || relatedTask.assignedAgentId, 2);
+        if (rankedIdea && rankedIdea.score >= 6) {
+          stationId = getHQZoneForCategory(rankedIdea.idea.category);
+          routeReason = `CEO review: ${rankedIdea.idea.title}`;
+          targetIdeaId = rankedIdea.idea.id;
+        } else {
+          stationId = assignedStationId;
+          routeReason = "CEO command desk";
         }
       }
-    });
+    } else {
+      const task = getRelevantTaskForAgent(agent, tasks, phase);
 
-    let bestAgentId = "";
-    let bestScore = 0;
+      if (task) {
+        stationId = getTaskStationId(task, phase, agent.id);
+        routeReason = task.blockedReason
+          ? `blocked task: ${task.title}`
+          : task.ownerAgentId === agent.id
+            ? `owned task: ${task.title}`
+            : `assigned task: ${task.title}`;
+      } else {
+        const relevantIdea = getRelevantIdeaForAgent(agent, ideas, phase);
 
-    Array.from(scores.entries()).forEach(([agentId, score]) => {
-      if (score > bestScore) {
-        bestScore = score;
-        bestAgentId = agentId;
+        if (relevantIdea && relevantIdea.score >= 5.5) {
+          stationId = relevantIdea.categoryZoneId || assignedStationId;
+          routeReason = `idea category: ${relevantIdea.idea.category || "general"}`;
+          targetIdeaId = relevantIdea.idea.id;
+        } else if (phase === "review" && ["analyst", "strategist"].includes(agent.id)) {
+          stationId = agent.id === "analyst" ? "analyst-desk" : "brainstorm-lounge";
+          routeReason = `${phase} phase: ${homeZone.name}`;
+        } else if (phase === "plan" && agent.id === "strategist") {
+          stationId = "brainstorm-lounge";
+          routeReason = "planning phase: brainstorm lounge";
+        } else {
+          stationId = assignedStationId;
+        }
       }
-    });
+    }
 
-    return bestScore >= 6 ? bestAgentId : "";
+    const previousStationId = current.stationId || "";
+    const previousSwitchAt = current.lastSwitchAt || 0;
+    const previousDwellUntil = current.dwellUntil || 0;
+    const hasPreviousStation = Boolean(previousStationId);
+    const allowedToSwitch = stationId === previousStationId || !hasPreviousStation || (now >= previousSwitchAt + HQ_ROUTE_COOLDOWN_MS && now >= previousDwellUntil);
+    const finalStationId = allowedToSwitch ? stationId : (previousStationId || assignedStationId);
+    const finalRouteReason = allowedToSwitch ? routeReason : (current.routeReason || routeReason);
+    const switched = finalStationId !== previousStationId;
+
+    const nextState = {
+      stationId: finalStationId,
+      routeReason: finalRouteReason,
+      lastSwitchAt: switched ? now : previousSwitchAt,
+      dwellUntil: switched ? now + HQ_ROUTE_DWELL_MS : previousDwellUntil,
+      lastSeenAt: now,
+      targetAgentId,
+      targetIdeaId,
+    };
+
+    routingState.set(agent.id, nextState);
+
+    return {
+      stationId: finalStationId,
+      stationLabel: hqWorkZoneMap[finalStationId] ? hqWorkZoneMap[finalStationId].label : homeZone.label,
+      stationPurpose: hqWorkZoneMap[finalStationId] ? hqWorkZoneMap[finalStationId].purpose : homeZone.purpose,
+      routeReason: finalRouteReason,
+      targetAgentId,
+      targetIdeaId,
+      isRouteLocked: !allowedToSwitch && stationId !== previousStationId,
+      isHomeStation: finalStationId === assignedStationId,
+    };
   }
 
   function getHQAgentStationProfile(agent, context = {}) {
     const phase = context.phase || "observe";
     const tasks = Array.isArray(context.tasks) ? context.tasks : [];
+    const ideas = Array.isArray(context.ideas) ? context.ideas : [];
     const decisions = Array.isArray(context.decisions) ? context.decisions : [];
     const memoryEvents = Array.isArray(context.memoryEvents) ? context.memoryEvents : [];
+    const route = getHQAgentRouteDecision(agent, { phase, tasks, ideas, decisions, memoryEvents }, context.routingState, context.now);
     const assignedStationId = agentWorkZoneAssignments[agent.id] || "command-desk";
-    const task = getRelevantTaskForAgent(agent, tasks, phase);
-    const hasActiveTask = Boolean(task);
-    const taskStationId = task ? getTaskStationId(task, phase, agent.id) : assignedStationId;
-    const baseStationId = taskStationId || assignedStationId;
-    let stationId = baseStationId;
-    let activityLevel = hasActiveTask ? 0.8 : 0.38;
-    let motionIntensity = hasActiveTask ? 0.9 : 0.35;
-
-    if (agent.id === "host") {
-      const targetAgentId = getHQHostCheckInTargetAgentId({ tasks, decisions, memoryEvents });
-      const targetStationId = targetAgentId ? (agentWorkZoneAssignments[targetAgentId] || "command-desk") : "command-desk";
-
-      if (phase === "plan") {
-        stationId = targetAgentId ? "brainstorm-lounge" : "command-desk";
-      } else if (phase === "review") {
-        stationId = targetAgentId ? targetStationId : "command-desk";
-      } else if (phase === "execute") {
-        stationId = targetAgentId ? targetStationId : "command-desk";
-      } else {
-        stationId = targetAgentId ? targetStationId : "command-desk";
-      }
-
-      return {
-        stationId,
-        stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : "CEO Command Desk",
-        stationPurpose: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].purpose : "Executive check-ins, summaries, and direction",
-        poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : "station-command",
-        workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : "working-command",
-        activityLevel: targetAgentId ? 0.82 : 0.55,
-        motionIntensity: targetAgentId ? 0.82 : 0.55,
-        taskId: task ? task.id : null,
-        taskStatus: task ? task.status : null,
-        isCheckingIn: Boolean(targetAgentId),
-        isWorkingAtStation: stationId === "command-desk",
-        targetAgentId,
-      };
-    }
-
-    if (phase === "plan" || phase === "review") {
-      if (["strategist", "manager"].includes(agent.id)) {
-        stationId = "brainstorm-lounge";
-      } else if (agent.id === "analyst") {
-        stationId = phase === "review" ? "analyst-desk" : "brainstorm-lounge";
-      } else if (agent.id === "sales") {
-        stationId = "trading-desk";
-      } else if (agent.id === "researcher") {
-        stationId = "research-library";
-      } else if (agent.id === "builder") {
-        stationId = "builder-workstation";
-      } else if (agent.id === "assistant") {
-        stationId = "automation-station";
-      }
-    }
-
-    if (task && task.blockedReason) {
-      activityLevel = 0.55;
-      motionIntensity = 0.42;
-      if (agent.id === "manager") {
-        stationId = "command-desk";
-      }
-    } else if (task && task.status === "in_progress") {
-      activityLevel = 1;
-      motionIntensity = 1;
-    } else if (task) {
-      activityLevel = 0.85;
-      motionIntensity = 0.82;
-    } else if (phase === "execute") {
-      activityLevel = 0.55;
-      motionIntensity = 0.58;
-    } else if (phase === "review") {
-      activityLevel = 0.48;
-      motionIntensity = 0.46;
-    }
-
-    if (memoryEvents.some((event) => event.importance >= 4)) {
-      motionIntensity = Math.max(motionIntensity, 0.75);
-    }
+    const activeTask = getRelevantTaskForAgent(agent, tasks, phase);
+    const activityLevel = activeTask ? (activeTask.status === "in_progress" ? 1 : 0.85) : (phase === "execute" ? 0.55 : phase === "review" ? 0.48 : 0.38);
+    const motionIntensity = activeTask ? (activeTask.status === "in_progress" ? 1 : 0.82) : (phase === "execute" ? 0.58 : phase === "review" ? 0.46 : 0.35);
 
     return {
-      stationId,
-      stationLabel: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].label : hqWorkZoneMap[assignedStationId].label,
-      stationPurpose: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].purpose : hqWorkZoneMap[assignedStationId].purpose,
-      poseClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].poseClass : hqWorkZoneMap[assignedStationId].poseClass,
-      workClass: hqWorkZoneMap[stationId] ? hqWorkZoneMap[stationId].workClass : hqWorkZoneMap[assignedStationId].workClass,
+      stationId: route.stationId,
+      stationLabel: route.stationLabel || (hqWorkZoneMap[route.stationId] ? hqWorkZoneMap[route.stationId].label : hqWorkZoneMap[assignedStationId].label),
+      stationPurpose: route.stationPurpose || (hqWorkZoneMap[route.stationId] ? hqWorkZoneMap[route.stationId].purpose : hqWorkZoneMap[assignedStationId].purpose),
+      routeReason: route.routeReason || "",
+      poseClass: hqWorkZoneMap[route.stationId] ? hqWorkZoneMap[route.stationId].poseClass : hqWorkZoneMap[assignedStationId].poseClass,
+      workClass: hqWorkZoneMap[route.stationId] ? hqWorkZoneMap[route.stationId].workClass : hqWorkZoneMap[assignedStationId].workClass,
       activityLevel,
-      motionIntensity,
-      taskId: task ? task.id : null,
-      taskStatus: task ? task.status : null,
-      isCheckingIn: false,
-      isWorkingAtStation: true,
+      motionIntensity: memoryEvents.some((event) => event.importance >= 4) ? Math.max(motionIntensity, 0.75) : motionIntensity,
+      taskId: activeTask ? activeTask.id : null,
+      taskStatus: activeTask ? activeTask.status : null,
+      isCheckingIn: Boolean(route.targetAgentId),
+      isWorkingAtStation: route.stationId === assignedStationId,
+      targetAgentId: route.targetAgentId || "",
+      targetIdeaId: route.targetIdeaId || "",
+      isRouteLocked: Boolean(route.isRouteLocked),
+      isHomeStation: Boolean(route.isHomeStation),
     };
   }
 
@@ -1649,7 +1835,7 @@
     const cycleSeed = (agent.id.length * 937) + (orderIndex * 791);
 
     if (agent.id === "host") {
-      const targetZone = profile.targetAgentId ? (hqWorkZoneMap[agentWorkZoneAssignments[profile.targetAgentId]] || homeZone) : homeZone;
+      const targetZone = profile.targetAgentId ? (hqWorkZoneMap[agentWorkZoneAssignments[profile.targetAgentId]] || homeZone) : (hqWorkZoneMap[profile.stationId] || homeZone);
       const routeIds = hostCheckInRoutes[phase] || hostCheckInRoutes.observe;
       const route = routeIds.map((id) => {
         if (id === "command-desk" || id === targetZone.id) {
@@ -1681,6 +1867,7 @@
         isWalking: !dwellProgress,
         stationId: activeZone.id,
         stationLabel: activeZone.label,
+        stationPurpose: activeZone.purpose,
         poseClass: activeZone.poseClass,
         workClass: activeZone.workClass,
         isCheckingIn: activeZone.id !== "command-desk",
@@ -1690,6 +1877,8 @@
         taskId: profile.taskId,
         taskStatus: profile.taskStatus,
         targetAgentId: profile.targetAgentId || "",
+        routeReason: profile.routeReason || "",
+        targetIdeaId: profile.targetIdeaId || "",
       };
     }
 
@@ -1713,6 +1902,7 @@
       stationId: profile.stationId || baseZone.id,
       stationLabel: profile.stationLabel || baseZone.label,
       stationPurpose: profile.stationPurpose || baseZone.purpose,
+      routeReason: profile.routeReason || "",
       poseClass: profile.poseClass || baseZone.poseClass,
       workClass: profile.workClass || baseZone.workClass,
       isCheckingIn: false,
@@ -1722,6 +1912,7 @@
       taskId: profile.taskId,
       taskStatus: profile.taskStatus,
       targetAgentId: "",
+      targetIdeaId: profile.targetIdeaId || "",
     };
   }
 
@@ -1794,6 +1985,7 @@
     getHQZoneMetadata,
     getHQAgentStationProfile,
     getHQAgentMotionState,
+    getHQAgentRouteDecision,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,

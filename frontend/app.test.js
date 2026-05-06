@@ -14,6 +14,7 @@ const {
   getHQZoneMetadata,
   getHQAgentStationProfile,
   getHQAgentMotionState,
+  getHQAgentRouteDecision,
   getHQWorkZones,
   getRoomActivityView,
   getSelectedRoom,
@@ -1259,19 +1260,18 @@ test("getHQAgentStationProfile chooses a task-matched research station", () => {
     ],
   });
 
-  assert.deepEqual(profile, {
-    stationId: "research-library",
-    stationLabel: "Research / Library",
-    stationPurpose: "Discovery, sourcing, and competitor notes",
-    poseClass: "station-reading",
-    workClass: "working-reading",
-    activityLevel: 1,
-    motionIntensity: 1,
-    taskId: 7,
-    taskStatus: "in_progress",
-    isCheckingIn: false,
-    isWorkingAtStation: true,
-  });
+  assert.equal(profile.stationId, "research-library");
+  assert.equal(profile.stationLabel, "Research / Library");
+  assert.equal(profile.stationPurpose, "Discovery, sourcing, and competitor notes");
+  assert.equal(profile.poseClass, "station-reading");
+  assert.equal(profile.workClass, "working-reading");
+  assert.equal(profile.activityLevel, 1);
+  assert.equal(profile.motionIntensity, 1);
+  assert.equal(profile.taskId, 7);
+  assert.equal(profile.taskStatus, "in_progress");
+  assert.equal(profile.isCheckingIn, false);
+  assert.equal(profile.isWorkingAtStation, true);
+  assert.equal(profile.routeReason, "owned task: Research competitor launch timing");
 });
 
 test("getHQAgentStationProfile prefers blocked-task agents for host check-ins", () => {
@@ -1316,6 +1316,98 @@ test("getHQAgentMotionState keeps builders near their workstation", () => {
   assert.equal(motion.stationPurpose, "Implementation, fixes, and prototype work");
   assert.match(motion.left, /%$/);
   assert.match(motion.top, /%$/);
+});
+
+test("getHQAgentRouteDecision prefers owned tasks with a clear route reason", () => {
+  const routingState = new Map();
+  const decision = getHQAgentRouteDecision({
+    id: "builder",
+    taskTendencies: ["build", "fix"],
+  }, {
+    phase: "execute",
+    tasks: [
+      {
+        id: 11,
+        title: "Build pricing MVP",
+        status: "in_progress",
+        ownerAgentId: "builder",
+      },
+    ],
+  }, routingState, 1000);
+
+  assert.equal(decision.stationId, "builder-workstation");
+  assert.equal(decision.isHomeStation, true);
+  assert.equal(decision.routeReason, "owned task: Build pricing MVP");
+});
+
+test("getHQAgentRouteDecision holds a station during cooldown before switching again", () => {
+  const routingState = new Map();
+  const first = getHQAgentRouteDecision({
+    id: "researcher",
+    taskTendencies: ["research", "discover"],
+  }, {
+    phase: "observe",
+    tasks: [
+      {
+        id: 15,
+        title: "Research competitor launch timing",
+        status: "open",
+        ownerAgentId: "researcher",
+      },
+    ],
+  }, routingState, 1000);
+
+  const second = getHQAgentRouteDecision({
+    id: "researcher",
+    taskTendencies: ["research", "discover"],
+  }, {
+    phase: "review",
+    ideas: [
+      {
+        id: "idea-1",
+        title: "Automation bundle",
+        category: "automation",
+        status: "building",
+        confidence: 9,
+        profitPotential: 8,
+      },
+    ],
+  }, routingState, 5000);
+
+  assert.equal(first.stationId, "research-library");
+  assert.equal(first.routeReason, "owned task: Research competitor launch timing");
+  assert.equal(second.stationId, "research-library");
+  assert.equal(second.routeReason, "owned task: Research competitor launch timing");
+});
+
+test("getHQHostCheckInTarget and host routing prioritize blocked agents before ideas", () => {
+  const hostDecision = getHQAgentRouteDecision({ id: "host" }, {
+    phase: "review",
+    tasks: [
+      {
+        id: 21,
+        title: "Trading follow-up",
+        status: "open",
+        ownerAgentId: "sales",
+        blockedReason: "Waiting on final offer copy",
+      },
+    ],
+    ideas: [
+      {
+        id: "idea-9",
+        title: "Automation bundle",
+        category: "automation",
+        status: "building",
+        confidence: 10,
+        profitPotential: 9,
+      },
+    ],
+  }, new Map(), 1200);
+
+  assert.equal(hostDecision.stationId, "trading-desk");
+  assert.equal(hostDecision.targetAgentId, "sales");
+  assert.equal(hostDecision.routeReason, "CEO check-in: sales");
+  assert.equal(hostDecision.isRouteLocked, false);
 });
 
 test("getNewestAgentMessage returns latest agent message", () => {

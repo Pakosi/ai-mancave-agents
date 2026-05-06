@@ -2471,6 +2471,7 @@
         now,
         index,
         tasks: currentTasks,
+        ideas: currentIdeas,
         decisions: currentDecisions,
         memoryEvents: currentMemoryEvents,
       });
@@ -2590,7 +2591,7 @@
         charLegs.append(leftLeg, rightLeg);
 
         charWrap.append(charGlow, charHead, charShoulders, charTorso, charArms, charLegs);
-        applyMotionToNode(node, roomAgent, index, now);
+        const motion = applyMotionToNode(node, roomAgent, index, now);
 
         const name = document.createElement("div");
         name.className = "agent-name";
@@ -2602,9 +2603,11 @@
 
         const zone = document.createElement("div");
         zone.className = "agent-zone";
-        zone.textContent = `${motion.stationLabel} · ${motion.stationPurpose}`;
+        zone.textContent = motion.routeReason
+          ? `${motion.stationLabel} · ${motion.routeReason}`
+          : `${motion.stationLabel} · ${motion.stationPurpose}`;
 
-        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}`;
+        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
 
         node.append(speech, charWrap, name, role, zone);
         roomAgents.appendChild(node);
@@ -2637,13 +2640,23 @@
 
         const roomAgent = WOYSApp.mapAgentForRoom(agent, currentMessages);
         const isSpeaking = node.classList.contains("speaking");
-        motions.push({
-          agentId: roomAgent.id,
-          motion: applyMotionToNode(node, roomAgent, index, now, {
-            isSpeaking,
-          }),
+        const motion = applyMotionToNode(node, roomAgent, index, now, {
           isSpeaking,
         });
+        motions.push({
+          agentId: roomAgent.id,
+          motion,
+          isSpeaking,
+        });
+
+        const zone = node.querySelector(".agent-zone");
+        if (zone) {
+          zone.textContent = motion.routeReason
+            ? `${motion.stationLabel} · ${motion.routeReason}`
+            : `${motion.stationLabel} · ${motion.stationPurpose}`;
+        }
+
+        node.title = `${roomAgent.name} · ${motion.stationLabel} · ${motion.stationPurpose}${motion.routeReason ? ` · ${motion.routeReason}` : ""}`;
       });
 
       syncWorkZoneStates(motions);
