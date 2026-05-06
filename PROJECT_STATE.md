@@ -70,6 +70,7 @@
 - Stabilization pass tightened label density and card readability across the HQ scene, digest, ideas, command result, and interaction event surfaces without adding new systems.
 - The latest frontend motion pass keeps room agent DOM nodes stable across refreshes with a cache keyed by agent id, so polling updates no longer rebuild the scene and reset character motion each tick.
 - Agent position changes now transition smoothly rather than snapping, and animation state is preserved between data refreshes.
+- The current HQ station layout now places research and builder stations on the left, trading/automation/analyst stations on the right, the CEO command desk centered and dominant, and the lounge back-center for cleaner spacing and readability.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

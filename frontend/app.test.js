@@ -1229,9 +1229,10 @@ test("getAgentCharacterStyle returns a distinct fixed style per agent", () => {
 
 test("getHQWorkZones returns the workstation layout", () => {
   const zones = getHQWorkZones();
+  const zoneById = Object.fromEntries(zones.map((zone) => [zone.id, zone]));
 
   assert.equal(zones.length >= 7, true);
-  assert.deepEqual(zones[0], {
+  assert.deepEqual(zoneById["command-desk"], {
     id: "command-desk",
     name: "CEO Command Desk",
     purpose: "Executive check-ins, summaries, and direction",
@@ -1240,13 +1241,19 @@ test("getHQWorkZones returns the workstation layout", () => {
     label: "CEO Command Desk",
     className: "command",
     left: 50,
-    top: 64,
-    width: 14,
-    height: 7.5,
+    top: 58,
+    width: 17,
+    height: 8.4,
     poseClass: "station-command",
     workClass: "working-command",
     accent: "#d4a853",
   });
+  assert.equal(zoneById["research-library"].left < zoneById["command-desk"].left, true);
+  assert.equal(zoneById["builder-workstation"].left < zoneById["command-desk"].left, true);
+  assert.equal(zoneById["trading-desk"].left > zoneById["command-desk"].left, true);
+  assert.equal(zoneById["automation-station"].left > zoneById["command-desk"].left, true);
+  assert.equal(zoneById["analyst-desk"].left > zoneById["command-desk"].left, true);
+  assert.equal(zoneById["brainstorm-lounge"].top < zoneById["command-desk"].top, true);
   assert.equal(zones.some((zone) => zone.id === "trading-desk"), true);
 });
 
