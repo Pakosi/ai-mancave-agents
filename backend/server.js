@@ -77,7 +77,7 @@ app.locals.agentThoughtState = {
   nextAgentId: null,
   sessionId: "default",
   roomId: "main",
-  roomName: "Main Office",
+  roomName: "AI Mancave HQ",
   topic: "",
 };
 app.locals.topicMemory = {};
@@ -326,10 +326,10 @@ function getRoomId(value) {
 const agents = {
   host: {
     id: "host",
-    name: "Host",
-    label: "HOST",
+    name: "CEO / Principal",
+    label: "CEO",
     color: "#10b981",
-    role: "Discussion coordinator",
+    role: "Principal",
     expertise: ["facilitation", "summaries", "alignment"],
     preferredRooms: ["main", "ops"],
     behaviorStyle: "organized and concise",
@@ -339,10 +339,10 @@ const agents = {
   },
   assistant: {
     id: "assistant",
-    name: "Assistant",
-    label: "ASSISTANT",
+    name: "AI Automation Agent",
+    label: "AUTO",
     color: "#3b82f6",
-    role: "General helper",
+    role: "Automation",
     expertise: ["context bridging", "next steps", "support"],
     preferredRooms: ["main", "ops", "marketing"],
     behaviorStyle: "helpful and connective",
@@ -352,23 +352,23 @@ const agents = {
   },
   sales: {
     id: "sales",
-    name: "Sales",
-    label: "SALES",
+    name: "Trading Agent",
+    label: "TRADING",
     color: "#f97316",
-    role: "Revenue specialist",
+    role: "Trading",
     expertise: ["customer validation", "offers", "revenue"],
     preferredRooms: ["auto", "marketing", "main"],
     behaviorStyle: "buyer-focused and direct",
     taskTendencies: ["validate", "offer", "revenue"],
     allowedActions: ["reply", "create_tasks", "advance_tasks"],
-    systemPrompt: "Persuasive replies that frame the message as a customer or revenue opportunity.",
+    systemPrompt: "Persuasive replies that frame the message as a trading or revenue opportunity.",
   },
   strategist: {
     id: "strategist",
-    name: "Strategist",
-    label: "STRATEGIST",
+    name: "Arbitrage Agent",
+    label: "ARBITRAGE",
     color: "#7c3aed",
-    role: "Planning strategist",
+    role: "Arbitrage",
     expertise: ["positioning", "prioritization", "planning"],
     preferredRooms: ["main", "marketing"],
     behaviorStyle: "structured and priority-minded",
@@ -378,10 +378,10 @@ const agents = {
   },
   researcher: {
     id: "researcher",
-    name: "Researcher",
+    name: "Research Agent",
     label: "RESEARCH",
     color: "#0891b2",
-    role: "Discovery lead",
+    role: "Research",
     expertise: ["market discovery", "user research", "competitor scans"],
     preferredRooms: ["marketing", "auto"],
     behaviorStyle: "curious and evidence-seeking",
@@ -391,10 +391,10 @@ const agents = {
   },
   builder: {
     id: "builder",
-    name: "Builder",
+    name: "Builder Agent",
     label: "BUILDER",
     color: "#0f766e",
-    role: "Product builder",
+    role: "Builder",
     expertise: ["implementation", "product workflow", "technical delivery"],
     preferredRooms: ["ops", "main"],
     behaviorStyle: "practical and implementation-focused",
@@ -404,10 +404,10 @@ const agents = {
   },
   analyst: {
     id: "analyst",
-    name: "Analyst",
+    name: "Analyst Agent",
     label: "ANALYST",
     color: "#64748b",
-    role: "Metrics and risk analyst",
+    role: "Analyst",
     expertise: ["metrics", "risks", "decision gaps"],
     preferredRooms: ["main", "ops", "marketing"],
     behaviorStyle: "measured and evidence-based",
@@ -417,34 +417,34 @@ const agents = {
   },
   manager: {
     id: "manager",
-    name: "Manager",
-    label: "MANAGER",
+    name: "CEO / Principal",
+    label: "CEO",
     color: "#be123c",
-    role: "Task manager",
+    role: "Coordinator",
     expertise: ["coordination", "progress tracking", "ownership"],
     preferredRooms: ["main", "ops"],
     behaviorStyle: "clear and action-oriented",
     taskTendencies: ["assign", "track", "advance"],
     allowedActions: ["reply", "advance_tasks", "create_tasks", "prioritize_tasks"],
-    systemPrompt: "Manager replies that coordinate ownership, status, and next steps.",
+    systemPrompt: "Coordinator replies that coordinate ownership, status, and next steps.",
   },
 };
 
 const rooms = {
   main: {
     id: "main",
-    name: "Main Office",
-    brief: "Coordinate the overall WOYS business, product direction, and agent teamwork.",
+    name: "AI Mancave HQ",
+    brief: "Coordinate the overall HQ direction, product planning, and agent teamwork.",
   },
   auto: {
     id: "auto",
-    name: "Auto Sales Lab",
-    brief: "Develop dealership sales workflows, follow-up scripts, and buyer conversion ideas.",
+    name: "Automation Lab",
+    brief: "Develop workflow automation, follow-up systems, and conversion support ideas.",
   },
   marketing: {
     id: "marketing",
-    name: "Marketing War Room",
-    brief: "Plan campaigns, content angles, positioning, and lead generation experiments.",
+    name: "Strategy Room",
+    brief: "Plan positioning, prioritization, research, and market-facing experiments.",
   },
   ops: {
     id: "ops",
@@ -453,13 +453,13 @@ const rooms = {
   },
 };
 
-const businessTopic = "AI Mancave: a practical workspace where agents brainstorm offers, support flows, and sales angles for small teams.";
+const businessTopic = "AI Mancave: a practical workspace where agents coordinate planning, research, automation, and execution for small teams.";
 const thoughtPrompts = [
   "Find one useful business idea for the room.",
   "Turn the current discussion into a practical next step.",
-  "Suggest a way to package this into a service or offer.",
+  "Suggest a way to package this into a useful service or workflow.",
   "Look for a support or onboarding improvement.",
-  "Connect the latest idea to revenue or customer value.",
+  "Connect the latest idea to customer value or operational impact.",
 ];
 const thoughtVariations = ["expand", "agree", "challenge"];
 const agentResponseModes = ["agree", "expand", "question", "challenge"];
@@ -489,7 +489,7 @@ function getPublicAgents() {
     preferredRooms,
     role,
     taskTendencies,
-  }));
+  })).filter((agent) => agent.id !== "manager");
 }
 
 function getPublicRooms() {
@@ -784,7 +784,7 @@ function maybeHandoffAutonomousTask({ agentId, sessionId, taskId, rhythm }) {
         task,
         fromAgentId: agentId,
         toAgentId,
-        reason: "Manager unblocked and reassigned.",
+        reason: "CEO / Principal unblocked and reassigned.",
         tasks,
         messages: readMessages(),
         sessionId,
@@ -909,7 +909,7 @@ function addRoomBriefCue(reply, roomId) {
   const room = rooms[roomId] || rooms.main;
 
   if (roomId === "auto") {
-    return `${reply} Keep it tied to dealer follow-up.`;
+    return `${reply} Keep it tied to trading follow-up.`;
   }
 
   if (roomId === "marketing") {
@@ -958,8 +958,8 @@ function getAgentTaskDraft(agent, roomId, topic, message, plan = readCompanyPlan
     host: "Summarize direction for",
     manager: "Assign owner and next step for",
     researcher: "Research evidence for",
-    sales: "Validate offer for",
-    strategist: "Prioritize plan for",
+    sales: "Validate trading offer for",
+    strategist: "Prioritize arbitrage plan for",
   };
   const prefix = prefixByAgent[agent.id] || `Clarify ${tendency} for`;
 

@@ -18,7 +18,7 @@ function createGoalForAgent(agent, now = new Date().toISOString()) {
 
   return {
     agentId: agent.id,
-    currentGoal: `Advance ${focusArea} for WOYS.`,
+    currentGoal: `Advance ${focusArea} for the AI Mancave HQ.`,
     focusArea,
     successCriteria: `Produce one useful ${focusArea} outcome or next step.`,
     activeRoomId: preferredRoom,
@@ -108,7 +108,7 @@ function updateGoalForCoordinator({ goals, agent, roomId, topic, phase, now = ne
   }
 
   const focus = topic && topic !== "the current business idea" ? topic : targetGoal.focusArea;
-  targetGoal.currentGoal = `${phase}: move ${focus} forward in ${roomId}.`;
+  targetGoal.currentGoal = `${phase}: move ${focus} forward in the HQ.`;
   targetGoal.successCriteria = `Finish one ${phase} step and leave a clear next action.`;
   targetGoal.activeRoomId = roomId;
   targetGoal.lastUpdated = now;

@@ -1,5 +1,5 @@
 const defaultCompanyPlan = {
-  currentObjective: "Turn WOYS into a practical agent workspace for small-team planning and execution.",
+  currentObjective: "Turn the AI Mancave HQ into a practical agent workspace for small-team planning and execution.",
   activePriorities: [
     "Validate room-based agent workflows",
     "Keep autonomous tasks tied to business outcomes",
@@ -107,7 +107,7 @@ function getAgentPlanContribution({ agent, roomName, topic, task }) {
 
   if (agent.id === "sales") {
     return {
-      nextRecommendedActions: `Validate buyer demand and revenue angle for ${focus}`,
+      nextRecommendedActions: `Validate trading demand and revenue angle for ${focus}`,
     };
   }
 

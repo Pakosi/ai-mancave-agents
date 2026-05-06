@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WOYS Room</title>
+  <title>AI Mancave HQ</title>
   <style>
     * { box-sizing: border-box; }
 
@@ -2176,7 +2176,7 @@
   <main>
     <div class="toolbar">
       <div class="toolbar-title">
-        <h1>WOYS HQ</h1>
+        <h1>AI Mancave HQ</h1>
         <div id="roomBadge" class="room-badge">AI Mancave HQ</div>
       </div>
       <div class="controls">
@@ -3141,7 +3141,7 @@
 
         const meta = document.createElement("div");
         meta.className = "goal-meta";
-        meta.textContent = `${view.status} · ${view.activeRoomId} · ${view.focusArea}`;
+        meta.textContent = `${view.status} · ${WOYSApp.getRoomName(loadedRooms, view.activeRoomId)} · ${view.focusArea}`;
 
         item.append(title, meta);
         list.appendChild(item);
@@ -3167,8 +3167,8 @@
         empty.textContent = "None yet.";
         list.appendChild(empty);
       } else {
-        items.slice(0, 3).forEach(item => {
-          const view = mapItem(item);
+      items.slice(0, 3).forEach(item => {
+          const view = mapItem(item, loadedRooms);
           const node = document.createElement("div");
           node.className = "memory-item";
 

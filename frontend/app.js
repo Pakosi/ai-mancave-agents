@@ -166,6 +166,12 @@
       label: "ANALYST",
       specialty: "analysis",
     },
+    manager: {
+      name: "CEO / Principal",
+      role: "Coordinator",
+      label: "CEO",
+      specialty: "coordination",
+    },
   };
 
   function getVisibleAgentDisplay(agent) {
@@ -175,6 +181,20 @@
       label: agent.label || agent.id.toUpperCase(),
       specialty: agent.expertise && agent.expertise.length > 0 ? agent.expertise[0] : agent.role || "",
     };
+  }
+
+  function getUserFacingAgentName(agentId, agents = []) {
+    if (!agentId) {
+      return "Unassigned";
+    }
+
+    const agent = agents.find((item) => item.id === agentId);
+
+    if (agent) {
+      return getVisibleAgentDisplay(agent).name;
+    }
+
+    return getVisibleAgentDisplay({ id: agentId, name: agentId, role: "", expertise: [] }).name;
   }
 
   function isVisibleAgent(agent) {
@@ -697,7 +717,7 @@
     if (item.role === "agent") {
       return {
         classes: ["message", "agent", `agent-${item.agentId}`],
-        text: `${item.agentId.toUpperCase()}: ${item.message}`,
+        text: `${getUserFacingAgentName(item.agentId)}: ${item.message}`,
         createdAt: item.createdAt,
       };
     }
@@ -764,9 +784,9 @@
     return {
       id: task.id,
       title: task.title,
-      assignedAgent: agent ? agent.name : task.assignedAgentId,
+      assignedAgent: getUserFacingAgentName(task.assignedAgentId, agents),
       ownerAgentId,
-      ownerName: ownerAgent ? ownerAgent.name : ownerAgentId,
+      ownerName: getUserFacingAgentName(ownerAgentId, agents),
       blockedReason: task.blockedReason || null,
       isHandedOff: Boolean(task.lastHandoffAt),
       status: task.status,
@@ -788,7 +808,6 @@
   }
 
   function mapBusinessIdeaForDisplay(idea, agents = []) {
-    const assignedAgent = agents.find((item) => item.id === idea.assignedAgentId);
     const status = idea.status || "researching";
     const statusClasses = {
       promising: "promising",
@@ -805,7 +824,7 @@
       category: idea.category || "general",
       status,
       statusClass: statusClasses[status] || "researching",
-      assignedAgent: assignedAgent ? assignedAgent.name : (idea.assignedAgentId || "Unassigned"),
+      assignedAgent: getUserFacingAgentName(idea.assignedAgentId, agents),
       confidence: Number.isFinite(Number(idea.confidence)) ? Number(idea.confidence) : 0,
       profitPotential: Number.isFinite(Number(idea.profitPotential)) ? Number(idea.profitPotential) : 0,
       nextAction: idea.nextAction || "No next action yet.",
@@ -833,12 +852,12 @@
     };
   }
 
-  function mapDecisionForDisplay(decision) {
+  function mapDecisionForDisplay(decision, rooms = []) {
     return {
       id: decision.id,
       title: decision.title,
       summary: decision.summary,
-      meta: `${decision.agentId || "agent"} · ${decision.roomId || "room"}`,
+      meta: `${getUserFacingAgentName(decision.agentId || "")} · ${getRoomName(rooms, decision.roomId || "room")}`,
       timestamp: decision.timestamp,
     };
   }
@@ -853,11 +872,9 @@
   }
 
   function mapAgentGoalForDisplay(goal, agents = []) {
-    const agent = agents.find((item) => item.id === goal.agentId);
-
     return {
       agentId: goal.agentId,
-      agentName: agent ? agent.name : goal.agentId,
+      agentName: getUserFacingAgentName(goal.agentId, agents),
       currentGoal: goal.currentGoal,
       focusArea: goal.focusArea,
       successCriteria: goal.successCriteria,
@@ -1815,7 +1832,7 @@
       kind = "strategy";
       importance = 4;
     } else if (agent.id === "strategist" && (stationId === "brainstorm-lounge" || routeReason.includes("plan") || routeReason.includes("priorit") || routeReason.includes("strategy"))) {
-      text = "Strategist refined priorities";
+      text = "Arbitrage Agent refined priorities";
       kind = "planning";
       importance = 3;
     } else {
@@ -2037,6 +2054,7 @@
     getSavedSelectedAgentId,
     getRoomActivityView,
     getSelectedRoom,
+    getRoomName,
     getHQLayoutConfig,
     loadAgents,
     loadAgentGoals,

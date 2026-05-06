@@ -1,4 +1,4 @@
-# WOYS Project State
+# AI Mancave HQ Project State
 
 ## Current Architecture
 - Backend: Node/Express in `backend/server.js`.
@@ -9,14 +9,14 @@
 - Business idea helpers: `backend/businessIdeas.js`.
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
 - Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, `backend/data/agent-goals.json`, and `backend/data/business-ideas.json`.
-- Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
+- Runtime rooms: AI Mancave HQ, Automation Lab, Strategy Room, and Operations Desk, backed by the internal ids `main`, `auto`, `marketing`, and `ops`.
 - API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, `/api/operating-rhythm`, and markdown export routes under `/api/exports/...`.
 - Provider boundaries exist for mock-first AI, market data, and research adapters. They currently return deterministic local output and are ready for future real integrations.
 
 ## Agents
-- Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
+- Visible roster: `CEO / Principal`, `Trading Agent`, `AI Automation Agent`, `Arbitrage Agent`, `Research Agent`, `Builder Agent`, and `Analyst Agent`.
+- Internal coordinator logic still exists behind the scenes, but it is not shown in the public roster.
 - Each agent has public metadata: `id`, `name`, `role`, `expertise`, `preferredRooms`, `behaviorStyle`, `taskTendencies`, and `allowedActions`.
-- The visible HQ roster now presents SRS-facing names: `CEO / Principal`, `Trading Agent`, `AI Automation Agent`, `Arbitrage Agent`, `Research Agent`, `Builder Agent`, and `Analyst Agent`; the internal manager remains hidden from the roster.
 - Agent replies remain rule-based and short, using room brief context and agent specialization.
 
 ## Autonomous Behavior
@@ -25,16 +25,16 @@
 - Active task selection favors tasks assigned to, matching tendencies of, or matching plan priorities for the acting agent.
 - Agents can create or advance tasks only when their `allowedActions` permit it.
 - Specialized task drafts reflect agent tendencies, such as research, planning, building, analysis, revenue validation, and coordination.
-- Strategist, analyst, builder, researcher, sales, host, and manager feed updates into the shared company plan.
-- Strategist, manager, analyst, and host can create deterministic decision log entries during autonomous activity.
+- Arbitrage, analyst, builder, research, trading, and CEO/Principal feedback feed updates into the shared company plan.
+- CEO/Principal, arbitrage, analyst, and the internal coordinator can create deterministic decision log entries during autonomous activity.
 - Completed tasks create high-importance memory events.
 - Autonomous activity follows a lightweight rhythm: observe, plan, execute, review.
 - Agent goals influence task selection and task creation context.
 
 ## Company Plan
 - Tracks current objective, active priorities, key risks, next recommended actions, and recent decisions.
-- Manager and host occasionally add coordination decisions.
-- Strategist influences priorities; analyst influences risks; builder, researcher, and sales influence next actions.
+- CEO/Principal occasionally adds coordination decisions.
+- Arbitrage influences priorities; analyst influences risks; builder, research, and trading influence next actions.
 - Autonomous task creation includes the current objective so tasks stay tied to the plan.
 - Recent decisions can sync from the decision log.
 
@@ -45,7 +45,7 @@
 
 ## Agent Goals And Rhythm
 - Each agent has a JSON-backed goal with current goal, focus area, success criteria, active room, last update, and status.
-- Manager and host can update goals during autonomous activity.
+- CEO/Principal can update goals during autonomous activity.
 - Review-phase goal updates can create memory events.
 - Operating rhythm exposes current phase and cycle number.
 

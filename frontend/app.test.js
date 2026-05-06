@@ -145,8 +145,8 @@ test("loadAgents calls /api/agents and returns agents", async () => {
   const calls = [];
   const callbacks = [];
   const responseAgents = [
-    { id: "host", name: "Host", label: "HOST", color: "#10b981" },
-    { id: "sales", name: "Sales", label: "SALES", color: "#f97316" },
+    { id: "host", name: "CEO / Principal", label: "CEO", color: "#10b981" },
+    { id: "sales", name: "Trading Agent", label: "TRADING", color: "#f97316" },
   ];
   const fetch = (url, options) => {
     calls.push({ url, options });
@@ -172,8 +172,8 @@ test("loadRooms calls /api/rooms and returns rooms", async () => {
   const calls = [];
   const callbacks = [];
   const responseRooms = [
-    { id: "main", name: "Main Office" },
-    { id: "auto", name: "Auto Sales Lab" },
+    { id: "main", name: "AI Mancave HQ" },
+    { id: "auto", name: "Automation Lab" },
   ];
   const fetch = (url, options) => {
     calls.push({ url, options });
@@ -226,7 +226,7 @@ test("loadCompanyPlan calls /api/company-plan and returns plan", async () => {
   const calls = [];
   const callbacks = [];
   const responsePlan = {
-    currentObjective: "Launch WOYS pilot",
+    currentObjective: "Launch AI Mancave pilot",
     activePriorities: ["Validate workflow"],
     keyRisks: ["Scope drift"],
     nextRecommendedActions: ["Interview users"],
@@ -326,7 +326,7 @@ test("loadBusinessIdeas calls onError and rejects when fetch fails", async () =>
 test("loadBusinessIdeasExport calls export endpoint and returns markdown", async () => {
   const calls = [];
   const callbacks = [];
-  const markdown = "# WOYS Business Ideas\n\n- Priority idea";
+  const markdown = "# AI Mancave Business Ideas\n\n- Priority idea";
   const fetch = (url, options) => {
     calls.push({ url, options });
     return Promise.resolve({
@@ -568,14 +568,14 @@ test("mapBusinessIdeaForDisplay surfaces active project fields and highlights", 
     profitPotential: 9,
     nextAction: "Validate with one customer",
   }, [
-    { id: "sales", name: "Sales", role: "Revenue specialist" },
+    { id: "sales", name: "Trading Agent", role: "Trading" },
   ]);
 
   assert.equal(view.title, "Deal flow dashboard");
   assert.equal(view.category, "sales");
   assert.equal(view.status, "building");
   assert.equal(view.statusClass, "building");
-  assert.equal(view.assignedAgent, "Sales");
+  assert.equal(view.assignedAgent, "Trading Agent");
   assert.equal(view.confidence, 8);
   assert.equal(view.profitPotential, 9);
   assert.equal(view.nextAction, "Validate with one customer");
@@ -700,13 +700,13 @@ test("loadMessages calls onError and rejects when fetch fails", async () => {
 test("sendMessage sends POST, correct body, and triggers onSent", async () => {
   const calls = [];
   const callbacks = [];
-  const responseMessage = { id: 1, message: "Hello WOYS" };
+  const responseMessage = { id: 1, message: "Hello HQ" };
   const fetch = (url, options) => {
     calls.push({ url, options });
     return Promise.resolve(mockResponse(responseMessage, { status: 201 }));
   };
 
-  const message = await sendMessage("Hello WOYS", {
+  const message = await sendMessage("Hello HQ", {
     apiBaseUrl: "http://test.local",
     fetch,
     sessionId: "session-1",
@@ -726,7 +726,7 @@ test("sendMessage sends POST, correct body, and triggers onSent", async () => {
   });
   assert.equal(
     calls[0].options.body,
-    JSON.stringify({ message: "Hello WOYS", sessionId: "session-1", roomId: "support" }),
+    JSON.stringify({ message: "Hello HQ", sessionId: "session-1", roomId: "support" }),
   );
 });
 
@@ -736,7 +736,7 @@ test("sendMessage calls onError and rejects when fetch fails", async () => {
   const fetch = () => Promise.reject(fetchError);
 
   await assert.rejects(
-    sendMessage("Hello WOYS", {
+    sendMessage("Hello HQ", {
       fetch,
       onError(err) {
         errors.push(err);
@@ -897,7 +897,7 @@ test("mapMessageForDisplay handles user and agent roles", () => {
 
   assert.deepEqual(agent, {
     classes: ["message", "agent", "agent-host"],
-    text: "HOST: welcome",
+    text: "CEO / Principal: welcome",
     createdAt: "2026-05-05T00:00:01.000Z",
   });
 });
@@ -905,8 +905,8 @@ test("mapMessageForDisplay handles user and agent roles", () => {
 test("mapAgentForOption maps backend agent for dropdown use", () => {
   const option = mapAgentForOption({
     id: "assistant",
-    name: "Assistant",
-    label: "ASSISTANT",
+    name: "AI Automation Agent",
+    label: "AUTO",
     color: "#3b82f6",
     role: "General helper",
   });
@@ -963,13 +963,13 @@ test("mapRoomForOption maps backend room for dropdown use", () => {
   const option = mapRoomForOption({
     brief: "Plan campaigns and content angles.",
     id: "marketing",
-    name: "Marketing War Room",
+    name: "Strategy Room",
   });
 
   assert.deepEqual(option, {
     brief: "Plan campaigns and content angles.",
     value: "marketing",
-    text: "Marketing War Room",
+    text: "Strategy Room",
   });
 });
 
@@ -981,7 +981,7 @@ test("mapTaskForDisplay maps task state and next action", () => {
     status: "open",
     updatedAt: "2026-05-05T12:00:00.000Z",
   }, [
-    { id: "sales", name: "Sales" },
+    { id: "sales", name: "Trading Agent" },
   ], {
     now: new Date("2026-05-05T12:00:03.000Z").getTime(),
     recentWindowMs: 10000,
@@ -990,9 +990,9 @@ test("mapTaskForDisplay maps task state and next action", () => {
   assert.deepEqual(task, {
     id: 3,
     title: "Draft pitch",
-    assignedAgent: "Sales",
+    assignedAgent: "Trading Agent",
     ownerAgentId: "sales",
-    ownerName: "Sales",
+    ownerName: "Trading Agent",
     blockedReason: null,
     isHandedOff: false,
     status: "open",
@@ -1029,20 +1029,20 @@ test("mapTaskForDisplay includes owner and blocked handoff fields", () => {
     status: "in_progress",
     updatedAt: "2026-05-06T10:00:00.000Z",
   }, [
-    { id: "assistant", name: "Assistant" },
+    { id: "assistant", name: "AI Automation Agent" },
     { id: "builder", name: "Builder" },
   ]);
 
   assert.equal(handedOff.ownerAgentId, "builder");
-  assert.equal(handedOff.ownerName, "Builder");
-  assert.equal(handedOff.assignedAgent, "Assistant");
+  assert.equal(handedOff.ownerName, "Builder Agent");
+  assert.equal(handedOff.assignedAgent, "AI Automation Agent");
   assert.equal(handedOff.blockedReason, "Needs design input first.");
   assert.equal(handedOff.isHandedOff, true);
 });
 
 test("mapCompanyPlanForDisplay maps compact plan data", () => {
   const plan = mapCompanyPlanForDisplay({
-    currentObjective: "Launch WOYS pilot",
+    currentObjective: "Launch AI Mancave pilot",
     activePriorities: ["Validate workflow"],
     keyRisks: ["Scope drift"],
     nextRecommendedActions: ["Interview users"],
@@ -1050,7 +1050,7 @@ test("mapCompanyPlanForDisplay maps compact plan data", () => {
   });
 
   assert.deepEqual(plan, {
-    currentObjective: "Launch WOYS pilot",
+    currentObjective: "Launch AI Mancave pilot",
     activePriorities: ["Validate workflow"],
     keyRisks: ["Scope drift"],
     nextRecommendedActions: ["Interview users"],
@@ -1078,13 +1078,16 @@ test("mapDecisionForDisplay maps decision panel data", () => {
     agentId: "strategist",
     roomId: "marketing",
     timestamp: "2026-05-06T10:00:00.000Z",
-  });
+  }, [
+    { id: "marketing", name: "Strategy Room" },
+    { id: "strategist", name: "Arbitrage Agent" },
+  ]);
 
   assert.deepEqual(decision, {
     id: 7,
     title: "Prioritize pilot",
     summary: "Focus on the pilot workflow.",
-    meta: "strategist · marketing",
+    meta: "Arbitrage Agent · Strategy Room",
     timestamp: "2026-05-06T10:00:00.000Z",
   });
 });
@@ -1115,12 +1118,12 @@ test("mapAgentGoalForDisplay maps goal panel data", () => {
     activeRoomId: "ops",
     status: "active",
   }, [
-    { id: "manager", name: "Manager" },
+    { id: "manager", name: "CEO / Principal" },
   ]);
 
   assert.deepEqual(goal, {
     agentId: "manager",
-    agentName: "Manager",
+    agentName: "CEO / Principal",
     currentGoal: "Coordinate the room",
     focusArea: "coordination",
     successCriteria: "Owners are clear",
@@ -1141,7 +1144,7 @@ test("mapOperatingRhythmForDisplay maps phase display", () => {
 
 test("mapAgentForRoom adds fixed position and latest agent message", () => {
   const roomAgent = mapAgentForRoom(
-    { id: "assistant", name: "Assistant", label: "ASSISTANT", color: "#3b82f6" },
+    { id: "assistant", name: "AI Automation Agent", label: "AUTO", color: "#3b82f6" },
     [
       { id: 1, role: "agent", agentId: "assistant", message: "older" },
       { role: "agent", agentId: "sales", message: "sales thought" },
@@ -1172,19 +1175,19 @@ test("mapAgentForRoom adds fixed position and latest agent message", () => {
 test("mapAgentForRoom includes specialized agent role and stable position", () => {
   const roomAgent = mapAgentForRoom({
     id: "manager",
-    name: "Manager",
-    label: "MANAGER",
+    name: "CEO / Principal",
+    label: "CEO",
     color: "#be123c",
-    role: "Task manager",
+    role: "Coordinator",
     expertise: ["coordination", "progress tracking"],
   }, []);
 
   assert.deepEqual(roomAgent, {
     id: "manager",
-    name: "Manager",
-    label: "MANAGER",
+    name: "CEO / Principal",
+    label: "CEO",
     color: "#be123c",
-    role: "Task manager",
+    role: "Coordinator",
     specialty: "coordination",
     position: { left: "50%", top: "48%" },
     appearance: {
@@ -1281,7 +1284,7 @@ test("getHQAgentStationProfile prefers blocked-task agents for host check-ins", 
     tasks: [
       {
         id: 4,
-        title: "Sales follow-up",
+        title: "Trading follow-up",
         status: "open",
         ownerAgentId: "sales",
         blockedReason: "Waiting on final offer copy",
@@ -1381,7 +1384,7 @@ test("getHQAgentRouteDecision holds a station during cooldown before switching a
   assert.equal(second.routeReason, "owned task: Research competitor launch timing");
 });
 
-test("getHQHostCheckInTarget and host routing prioritize blocked agents before ideas", () => {
+test("getHQHostCheckInTarget and CEO routing prioritize blocked agents before ideas", () => {
   const hostDecision = getHQAgentRouteDecision({ id: "host" }, {
     phase: "review",
     tasks: [
@@ -1597,7 +1600,7 @@ test("getSelectedRoomId falls back when saved room is invalid", () => {
 
 test("getSelectedRoom returns room with brief", () => {
   const room = getSelectedRoom([
-    { id: "main", name: "Main Office", brief: "Coordinate the overall WOYS business." },
+    { id: "main", name: "AI Mancave HQ", brief: "Coordinate the overall HQ business." },
     { id: "ops", name: "Operations Desk", brief: "Improve delivery systems." },
   ], "ops");
 
@@ -1618,20 +1621,20 @@ test("getHQLayoutConfig returns fixed HQ room settings", () => {
 
 test("getRoomActivityView shows active room and other room notice", () => {
   const rooms = [
-    { id: "main", name: "Main Office" },
-    { id: "marketing", name: "Marketing War Room" },
+    { id: "main", name: "AI Mancave HQ" },
+    { id: "marketing", name: "Strategy Room" },
   ];
 
   const view = getRoomActivityView({
     otherRoom: {
       roomId: "marketing",
-      roomName: "Marketing War Room",
+      roomName: "Strategy Room",
     },
   }, "main", rooms);
 
   assert.deepEqual(view, {
-    activeRoomText: "Active room: Main Office",
-    noticeText: "Activity in Marketing War Room",
+    activeRoomText: "Active room: AI Mancave HQ",
+    noticeText: "Activity in Strategy Room",
   });
 });
 

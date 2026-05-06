@@ -28,7 +28,7 @@ const ideaCategoryByAgentId = {
 };
 
 const ideaTitleHintsByAgentId = {
-  sales: "Dealer revenue",
+  sales: "Trading revenue",
   assistant: "Workflow automation",
   strategist: "Opportunity spread",
   researcher: "Niche discovery",
@@ -463,7 +463,7 @@ function formatBusinessIdeaMarkdown(idea, agents = []) {
 function formatBusinessIdeasMarkdown(ideas, agents = []) {
   const rankedIdeas = rankBusinessIdeas(ideas);
   const lines = [
-    "# WOYS Business Ideas",
+    "# AI Mancave Business Ideas",
     "",
     `Generated: ${new Date().toISOString()}`,
     "",

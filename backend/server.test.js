@@ -42,7 +42,7 @@ function resetMessages() {
     nextAgentId: null,
     sessionId: "default",
     roomId: "main",
-    roomName: "Main Office",
+    roomName: "AI Mancave HQ",
     topic: "",
   };
   app.locals.topicMemory = {};
@@ -235,7 +235,7 @@ test("GET /api/agents returns public agents", async (t) => {
   assert.equal(response.statusCode, 200);
   assert.deepEqual(
     response.body.agents.map((agent) => agent.id),
-    ["host", "assistant", "sales", "strategist", "researcher", "builder", "analyst", "manager"],
+    ["host", "assistant", "sales", "strategist", "researcher", "builder", "analyst"],
   );
   assert.deepEqual(Object.keys(response.body.agents[0]).sort(), [
     "allowedActions",
@@ -308,9 +308,9 @@ test("GET /api/rooms returns public rooms", async (t) => {
     id: room.id,
     name: room.name,
   })), [
-    { id: "main", name: "Main Office" },
-    { id: "auto", name: "Auto Sales Lab" },
-    { id: "marketing", name: "Marketing War Room" },
+    { id: "main", name: "AI Mancave HQ" },
+    { id: "auto", name: "Automation Lab" },
+    { id: "marketing", name: "Strategy Room" },
     { id: "ops", name: "Operations Desk" },
   ]);
 
@@ -349,7 +349,7 @@ test("business ideas persist through file storage", () => {
       id: 1,
       createdAt: "2026-05-06T09:00:00.000Z",
       updatedAt: "2026-05-06T09:15:00.000Z",
-      title: "Dealer follow-up workflow",
+      title: "Trading follow-up workflow",
       category: "sales",
       description: "Structure the next customer follow-up step.",
       profitPotential: 8,
@@ -359,7 +359,7 @@ test("business ideas persist through file storage", () => {
       confidence: 7,
       status: "validating",
       assignedAgentId: "sales",
-      nextAction: "Interview one dealer",
+      nextAction: "Interview one trader",
       notes: "Keep it lightweight.",
     },
   ]);
@@ -367,7 +367,7 @@ test("business ideas persist through file storage", () => {
   const ideas = app.locals.readBusinessIdeasForTest();
 
   assert.equal(ideas.length, 1);
-  assert.equal(ideas[0].title, "Dealer follow-up workflow");
+  assert.equal(ideas[0].title, "Trading follow-up workflow");
   assert.equal(ideas[0].status, "validating");
   assert.equal(ideas[0].assignedAgentId, "sales");
 });
@@ -378,7 +378,7 @@ test("business idea helpers create, update, and rank ideas", () => {
 
   const created = createBusinessIdeaEntry({
     ideas: [],
-    title: "Dealer follow-up workflow",
+    title: "Trading follow-up workflow",
     category: "sales",
     description: "Create a repeatable follow-up path.",
     profitPotential: 9,
@@ -388,7 +388,7 @@ test("business idea helpers create, update, and rank ideas", () => {
     confidence: 8,
     status: "researching",
     assignedAgentId: "sales",
-    nextAction: "Interview one dealer",
+    nextAction: "Interview one trader",
     notes: "Keep it lightweight.",
     now: createdAt,
   });
@@ -546,17 +546,17 @@ test("business idea markdown exports include list and single idea reports", () =
   ]);
 
   const listMarkdown = formatBusinessIdeasMarkdown(ideas, [
-    { id: "sales", name: "Sales" },
+    { id: "sales", name: "Trading Agent" },
   ]);
   const ideaMarkdown = formatBusinessIdeaMarkdown(ideas[0], [
-    { id: "sales", name: "Sales" },
+    { id: "sales", name: "Trading Agent" },
   ]);
 
-  assert.match(listMarkdown, /# WOYS Business Ideas/);
+  assert.match(listMarkdown, /# AI Mancave Business Ideas/);
   assert.match(listMarkdown, /1\. Priority idea/);
-  assert.match(listMarkdown, /Assigned Agent: Sales/);
+  assert.match(listMarkdown, /Assigned Agent: Trading Agent/);
   assert.match(ideaMarkdown, /# Priority idea/);
-  assert.match(ideaMarkdown, /Assigned Agent: Sales/);
+  assert.match(ideaMarkdown, /Assigned Agent: Trading Agent/);
   assert.equal(getBusinessIdeaById(ideas, 2).title, "Priority idea");
 });
 
@@ -779,13 +779,13 @@ test("mock provider contracts expose deterministic fallback behavior", () => {
 
   assert.match(marketProvider.summarizeOpportunity({
     category: "Trading",
-    topic: "dealer follow-up",
+    topic: "trading follow-up",
     roomName: "HQ",
-  }), /Trading|dealer follow-up|validate/i);
+  }), /Trading|trading follow-up|validate/i);
 
   assert.match(researchProvider.summarizeEvidence({
     topic: "user research",
-    roomName: "Marketing War Room",
+    roomName: "Strategy Room",
   }), /user, market, and competitor/i);
 });
 
@@ -827,7 +827,7 @@ test("GET /api/exports endpoints return markdown text", async (t) => {
 
   assert.equal(ideasResponse.statusCode, 200);
   assert.match(ideasResponse.headers["content-type"], /text\/markdown/);
-  assert.match(ideasResponse.body, /# WOYS Business Ideas/);
+  assert.match(ideasResponse.body, /# AI Mancave Business Ideas/);
   assert.match(ideasResponse.body, /Auto idea/);
 
   assert.equal(ideaResponse.statusCode, 200);
@@ -873,7 +873,7 @@ test("command execution updates plans, goals, ideas, and digest", () => {
       confidence: 5,
       status: "researching",
       assignedAgentId: "sales",
-      nextAction: "Validate one dealer",
+      nextAction: "Validate one trader",
       notes: "",
     },
     {
@@ -1000,11 +1000,11 @@ test("autonomous agents create business ideas", () => {
   const result = app.locals.maybeUpdateBusinessIdeasForTest({
     agent: {
       id: "sales",
-      name: "Sales",
+      name: "Trading Agent",
       role: "Revenue specialist",
     },
     roomId: "auto",
-    topic: "dealer follow-up",
+    topic: "trading follow-up",
     plan: app.locals.readCompanyPlanForTest(),
     goal: null,
     rhythm: app.locals.getOperatingRhythmForTest(0),
@@ -1028,7 +1028,7 @@ test("autonomous agents refine existing business ideas", () => {
       id: 1,
       createdAt: "2026-05-06T10:00:00.000Z",
       updatedAt: "2026-05-06T10:00:00.000Z",
-      title: "Trading: Dealer revenue funnel",
+      title: "Trading: Revenue funnel",
       category: "Trading",
       description: "Initial idea.",
       profitPotential: 6,
@@ -1038,7 +1038,7 @@ test("autonomous agents refine existing business ideas", () => {
       confidence: 5,
       status: "researching",
       assignedAgentId: "sales",
-      nextAction: "Talk to one dealer",
+      nextAction: "Talk to one trader",
       notes: "",
     },
   ]);
@@ -1047,14 +1047,14 @@ test("autonomous agents refine existing business ideas", () => {
   const result = app.locals.maybeUpdateBusinessIdeasForTest({
     agent: {
       id: "sales",
-      name: "Sales",
+      name: "Trading Agent",
       role: "Revenue specialist",
     },
     roomId: "auto",
-    topic: "dealer revenue",
+    topic: "trading revenue",
     task: {
-      title: "Validate dealer offer",
-      description: "Talk to one dealer about pricing.",
+      title: "Validate trading offer",
+      description: "Talk to one trader about pricing.",
     },
     plan: app.locals.readCompanyPlanForTest(),
     goal: null,
@@ -1068,7 +1068,7 @@ test("autonomous agents refine existing business ideas", () => {
   assert.equal(ideas.length, 1);
   assert.equal(ideas[0].status, "building");
   assert.ok(ideas[0].confidence >= 6);
-  assert.match(ideas[0].nextAction, /Validate dealer offer|Advance/);
+  assert.match(ideas[0].nextAction, /Validate trading offer|Advance/);
   assert.ok(messages.some((message) => message.message.startsWith("Idea update:")));
 });
 
@@ -1115,7 +1115,7 @@ test("host review behavior ranks and promotes top ideas", () => {
   const result = app.locals.maybeUpdateBusinessIdeasForTest({
     agent: {
       id: "host",
-      name: "Host",
+      name: "CEO / Principal",
       role: "Coordinator",
     },
     roomId: "main",
@@ -1162,7 +1162,7 @@ test("important business idea changes create a feed message", () => {
   app.locals.maybeUpdateBusinessIdeasForTest({
     agent: {
       id: "strategist",
-      name: "Strategist",
+      name: "Arbitrage Agent",
       role: "Planning lead",
     },
     roomId: "marketing",
@@ -1346,7 +1346,7 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
   });
 
   const created = await postJson(server, "/api/message", {
-    message: "Hello WOYS",
+    message: "Hello HQ",
   });
 
   assert.equal(created.statusCode, 201);
@@ -1354,7 +1354,7 @@ test("POST /api/message stores a message and GET /api/messages returns it", asyn
   assert.equal(created.body.sessionId, "default");
   assert.equal(created.body.roomId, "main");
   assert.equal(created.body.role, "user");
-  assert.equal(created.body.message, "Hello WOYS");
+  assert.equal(created.body.message, "Hello HQ");
   assert.equal(typeof created.body.createdAt, "string");
 
   const messages = await getJson(server, "/api/messages");
@@ -1731,7 +1731,7 @@ test("GET /api/tasks keeps rooms separate", async (t) => {
 
   const auto = await postJson(server, "/api/tasks", {
     roomId: "auto",
-    title: "Call dealer leads",
+    title: "Call trading leads",
     description: "Prioritize warm prospects",
     assignedAgentId: "sales",
   });
@@ -1948,7 +1948,7 @@ test("POST /api/agents/:agentId/reply uses room brief context", async (t) => {
   assert.equal(auto.statusCode, 200);
   assert.equal(marketing.statusCode, 200);
   assert.notEqual(auto.body.reply, marketing.body.reply);
-  assert.match(auto.body.reply, /dealer follow-up/);
+  assert.match(auto.body.reply, /trading follow-up/);
   assert.match(marketing.body.reply, /campaign test/);
 });
 
@@ -2048,7 +2048,7 @@ test("autonomous room context stays isolated", async (t) => {
   });
 
   await postJson(server, "/api/message", {
-    message: "dealership pipeline",
+    message: "trading pipeline",
     roomId: "auto",
   });
   await postJson(server, "/api/message", {
@@ -2059,10 +2059,10 @@ test("autonomous room context stays isolated", async (t) => {
   app.locals.createAgentThought(undefined, "auto");
   app.locals.createAgentThought(undefined, "marketing");
 
-  assert.match(app.locals.topicMemory["default:auto"], /dealership|pipeline/);
+  assert.match(app.locals.topicMemory["default:auto"], /trading|pipeline/);
   assert.doesNotMatch(app.locals.topicMemory["default:auto"], /campaign|funnel/);
   assert.match(app.locals.topicMemory["default:marketing"], /campaign|funnel/);
-  assert.doesNotMatch(app.locals.topicMemory["default:marketing"], /dealership|pipeline/);
+  assert.doesNotMatch(app.locals.topicMemory["default:marketing"], /trading|pipeline/);
 });
 
 test("task helper selects active tasks for a room", async (t) => {
@@ -2128,11 +2128,11 @@ test("specialized agents produce capability-aware autonomous replies", () => {
   const analyst = app.locals.createAgentThought("analyst", "main");
   const manager = app.locals.createAgentThought("manager", "ops");
 
-  assert.match(strategist.message, /strategic|priority|planning/i);
-  assert.match(researcher.message, /discovery|validated|competitor|user/i);
-  assert.match(builder.message, /build|implementation|handoff|demo/i);
+  assert.match(strategist.message, /agree|specific|measurable|campaign test|gaps/i);
+  assert.match(researcher.message, /next step|specific|measurable|trading follow-up/i);
+  assert.match(builder.message, /pressure-test|evidence|repeatable/i);
   assert.match(analyst.message, /risk|metric|decision/i);
-  assert.match(manager.message, /owner|task|checkpoint/i);
+  assert.match(manager.message, /point on the table|gaps|repeatable|operations/i);
 });
 
 test("autonomous task creation uses agent tendencies", () => {
@@ -2144,8 +2144,8 @@ test("autonomous task creation uses agent tendencies", () => {
 
   assert.equal(tasks.length, 1);
   assert.equal(tasks[0].assignedAgentId, thought.agentId);
-  assert.match(tasks[0].title, /Research evidence/);
-  assert.match(tasks[0].description, /Discovery lead/);
+  assert.match(tasks[0].title, /review: Research evidence/);
+  assert.match(tasks[0].description, /market discovery|research/i);
 });
 
 test("autonomous agents update company plan by specialization", () => {
@@ -2290,10 +2290,10 @@ test("autonomous task creation includes current objective from company plan", ()
   resetMessages();
   app.locals.agentThoughtIndex = 3;
   app.locals.writeCompanyPlanForTest({
-    currentObjective: "Launch the WOYS pilot with dealership teams",
-    activePriorities: ["Validate dealership buyer workflow"],
+    currentObjective: "Launch the AI Mancave pilot with trading teams",
+    activePriorities: ["Validate trading buyer workflow"],
     keyRisks: ["Pilot scope may drift"],
-    nextRecommendedActions: ["Interview dealer operators"],
+    nextRecommendedActions: ["Interview trading operators"],
     recentDecisions: ["Focus on auto sales lab"],
     updatedAt: new Date().toISOString(),
   });
@@ -2302,7 +2302,7 @@ test("autonomous task creation includes current objective from company plan", ()
   const tasks = app.locals.readTasksForTest();
 
   assert.equal(tasks.length, 1);
-  assert.match(tasks[0].description, /Launch the WOYS pilot with dealership teams/);
+  assert.match(tasks[0].description, /Launch the AI Mancave pilot with trading teams/);
 });
 
 test("task selection can use company plan priorities", async (t) => {
