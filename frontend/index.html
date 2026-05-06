@@ -1312,6 +1312,7 @@
 
     .activity,
     .goals-panel,
+    .ideas-panel,
     .memory-panel,
     .plan-panel,
     .tasks-panel {
@@ -1323,6 +1324,7 @@
 
     .activity h2,
     .goals-panel h2,
+    .ideas-panel h2,
     .memory-panel h2,
     .plan-panel h2,
     .tasks-panel h2 {
@@ -1425,6 +1427,91 @@
       font-size: 0.68rem;
       font-weight: 700;
       margin-top: 0.2rem;
+    }
+
+    /* ── Business Ideas ── */
+    .idea-list {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .idea-item {
+      background: linear-gradient(180deg, #171009 0%, #100a06 100%);
+      border: 1px solid #3b2713;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(212, 168, 83, 0.04);
+      padding: 0.58rem 0.65rem;
+      position: relative;
+    }
+
+    .idea-item::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+    }
+
+    .idea-item.promising {
+      border-color: rgba(128, 255, 181, 0.45);
+      box-shadow: 0 0 0 1px rgba(128, 255, 181, 0.12), inset 0 0 24px rgba(128, 255, 181, 0.05);
+    }
+
+    .idea-item.building {
+      border-color: rgba(140, 192, 255, 0.46);
+      box-shadow: 0 0 0 1px rgba(140, 192, 255, 0.14), inset 0 0 24px rgba(140, 192, 255, 0.06);
+    }
+
+    .idea-item.killed {
+      border-color: rgba(255, 120, 120, 0.44);
+      opacity: 0.78;
+    }
+
+    .idea-header {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+    }
+
+    .idea-title {
+      color: #e8cfaa;
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.15;
+      min-width: 0;
+    }
+
+    .idea-category {
+      color: #9a7b56;
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .idea-meta {
+      color: #a88a60;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.6rem;
+      font-size: 0.68rem;
+      margin-top: 0.32rem;
+    }
+
+    .idea-tag {
+      border: 1px solid rgba(212, 168, 83, 0.22);
+      border-radius: 999px;
+      padding: 0.14rem 0.42rem;
+    }
+
+    .idea-next {
+      color: #cfb48b;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      margin-top: 0.35rem;
     }
 
     /* ── Goals Panel ── */
@@ -1725,6 +1812,11 @@
           <div id="taskList" class="task-list"></div>
         </section>
 
+        <section class="ideas-panel">
+          <h2>Business Ideas</h2>
+          <div id="businessIdeas" class="idea-list"></div>
+        </section>
+
         <section class="plan-panel">
           <h2>Company Plan</h2>
           <div id="companyPlan"></div>
@@ -1754,6 +1846,7 @@
     const activeRoom = document.getElementById("activeRoom");
     const agentSelect = document.getElementById("agentSelect");
     const agentGoals = document.getElementById("agentGoals");
+    const businessIdeas = document.getElementById("businessIdeas");
     const companyPlan = document.getElementById("companyPlan");
     const decisionMemory = document.getElementById("decisionMemory");
     const error = document.getElementById("error");
@@ -1771,6 +1864,7 @@
     let loadedAgents = [];
     let loadedRooms = [];
     let currentTasks = [];
+    let currentIdeas = [];
     let currentMessages = [];
     let currentDecisions = [];
     let currentAgentGoals = [];
@@ -2223,6 +2317,59 @@
       updateRoomMotion();
     }
 
+    function renderBusinessIdeas(items) {
+      currentIdeas = items;
+      businessIdeas.textContent = "";
+
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No business ideas yet.";
+        businessIdeas.appendChild(empty);
+        return;
+      }
+
+      items.slice(0, 5).forEach(item => {
+        const view = WOYSApp.mapBusinessIdeaForDisplay(item, loadedAgents);
+        const ideaItem = document.createElement("div");
+        ideaItem.className = `idea-item ${view.statusClass}`;
+
+        const header = document.createElement("div");
+        header.className = "idea-header";
+
+        const title = document.createElement("div");
+        title.className = "idea-title";
+        title.textContent = view.title;
+
+        const category = document.createElement("div");
+        category.className = "idea-category";
+        category.textContent = view.category;
+
+        const meta = document.createElement("div");
+        meta.className = "idea-meta";
+
+        [
+          `Status: ${view.status}`,
+          `Agent: ${view.assignedAgent}`,
+          `Confidence: ${view.confidence}`,
+          `Profit: ${view.profitPotential}`,
+        ].forEach((label) => {
+          const tag = document.createElement("span");
+          tag.className = "idea-tag";
+          tag.textContent = label;
+          meta.appendChild(tag);
+        });
+
+        const next = document.createElement("div");
+        next.className = "idea-next";
+        next.textContent = `Next: ${view.nextAction}`;
+
+        header.append(title, category);
+        ideaItem.append(header, meta, next);
+        businessIdeas.appendChild(ideaItem);
+      });
+    }
+
     function renderPlanList(labelText, items) {
       const group = document.createElement("div");
       group.className = "plan-group";
@@ -2441,6 +2588,19 @@
       });
     }
 
+    function loadBusinessIdeas() {
+      return WOYSApp.loadBusinessIdeas({
+        onIdeas(items) {
+          renderBusinessIdeas(items);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not load business ideas.");
+        },
+      }).catch(() => {});
+    }
+
     function loadAgentGoals() {
       return WOYSApp.loadAgentGoals({
         onGoals(items) {
@@ -2503,6 +2663,7 @@
       agentSelect.value = WOYSApp.getSelectedAgentId(items);
       WOYSApp.saveSelectedAgentId(agentSelect.value);
       renderRoom([]);
+      renderBusinessIdeas(currentIdeas);
     }
 
     function renderRooms(items) {
@@ -2562,7 +2723,7 @@
           }).catch(() => {});
         })
         .then(() => {
-          return Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
+          return Promise.all([loadMessages(), loadTasks(), loadBusinessIdeas(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
         })
         .catch(() => {})
         .finally(() => {
@@ -2603,7 +2764,7 @@
           setError("Could not update task.");
         },
       })
-        .then(() => Promise.all([loadTasks(), loadMessages(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]))
+        .then(() => Promise.all([loadTasks(), loadMessages(), loadBusinessIdeas(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]))
         .catch(() => {})
         .finally(() => {
           button.disabled = false;
@@ -2613,12 +2774,14 @@
     Promise.all([loadAgents(), loadRooms()]).then(() => Promise.all([
       loadMessages(),
       loadTasks(),
+      loadBusinessIdeas(),
       loadCompanyPlan(),
       loadAgentGoals(),
       loadDecisionMemory(),
     ]));
     setInterval(loadMessages, 2000);
     setInterval(loadTasks, 4000);
+    setInterval(loadBusinessIdeas, 5000);
     setInterval(loadCompanyPlan, 5000);
     setInterval(loadAgentGoals, 5000);
     setInterval(loadDecisionMemory, 5000);

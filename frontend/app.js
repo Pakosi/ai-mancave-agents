@@ -220,6 +220,26 @@
       });
   }
 
+  function loadBusinessIdeas(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/business-ideas`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onIdeas) {
+          options.onIdeas(data.ideas);
+        }
+
+        return data.ideas;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function loadDecisions(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = options.roomId || "";
@@ -523,6 +543,33 @@
       keyRisks: Array.isArray(plan.keyRisks) ? plan.keyRisks : [],
       nextRecommendedActions: Array.isArray(plan.nextRecommendedActions) ? plan.nextRecommendedActions : [],
       recentDecisions: Array.isArray(plan.recentDecisions) ? plan.recentDecisions : [],
+    };
+  }
+
+  function mapBusinessIdeaForDisplay(idea, agents = []) {
+    const assignedAgent = agents.find((item) => item.id === idea.assignedAgentId);
+    const status = idea.status || "researching";
+    const statusClasses = {
+      promising: "promising",
+      building: "building",
+      killed: "killed",
+      validating: "validating",
+      researching: "researching",
+      paused: "paused",
+    };
+
+    return {
+      id: idea.id,
+      title: idea.title,
+      category: idea.category || "general",
+      status,
+      statusClass: statusClasses[status] || "researching",
+      assignedAgent: assignedAgent ? assignedAgent.name : (idea.assignedAgentId || "Unassigned"),
+      confidence: Number.isFinite(Number(idea.confidence)) ? Number(idea.confidence) : 0,
+      profitPotential: Number.isFinite(Number(idea.profitPotential)) ? Number(idea.profitPotential) : 0,
+      nextAction: idea.nextAction || "No next action yet.",
+      notes: idea.notes || "",
+      description: idea.description || "",
     };
   }
 
@@ -1452,6 +1499,7 @@
     getHQLayoutConfig,
     loadAgents,
     loadAgentGoals,
+    loadBusinessIdeas,
     loadCompanyPlan,
     loadDecisions,
     loadMemoryEvents,
@@ -1461,6 +1509,7 @@
     loadTasks,
     mapAgentForOption,
     mapAgentGoalForDisplay,
+    mapBusinessIdeaForDisplay,
     mapAgentForRoom,
     getAgentCharacterStyle,
     getHQWorkZones,

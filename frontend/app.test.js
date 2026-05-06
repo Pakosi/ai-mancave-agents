@@ -19,6 +19,7 @@ const {
   getAgentCharacterStyle,
   loadAgents,
   loadAgentGoals,
+  loadBusinessIdeas,
   loadCompanyPlan,
   loadDecisions,
   loadMemoryEvents,
@@ -28,6 +29,7 @@ const {
   loadTasks,
   mapAgentForOption,
   mapAgentGoalForDisplay,
+  mapBusinessIdeaForDisplay,
   mapAgentForRoom,
   mapCompanyPlanForDisplay,
   mapDecisionForDisplay,
@@ -253,6 +255,59 @@ test("loadCompanyPlan calls onError and rejects when fetch fails", async () => {
   assert.deepEqual(errors, [fetchError]);
 });
 
+test("loadBusinessIdeas calls /api/business-ideas and returns ideas", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseIdeas = [
+    {
+      id: 1,
+      title: "Deal flow dashboard",
+      category: "sales",
+      status: "promising",
+      assignedAgentId: "sales",
+      confidence: 8,
+      profitPotential: 9,
+      nextAction: "Validate with one customer",
+    },
+  ];
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ ideas: responseIdeas }));
+  };
+
+  const ideas = await loadBusinessIdeas({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onIdeas(items) {
+      callbacks.push(items);
+    },
+  });
+
+  assert.deepEqual(ideas, responseIdeas);
+  assert.deepEqual(callbacks, [responseIdeas]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/business-ideas");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadBusinessIdeas calls onError and rejects when fetch fails", async () => {
+  const fetchError = new Error("idea fetch down");
+  const errors = [];
+  const fetch = () => Promise.reject(fetchError);
+
+  await assert.rejects(
+    loadBusinessIdeas({
+      fetch,
+      onError(err) {
+        errors.push(err);
+      },
+    }),
+    /idea fetch down/,
+  );
+
+  assert.deepEqual(errors, [fetchError]);
+});
+
 test("loadDecisions calls /api/decisions with room filter", async () => {
   const calls = [];
   const callbacks = [];
@@ -303,6 +358,42 @@ test("loadMemoryEvents calls /api/memory-events with room filter", async () => {
   assert.deepEqual(callbacks, [responseEvents]);
   assert.equal(calls[0].url, "http://test.local/api/memory-events?roomId=ops");
   assert.equal(calls[0].options, undefined);
+});
+
+test("mapBusinessIdeaForDisplay surfaces active project fields and highlights", () => {
+  const view = mapBusinessIdeaForDisplay({
+    id: 1,
+    title: "Deal flow dashboard",
+    category: "sales",
+    status: "building",
+    assignedAgentId: "sales",
+    confidence: 8,
+    profitPotential: 9,
+    nextAction: "Validate with one customer",
+  }, [
+    { id: "sales", name: "Sales", role: "Revenue specialist" },
+  ]);
+
+  assert.equal(view.title, "Deal flow dashboard");
+  assert.equal(view.category, "sales");
+  assert.equal(view.status, "building");
+  assert.equal(view.statusClass, "building");
+  assert.equal(view.assignedAgent, "Sales");
+  assert.equal(view.confidence, 8);
+  assert.equal(view.profitPotential, 9);
+  assert.equal(view.nextAction, "Validate with one customer");
+});
+
+test("mapBusinessIdeaForDisplay keeps empty idea state readable", () => {
+  const view = mapBusinessIdeaForDisplay({
+    id: 2,
+    title: "Paused idea",
+    status: "killed",
+  });
+
+  assert.equal(view.assignedAgent, "Unassigned");
+  assert.equal(view.statusClass, "killed");
+  assert.equal(view.nextAction, "No next action yet.");
 });
 
 test("loadAgentGoals calls /api/agent-goals and returns goals", async () => {

@@ -73,7 +73,7 @@
 - Business ideas are JSON-backed backend records with title, category, description, viability scores, status, ownership, next action, and notes.
 - `backend/businessIdeas.js` provides create, update, normalize, and ranking helpers.
 - `GET /api/business-ideas` returns ranked ideas from the JSON store.
-- Phase 4A stops at the backend model; frontend cards are not added yet.
+- Phase 4A stopped at the backend model; Phase 4B adds compact live idea cards in the HQ sidebar, with status highlighting for promising, building, and killed ideas.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
