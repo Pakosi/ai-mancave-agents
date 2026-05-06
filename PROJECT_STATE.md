@@ -71,6 +71,7 @@
 - The latest frontend motion pass keeps room agent DOM nodes stable across refreshes with a cache keyed by agent id, so polling updates no longer rebuild the scene and reset character motion each tick.
 - Agent position changes now transition smoothly rather than snapping, and animation state is preserved between data refreshes.
 - The current HQ station layout now places research and builder stations on the left, trading/automation/analyst stations on the right, the CEO command desk centered and dominant, and the lounge back-center for cleaner spacing and readability.
+- Latest spatial polish tightened speech bubbles, removed the always-visible agent zone line, and increased room depth/contrast so the scene reads more calmly at a glance without changing routing or behavior.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.
