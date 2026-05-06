@@ -12,20 +12,44 @@
       background: #0a0704;
       margin: 0;
       color: #c8b08a;
+      height: 100vh;
+      overflow: hidden;
     }
 
     main {
-      max-width: 74rem;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 96rem;
       margin: 0 auto;
-      padding: 1.5rem;
+      min-height: 0;
+      padding: 1rem;
     }
 
     h1 {
-      font-size: 1.8rem;
+      font-size: 1.55rem;
       margin: 0;
       color: #d4a853;
       font-family: Georgia, serif;
       letter-spacing: 0.06em;
+    }
+
+    .toolbar-title {
+      align-items: center;
+      display: flex;
+      gap: 0.7rem;
+    }
+
+    .room-badge {
+      background: #2d1f0a;
+      border: 1px solid #c8860a;
+      border-radius: 999px;
+      color: #d4a853;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.28rem 0.55rem;
+      text-transform: uppercase;
     }
 
     .toolbar {
@@ -33,7 +57,8 @@
       display: flex;
       gap: 0.75rem;
       justify-content: space-between;
-      margin-bottom: 1rem;
+      margin-bottom: 0.8rem;
+      min-height: 2.5rem;
     }
 
     .controls {
@@ -50,11 +75,11 @@
     }
 
     .room-brief {
-      color: #6b5430;
-      font-size: 0.86rem;
+      color: #a88a60;
+      font-size: 0.8rem;
       line-height: 1.35;
-      margin: -0.35rem 0 0.9rem;
-      max-width: 44rem;
+      margin: 0 0 0.75rem;
+      max-width: 48rem;
     }
 
     .room-notice {
@@ -75,8 +100,10 @@
 
     .layout {
       display: grid;
-      gap: 1rem;
-      grid-template-columns: minmax(0, 1fr) 20rem;
+      gap: 0.9rem;
+      grid-template-columns: minmax(0, 1.6fr) 20rem;
+      flex: 1;
+      min-height: 0;
     }
 
     /* ── Room Scene ── */
@@ -84,9 +111,11 @@
       background: #0a0704;
       border: 1px solid #3d2510;
       border-radius: 12px;
-      min-height: 34rem;
+      box-shadow: inset 0 0 0 1px rgba(200, 168, 83, 0.08);
+      height: 100%;
       overflow: hidden;
       position: relative;
+      min-height: 0;
     }
 
     .room-wall {
@@ -444,6 +473,9 @@
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 0.1rem;
     }
 
     .activity,
@@ -765,25 +797,40 @@
     }
 
     @media (max-width: 860px) {
+      body {
+        overflow: auto;
+      }
+
+      main {
+        height: auto;
+        min-height: 100vh;
+      }
+
       .layout { grid-template-columns: 1fr; }
-      .room { min-height: 36rem; }
+      .room { min-height: 28rem; height: 28rem; }
       .agent-node { width: 7rem; }
+      .sidebar {
+        overflow: visible;
+        padding-right: 0;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <div class="toolbar">
-      <h1>WOYS</h1>
+      <div class="toolbar-title">
+        <h1>WOYS HQ</h1>
+        <div id="roomBadge" class="room-badge">AI Mancave HQ</div>
+      </div>
       <div class="controls">
         <div id="activeRoom" class="room-status">Active room</div>
-        <div id="roomNotice" class="room-notice" aria-live="polite"></div>
-        <select id="roomSelect" name="room"></select>
       </div>
     </div>
 
     <div id="error" class="error" role="status"></div>
     <div id="roomBrief" class="room-brief"></div>
+    <div id="roomNotice" class="room-notice" aria-live="polite"></div>
 
     <div class="layout">
       <section class="room" aria-label="Agent brainstorming room">
@@ -866,10 +913,11 @@
     const roomAgents = document.getElementById("roomAgents");
     const roomBrief = document.getElementById("roomBrief");
     const roomNotice = document.getElementById("roomNotice");
-    const roomSelect = document.getElementById("roomSelect");
+    const roomBadge = document.getElementById("roomBadge");
     const sendButton = document.getElementById("sendButton");
     const taskList = document.getElementById("taskList");
     const youMessage = document.getElementById("youMessage");
+    const hqLayout = WOYSApp.getHQLayoutConfig();
     let loadedAgents = [];
     let loadedRooms = [];
     let currentMessages = [];
@@ -1188,15 +1236,16 @@
     }
 
     function renderRoomActivity(activity) {
-      const view = WOYSApp.getRoomActivityView(activity, roomSelect.value, loadedRooms);
+      const view = WOYSApp.getRoomActivityView(activity, hqLayout.roomId, loadedRooms);
 
-      activeRoom.textContent = view.activeRoomText;
+      activeRoom.textContent = hqLayout.roomLabel;
+      roomBadge.textContent = hqLayout.roomLabel;
       roomNotice.textContent = view.noticeText;
       roomNotice.classList.toggle("visible", view.noticeText !== "");
     }
 
     function renderRoomBrief() {
-      const room = WOYSApp.getSelectedRoom(loadedRooms, roomSelect.value);
+      const room = WOYSApp.getSelectedRoom(loadedRooms, hqLayout.roomId);
 
       roomBrief.textContent = room && room.brief ? room.brief : "";
     }
@@ -1276,7 +1325,7 @@
     function loadDecisionMemory() {
       return Promise.all([
         WOYSApp.loadDecisions({
-          roomId: roomSelect.value,
+          roomId: hqLayout.roomId,
           onDecisions(items) {
             currentDecisions = items;
           },
@@ -1286,7 +1335,7 @@
           },
         }).catch(() => []),
         WOYSApp.loadMemoryEvents({
-          roomId: roomSelect.value,
+          roomId: hqLayout.roomId,
           onMemoryEvents(items) {
             currentMemoryEvents = items;
           },
@@ -1324,20 +1373,6 @@
 
     function renderRooms(items) {
       loadedRooms = items;
-      roomSelect.textContent = "";
-
-      items.forEach(item => {
-        const optionData = WOYSApp.mapRoomForOption(item);
-        const option = document.createElement("option");
-
-        option.value = optionData.value;
-        option.textContent = optionData.text;
-
-        roomSelect.appendChild(option);
-      });
-
-      roomSelect.value = WOYSApp.getSelectedRoomId(items);
-      WOYSApp.saveSelectedRoomId(roomSelect.value);
       renderRoomBrief();
       renderRoomActivity({});
     }
@@ -1418,13 +1453,6 @@
 
     agentSelect.addEventListener("change", () => {
       WOYSApp.saveSelectedAgentId(agentSelect.value);
-    });
-
-    roomSelect.addEventListener("change", () => {
-      WOYSApp.saveSelectedRoomId(roomSelect.value);
-      autonomousThinkingAgentId = "";
-      renderRoomBrief();
-      Promise.all([loadMessages(), loadTasks(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
     });
 
     taskList.addEventListener("click", event => {

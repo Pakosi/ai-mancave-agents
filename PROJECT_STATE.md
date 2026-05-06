@@ -50,6 +50,7 @@
 - The agent selector is populated from `/api/agents` and includes specialized agents.
 - Room agent nodes show the agent name and role with stable lightweight positioning.
 - The UI shows room brief, activity feed, tasks, Company Plan, Agent Goals, and Decisions / Memory panels without adding frameworks.
+- The frontend is visually collapsed into a single persistent HQ room and no longer exposes room switching in the visible shell.
 
 ## Agent Handoffs And Task Ownership
 - Tasks have five new fields: `ownerAgentId`, `assignedByAgentId`, `handoffReason`, `lastHandoffAt`, and optional `blockedReason`.

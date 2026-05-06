@@ -103,6 +103,14 @@
     return rooms.length > 0 ? rooms[0].id : "main";
   }
 
+  function getHQLayoutConfig() {
+    return {
+      roomId: "main",
+      roomLabel: "AI Mancave HQ",
+      showRoomSelector: false,
+    };
+  }
+
   function loadMessages(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const sessionId = options.sessionId || getSessionId(options.storage);
@@ -626,6 +634,7 @@
     getSavedSelectedAgentId,
     getRoomActivityView,
     getSelectedRoom,
+    getHQLayoutConfig,
     loadAgents,
     loadAgentGoals,
     loadCompanyPlan,

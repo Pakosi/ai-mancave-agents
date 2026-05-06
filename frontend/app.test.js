@@ -10,6 +10,7 @@ const {
   getSelectedRoomId,
   getLatestUserMessage,
   getNewestAgentMessage,
+  getHQLayoutConfig,
   getRoomActivityView,
   getSelectedRoom,
   loadAgents,
@@ -954,6 +955,14 @@ test("getSelectedRoom returns room with brief", () => {
     id: "ops",
     name: "Operations Desk",
     brief: "Improve delivery systems.",
+  });
+});
+
+test("getHQLayoutConfig returns fixed HQ room settings", () => {
+  assert.deepEqual(getHQLayoutConfig(), {
+    roomId: "main",
+    roomLabel: "AI Mancave HQ",
+    showRoomSelector: false,
   });
 });
 
