@@ -36,8 +36,32 @@
     }
 
     .controls {
+      align-items: center;
       display: flex;
       gap: 0.5rem;
+    }
+
+    .room-status {
+      color: #475569;
+      font-size: 0.82rem;
+      font-weight: 700;
+      min-height: 1.2rem;
+    }
+
+    .room-notice {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      color: #475569;
+      font-size: 0.82rem;
+      min-height: 1.9rem;
+      opacity: 0;
+      padding: 0.45rem 0.7rem;
+      transition: opacity 180ms ease;
+    }
+
+    .room-notice.visible {
+      opacity: 1;
     }
 
     .layout {
@@ -336,6 +360,8 @@
     <div class="toolbar">
       <h1>WOYS Room</h1>
       <div class="controls">
+        <div id="activeRoom" class="room-status">Active room</div>
+        <div id="roomNotice" class="room-notice" aria-live="polite"></div>
         <select id="roomSelect" name="room"></select>
       </div>
     </div>
@@ -370,11 +396,13 @@
   <script src="./app.js"></script>
   <script>
     const activityFeed = document.getElementById("activityFeed");
+    const activeRoom = document.getElementById("activeRoom");
     const agentSelect = document.getElementById("agentSelect");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
     const roomAgents = document.getElementById("roomAgents");
+    const roomNotice = document.getElementById("roomNotice");
     const roomSelect = document.getElementById("roomSelect");
     const sendButton = document.getElementById("sendButton");
     const youMessage = document.getElementById("youMessage");
@@ -486,10 +514,19 @@
       renderActivity(items);
     }
 
+    function renderRoomActivity(activity) {
+      const view = WOYSApp.getRoomActivityView(activity, roomSelect.value, loadedRooms);
+
+      activeRoom.textContent = view.activeRoomText;
+      roomNotice.textContent = view.noticeText;
+      roomNotice.classList.toggle("visible", view.noticeText !== "");
+    }
+
     function loadMessages() {
       return WOYSApp.loadMessages({
         onActivity(activity) {
           autonomousThinkingAgentId = activity.isThinking ? activity.nextAgentId : "";
+          renderRoomActivity(activity);
         },
         onMessages(items) {
           renderMessages(items);
@@ -539,6 +576,7 @@
 
       roomSelect.value = WOYSApp.getSelectedRoomId(items);
       WOYSApp.saveSelectedRoomId(roomSelect.value);
+      renderRoomActivity({});
     }
 
     function loadAgents() {

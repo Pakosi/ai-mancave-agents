@@ -17,6 +17,7 @@ function resetMessages() {
     nextAgentId: null,
     sessionId: "default",
     roomId: "main",
+    roomName: "Main Office",
     topic: "",
   };
   app.locals.topicMemory = {};
@@ -579,7 +580,7 @@ test("POST /api/agents/:agentId/reply stores messages in the requested room", as
 test("autonomous agent thought stores an agent message", () => {
   resetMessages();
 
-  const thought = app.locals.createAgentThought();
+  const thought = app.locals.createAgentThought(undefined, "main");
 
   assert.equal(thought.role, "agent");
   assert.equal(thought.sessionId, "default");
@@ -602,7 +603,7 @@ test("autonomous agent thought can respond to the latest user message", async (t
     message: "we should build a concierge onboarding offer",
   });
 
-  const thought = app.locals.createAgentThought();
+  const thought = app.locals.createAgentThought(undefined, "main");
 
   assert.equal(thought.role, "agent");
   assert.match(thought.message, /useful starting point|direction|question/);
@@ -613,8 +614,8 @@ test("autonomous agent thought can respond to the latest user message", async (t
 test("autonomous agent thoughts can respond to another agent", () => {
   resetMessages();
 
-  app.locals.createAgentThought();
-  const secondThought = app.locals.createAgentThought();
+  app.locals.createAgentThought(undefined, "main");
+  const secondThought = app.locals.createAgentThought(undefined, "main");
 
   assert.equal(secondThought.role, "agent");
   assert.match(secondThought.message, /point on the table/);
@@ -625,9 +626,9 @@ test("autonomous agent thoughts can respond to another agent", () => {
 test("autonomous agent thoughts avoid duplicate consecutive speakers", () => {
   resetMessages();
 
-  const firstThought = app.locals.createAgentThought();
-  const secondThought = app.locals.createAgentThought(firstThought.agentId);
-  const thirdThought = app.locals.createAgentThought();
+  const firstThought = app.locals.createAgentThought(undefined, "main");
+  const secondThought = app.locals.createAgentThought(firstThought.agentId, "main");
+  const thirdThought = app.locals.createAgentThought(undefined, "main");
 
   assert.notEqual(secondThought.agentId, firstThought.agentId);
   assert.notEqual(thirdThought.agentId, secondThought.agentId);
@@ -636,16 +637,57 @@ test("autonomous agent thoughts avoid duplicate consecutive speakers", () => {
 test("scheduled autonomous thought chooses a different next speaker", () => {
   resetMessages();
 
-  const firstThought = app.locals.createAgentThought();
+  const firstThought = app.locals.createAgentThought(undefined, "main");
   app.locals.scheduleNextAgentThought(1000000);
 
-  const activity = app.locals.getAgentThoughtActivity();
+  const activity = app.locals.getAgentThoughtActivity("default", "auto");
 
   assert.equal(activity.isThinking, true);
   assert.notEqual(activity.nextAgentId, firstThought.agentId);
 
   clearTimeout(app.locals.agentThoughtTimer);
   app.locals.agentThoughtTimer = null;
+});
+
+test("autonomous agent thoughts rotate across rooms", () => {
+  resetMessages();
+
+  const firstThought = app.locals.createAgentThought();
+  const secondThought = app.locals.createAgentThought();
+  const thirdThought = app.locals.createAgentThought();
+  const fourthThought = app.locals.createAgentThought();
+
+  assert.deepEqual(
+    [firstThought.roomId, secondThought.roomId, thirdThought.roomId, fourthThought.roomId],
+    ["main", "auto", "marketing", "ops"],
+  );
+});
+
+test("autonomous room context stays isolated", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  await postJson(server, "/api/message", {
+    message: "dealership pipeline",
+    roomId: "auto",
+  });
+  await postJson(server, "/api/message", {
+    message: "campaign funnel",
+    roomId: "marketing",
+  });
+
+  app.locals.createAgentThought(undefined, "auto");
+  app.locals.createAgentThought(undefined, "marketing");
+
+  assert.match(app.locals.topicMemory["default:auto"], /dealership|pipeline/);
+  assert.doesNotMatch(app.locals.topicMemory["default:auto"], /campaign|funnel/);
+  assert.match(app.locals.topicMemory["default:marketing"], /campaign|funnel/);
+  assert.doesNotMatch(app.locals.topicMemory["default:marketing"], /dealership|pipeline/);
 });
 
 test("POST /api/agents/:agentId/reply returns 400 for an invalid agentId", async (t) => {

@@ -14,6 +14,7 @@ app.locals.agentThoughtState = {
   nextAgentId: null,
   sessionId: "default",
   roomId: "main",
+  roomName: "Main Office",
   topic: "",
 };
 app.locals.topicMemory = {};
@@ -128,6 +129,7 @@ const thoughtPrompts = [
 ];
 const thoughtVariations = ["expand", "agree", "challenge"];
 const agentResponseModes = ["agree", "expand", "question", "challenge"];
+const autonomousSessionId = "default";
 
 function getPublicAgents() {
   return Object.values(agents).map(({ id, name, label, color }) => ({
@@ -143,6 +145,10 @@ function getPublicRooms() {
     id,
     name,
   }));
+}
+
+function getRoomName(roomId) {
+  return rooms[roomId] ? rooms[roomId].name : roomId;
 }
 
 function getRoomMessages(messages, sessionId, roomId) {
@@ -251,11 +257,17 @@ function getAgentResponseMode(targetMessage) {
   return agentResponseModes[app.locals.agentThoughtIndex % agentResponseModes.length];
 }
 
-function createAgentThought(agentId) {
-  const sessionId = "default";
-  const roomId = "main";
+function chooseNextThoughtRoom() {
+  const roomList = Object.values(rooms);
+
+  return roomList[app.locals.agentThoughtIndex % roomList.length];
+}
+
+function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
+  const sessionId = autonomousSessionId;
+  const normalizedRoomId = getRoomId(roomId);
   const allMessages = readMessages();
-  const contextMessages = getRoomMessages(allMessages, sessionId, roomId);
+  const contextMessages = getRoomMessages(allMessages, sessionId, normalizedRoomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
   const requestedAgent = agents[agentId];
@@ -266,7 +278,7 @@ function createAgentThought(agentId) {
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
   const fallbackMessage = `${businessTopic} ${prompt}`;
   const selectedMessage = targetMessage ? targetMessage.message : fallbackMessage;
-  const topic = updateTopicMemory(sessionId, roomId, contextMessages);
+  const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
   const reply = generateAgentReply({
     agent,
@@ -284,7 +296,7 @@ function createAgentThought(agentId) {
   const storedMessage = storeAgentMessage({
     agentId: agent.id,
     sessionId,
-    roomId,
+    roomId: normalizedRoomId,
     message: reply,
     messages: allMessages,
   });
@@ -293,7 +305,8 @@ function createAgentThought(agentId) {
     isThinking: false,
     nextAgentId: null,
     sessionId,
-    roomId,
+    roomId: normalizedRoomId,
+    roomName: getRoomName(normalizedRoomId),
     topic,
   };
 
@@ -304,14 +317,28 @@ function getRandomThoughtDelay() {
   return 2000 + Math.floor(Math.random() * 3001);
 }
 
-function getAgentThoughtActivity(sessionId = "default", roomId = "main") {
+function getAgentThoughtActivity(sessionId = autonomousSessionId, roomId = "main") {
   const state = app.locals.agentThoughtState;
-  const isCurrentRoom = getSessionId(state.sessionId) === sessionId && getRoomId(state.roomId) === roomId;
+  const normalizedRoomId = getRoomId(roomId);
+  const stateRoomId = getRoomId(state.roomId);
+  const isThinking = Boolean(state.isThinking);
+  const isCurrentRoom = stateRoomId === normalizedRoomId;
+  const otherRoom = isThinking && !isCurrentRoom
+    ? {
+      roomId: stateRoomId,
+      roomName: state.roomName || getRoomName(stateRoomId),
+      nextAgentId: state.nextAgentId,
+      topic: state.topic || "",
+    }
+    : null;
 
   return {
-    isThinking: isCurrentRoom && Boolean(state.isThinking),
+    isThinking: isCurrentRoom && isThinking,
     nextAgentId: isCurrentRoom ? state.nextAgentId : null,
+    roomId: isCurrentRoom ? stateRoomId : normalizedRoomId,
+    roomName: getRoomName(normalizedRoomId),
     topic: isCurrentRoom ? state.topic || "" : "",
+    otherRoom,
   };
 }
 
@@ -320,8 +347,9 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
     clearTimeout(app.locals.agentThoughtTimer);
   }
 
-  const sessionId = "default";
-  const roomId = "main";
+  const sessionId = autonomousSessionId;
+  const room = chooseNextThoughtRoom();
+  const roomId = room.id;
   const contextMessages = getRoomMessages(readMessages(), sessionId, roomId);
   const lastMessage = getLatestMessage(contextMessages);
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
@@ -333,12 +361,13 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
     nextAgentId: agent.id,
     sessionId,
     roomId,
+    roomName: room.name,
     topic,
   };
 
   app.locals.agentThoughtTimer = setTimeout(() => {
     app.locals.agentThoughtTimer = null;
-    createAgentThought(agent.id);
+    createAgentThought(agent.id, roomId);
     scheduleNextAgentThought();
   }, delay);
 }

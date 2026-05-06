@@ -9,6 +9,7 @@ const {
   getSelectedRoomId,
   getLatestUserMessage,
   getNewestAgentMessage,
+  getRoomActivityView,
   loadAgents,
   loadMessages,
   loadRooms,
@@ -463,4 +464,39 @@ test("getSelectedRoomId falls back when saved room is invalid", () => {
   ];
 
   assert.equal(getSelectedRoomId(rooms, storage), "main");
+});
+
+test("getRoomActivityView shows active room and other room notice", () => {
+  const rooms = [
+    { id: "main", name: "Main Office" },
+    { id: "marketing", name: "Marketing War Room" },
+  ];
+
+  const view = getRoomActivityView({
+    otherRoom: {
+      roomId: "marketing",
+      roomName: "Marketing War Room",
+    },
+  }, "main", rooms);
+
+  assert.deepEqual(view, {
+    activeRoomText: "Active room: Main Office",
+    noticeText: "Activity in Marketing War Room",
+  });
+});
+
+test("getRoomActivityView hides notice for current room activity", () => {
+  const rooms = [
+    { id: "ops", name: "Operations Desk" },
+  ];
+
+  const view = getRoomActivityView({
+    isThinking: true,
+    roomId: "ops",
+  }, "ops", rooms);
+
+  assert.deepEqual(view, {
+    activeRoomText: "Active room: Operations Desk",
+    noticeText: "",
+  });
 });

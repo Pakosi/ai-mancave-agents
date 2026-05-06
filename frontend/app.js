@@ -266,6 +266,22 @@
     };
   }
 
+  function getRoomName(rooms = [], roomId) {
+    const room = rooms.find((item) => item.id === roomId);
+
+    return room ? room.name : roomId;
+  }
+
+  function getRoomActivityView(activity = {}, selectedRoomId, rooms = []) {
+    const activeRoomName = getRoomName(rooms, selectedRoomId);
+    const otherRoom = activity.otherRoom || null;
+
+    return {
+      activeRoomText: activeRoomName ? `Active room: ${activeRoomName}` : "Active room",
+      noticeText: otherRoom ? `Activity in ${otherRoom.roomName || getRoomName(rooms, otherRoom.roomId)}` : "",
+    };
+  }
+
   const agentRoomPositions = {
     host: { left: "18%", top: "45%" },
     assistant: { left: "50%", top: "32%" },
@@ -308,6 +324,7 @@
     getSessionId,
     getSelectedAgentId,
     getSavedSelectedAgentId,
+    getRoomActivityView,
     loadAgents,
     loadMessages,
     loadRooms,
