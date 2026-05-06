@@ -240,6 +240,26 @@
       });
   }
 
+  function loadCeoDigest(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchJson(`${apiBaseUrl}/api/ceo-digest`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onDigest) {
+          options.onDigest(data.digest);
+        }
+
+        return data.digest;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function loadDecisions(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
     const roomId = options.roomId || "";
@@ -570,6 +590,25 @@
       nextAction: idea.nextAction || "No next action yet.",
       notes: idea.notes || "",
       description: idea.description || "",
+    };
+  }
+
+  function mapCeoDigestForDisplay(digest = {}) {
+    const topIdeas = Array.isArray(digest.topIdeas) ? digest.topIdeas : [];
+    const newlyCreatedIdeas = Array.isArray(digest.newlyCreatedIdeas) ? digest.newlyCreatedIdeas : [];
+    const pausedOrKilledIdeas = Array.isArray(digest.pausedOrKilledIdeas) ? digest.pausedOrKilledIdeas : [];
+    const highestConfidenceOpportunity = digest.highestConfidenceOpportunity || null;
+    const biggestRisk = digest.biggestRisk || null;
+
+    return {
+      updatedAt: digest.updatedAt || "",
+      rankedOpportunitySummary: digest.rankedOpportunitySummary || "No business ideas yet.",
+      topIdeas: topIdeas.slice(0, 3).map((idea) => `${idea.title} · ${idea.status}`),
+      newlyCreatedIdeas: newlyCreatedIdeas.slice(0, 3).map((idea) => `${idea.title} · ${idea.status}`),
+      pausedOrKilledIdeas: pausedOrKilledIdeas.slice(0, 3).map((idea) => `${idea.title} · ${idea.status}`),
+      highestConfidenceOpportunity: highestConfidenceOpportunity ? `${highestConfidenceOpportunity.title} (${highestConfidenceOpportunity.confidence}/10)` : "None yet.",
+      biggestRisk: biggestRisk ? `${biggestRisk.title} (${biggestRisk.risk}/10)` : "None yet.",
+      recommendedNextAction: digest.recommendedNextAction || "Create the first idea.",
     };
   }
 
@@ -1500,6 +1539,7 @@
     loadAgents,
     loadAgentGoals,
     loadBusinessIdeas,
+    loadCeoDigest,
     loadCompanyPlan,
     loadDecisions,
     loadMemoryEvents,
@@ -1510,6 +1550,7 @@
     mapAgentForOption,
     mapAgentGoalForDisplay,
     mapBusinessIdeaForDisplay,
+    mapCeoDigestForDisplay,
     mapAgentForRoom,
     getAgentCharacterStyle,
     getHQWorkZones,

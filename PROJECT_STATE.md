@@ -75,6 +75,7 @@
 - `GET /api/business-ideas` returns ranked ideas from the JSON store.
 - Phase 4A stopped at the backend model; Phase 4B adds compact live idea cards in the HQ sidebar, with status highlighting for promising, building, and killed ideas.
 - Phase 4C lets autonomous agents create and refine ideas, while host/manager review and rank them during the loop.
+- Phase 4D adds a JSON-backed CEO digest with ranked ideas, recent changes, risk and next-step summaries, exposed at `/api/ceo-digest` and shown in the sidebar.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.

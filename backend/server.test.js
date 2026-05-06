@@ -10,6 +10,9 @@ const {
   rankBusinessIdeas,
   updateBusinessIdea,
 } = require("./businessIdeas");
+const {
+  buildCeoDigest,
+} = require("./ceoDigest");
 const app = require("./server");
 
 const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
@@ -21,6 +24,7 @@ function resetMessages() {
   app.locals.decisionLogFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-decision-log.json`);
   app.locals.agentGoalsFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-agent-goals.json`);
   app.locals.businessIdeasFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-business-ideas.json`);
+  app.locals.ceoDigestFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-ceo-digest.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -459,6 +463,168 @@ test("GET /api/business-ideas returns ranked ideas", async (t) => {
   assert.equal(response.body.ideas.length, 2);
   assert.equal(response.body.ideas[0].title, "Priority idea");
   assert.equal(response.body.ideas[1].title, "Lower priority idea");
+});
+
+test("business idea digest generation ranks opportunities and summarizes signals", () => {
+  const digest = buildCeoDigest({
+    ideas: [
+      {
+        id: 1,
+        createdAt: "2026-05-06T09:00:00.000Z",
+        updatedAt: "2026-05-06T10:00:00.000Z",
+        title: "Low idea",
+        category: "General",
+        description: "Lower fit.",
+        profitPotential: 2,
+        startupCost: 8,
+        risk: 6,
+        difficulty: 7,
+        confidence: 3,
+        status: "paused",
+        assignedAgentId: "assistant",
+        nextAction: "Review later",
+        notes: "",
+      },
+      {
+        id: 2,
+        createdAt: "2026-05-06T11:00:00.000Z",
+        updatedAt: "2026-05-06T11:00:00.000Z",
+        title: "High idea",
+        category: "Trading",
+        description: "Best fit.",
+        profitPotential: 9,
+        startupCost: 2,
+        risk: 2,
+        difficulty: 3,
+        confidence: 8,
+        status: "promising",
+        assignedAgentId: "sales",
+        nextAction: "Validate demand",
+        notes: "",
+      },
+      {
+        id: 3,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        updatedAt: "2026-05-06T12:00:00.000Z",
+        title: "Risky idea",
+        category: "Risk/Scoring",
+        description: "Needs caution.",
+        profitPotential: 7,
+        startupCost: 4,
+        risk: 9,
+        difficulty: 6,
+        confidence: 6,
+        status: "killed",
+        assignedAgentId: "analyst",
+        nextAction: "Archive it",
+        notes: "",
+      },
+    ],
+    decisions: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T12:30:00.000Z",
+        roomId: "main",
+        agentId: "host",
+        title: "Focus on the top idea",
+        summary: "Keep the room aligned.",
+        reason: "Ranking is clear.",
+        impact: "Move toward validation.",
+      },
+    ],
+    tasks: [
+      {
+        id: 1,
+        roomId: "main",
+        title: "Unblock onboarding offer",
+        status: "open",
+        blockedReason: "Waiting on answer",
+      },
+    ],
+    memoryEvents: [
+      {
+        id: 1,
+        timestamp: "2026-05-06T12:40:00.000Z",
+        roomId: "main",
+        type: "idea_update",
+        summary: "High idea moved to promising.",
+        importance: "high",
+      },
+    ],
+    now: "2026-05-06T13:00:00.000Z",
+  });
+
+  assert.equal(digest.topIdeas[0].title, "High idea");
+  assert.equal(digest.highestConfidenceOpportunity.title, "High idea");
+  assert.equal(digest.biggestRisk.title, "Risky idea");
+  assert.equal(digest.pausedOrKilledIdeas[0].status, "killed");
+  assert.match(digest.rankedOpportunitySummary, /High idea/);
+  assert.match(digest.recommendedNextAction, /Unblock task/);
+});
+
+test("digest refresh persists CEO digest state", () => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Auto idea",
+      category: "AI Automation",
+      description: "Useful automation.",
+      profitPotential: 7,
+      startupCost: 3,
+      risk: 3,
+      difficulty: 4,
+      confidence: 7,
+      status: "building",
+      assignedAgentId: "assistant",
+      nextAction: "Ship workflow",
+      notes: "",
+    },
+  ]);
+
+  const digest = app.locals.refreshCeoDigestForTest();
+  const stored = app.locals.readCeoDigestForTest();
+
+  assert.equal(digest.topIdeas[0].title, "Auto idea");
+  assert.equal(stored.topIdeas[0].title, "Auto idea");
+});
+
+test("GET /api/ceo-digest returns digest summary", async (t) => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Auto idea",
+      category: "AI Automation",
+      description: "Useful automation.",
+      profitPotential: 7,
+      startupCost: 3,
+      risk: 3,
+      difficulty: 4,
+      confidence: 7,
+      status: "building",
+      assignedAgentId: "assistant",
+      nextAction: "Ship workflow",
+      notes: "",
+    },
+  ]);
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/ceo-digest");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.digest.topIdeas[0].title, "Auto idea");
+  assert.equal(response.body.digest.highestConfidenceOpportunity.title, "Auto idea");
+  assert.match(response.body.digest.recommendedNextAction, /Ship workflow/);
 });
 
 test("autonomous agents create business ideas", () => {

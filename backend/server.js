@@ -24,6 +24,10 @@ const {
   updateBusinessIdea,
 } = require("./businessIdeas");
 const {
+  buildCeoDigest,
+  createEmptyCeoDigest,
+} = require("./ceoDigest");
+const {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
@@ -47,6 +51,7 @@ app.locals.companyPlanFile = path.join(__dirname, "data", "company-plan.json");
 app.locals.decisionLogFile = path.join(__dirname, "data", "decision-log.json");
 app.locals.agentGoalsFile = path.join(__dirname, "data", "agent-goals.json");
 app.locals.businessIdeasFile = path.join(__dirname, "data", "business-ideas.json");
+app.locals.ceoDigestFile = path.join(__dirname, "data", "ceo-digest.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -194,6 +199,51 @@ function writeBusinessIdeas(ideas) {
   writeJsonFile(app.locals.businessIdeasFile, normalizedIdeas);
 
   return normalizedIdeas;
+}
+
+function readCeoDigest() {
+  if (!fs.existsSync(app.locals.ceoDigestFile)) {
+    const digest = createEmptyCeoDigest();
+    writeJsonFile(app.locals.ceoDigestFile, digest);
+
+    return digest;
+  }
+
+  const digest = readJsonFile(app.locals.ceoDigestFile);
+  const normalizedDigest = digest && typeof digest === "object" && !Array.isArray(digest)
+    ? {
+        ...createEmptyCeoDigest(digest.updatedAt || new Date().toISOString()),
+        ...digest,
+      }
+    : createEmptyCeoDigest();
+
+  writeJsonFile(app.locals.ceoDigestFile, normalizedDigest);
+
+  return normalizedDigest;
+}
+
+function writeCeoDigest(digest) {
+  const normalizedDigest = digest && typeof digest === "object" && !Array.isArray(digest)
+    ? {
+        ...createEmptyCeoDigest(digest.updatedAt || new Date().toISOString()),
+        ...digest,
+      }
+    : createEmptyCeoDigest();
+
+  writeJsonFile(app.locals.ceoDigestFile, normalizedDigest);
+
+  return normalizedDigest;
+}
+
+function refreshCeoDigest() {
+  const digest = buildCeoDigest({
+    ideas: readBusinessIdeas(),
+    decisions: readDecisionLog().decisions,
+    tasks: readTasks(),
+    memoryEvents: readDecisionLog().memoryEvents,
+  });
+
+  return writeCeoDigest(digest);
 }
 
 function getNextId(items) {
@@ -1178,6 +1228,7 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
       message: getBusinessIdeaFeedMessage("Idea created", created.idea, agent),
       messages,
     });
+    refreshCeoDigest();
 
     return created.idea;
   }
@@ -1222,6 +1273,7 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
       message: getBusinessIdeaFeedMessage("Idea review", updateResult.idea, agent),
       messages,
     });
+    refreshCeoDigest();
 
     return updateResult.idea;
   }
@@ -1289,6 +1341,7 @@ function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhyt
       message: getBusinessIdeaFeedMessage("Idea update", updateResult.idea, agent),
       messages,
     });
+    refreshCeoDigest();
   }
 
   return updateResult.idea;
@@ -1471,6 +1524,10 @@ app.get("/api/company-plan", (req, res) => {
 
 app.get("/api/business-ideas", (req, res) => {
   res.json({ ideas: rankBusinessIdeas(readBusinessIdeas()) });
+});
+
+app.get("/api/ceo-digest", (req, res) => {
+  res.json({ digest: refreshCeoDigest() });
 });
 
 app.get("/api/decisions", (req, res) => {
@@ -1723,6 +1780,7 @@ app.locals.readAgentGoalsForTest = readAgentGoals;
 app.locals.readDecisionLogForTest = readDecisionLog;
 app.locals.readCompanyPlanForTest = readCompanyPlan;
 app.locals.readBusinessIdeasForTest = readBusinessIdeas;
+app.locals.readCeoDigestForTest = readCeoDigest;
 app.locals.readMessagesForTest = readMessages;
 app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
@@ -1730,11 +1788,13 @@ app.locals.selectRoomTaskForTest = selectRoomTask;
 app.locals.writeDecisionLogForTest = writeDecisionLog;
 app.locals.writeCompanyPlanForTest = writeCompanyPlan;
 app.locals.writeBusinessIdeasForTest = writeBusinessIdeas;
+app.locals.writeCeoDigestForTest = writeCeoDigest;
 app.locals.writeAgentGoalsForTest = writeAgentGoals;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 app.locals.handoffTaskForTest = handoffTask;
 app.locals.findBestAgentForTaskForTest = findBestAgentForTask;
 app.locals.maybeHandoffAutonomousTaskForTest = maybeHandoffAutonomousTask;
 app.locals.maybeUpdateBusinessIdeasForTest = maybeUpdateBusinessIdeas;
+app.locals.refreshCeoDigestForTest = refreshCeoDigest;
 
 module.exports = app;

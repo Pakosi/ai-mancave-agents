@@ -20,6 +20,7 @@ const {
   loadAgents,
   loadAgentGoals,
   loadBusinessIdeas,
+  loadCeoDigest,
   loadCompanyPlan,
   loadDecisions,
   loadMemoryEvents,
@@ -30,6 +31,7 @@ const {
   mapAgentForOption,
   mapAgentGoalForDisplay,
   mapBusinessIdeaForDisplay,
+  mapCeoDigestForDisplay,
   mapAgentForRoom,
   mapCompanyPlanForDisplay,
   mapDecisionForDisplay,
@@ -308,6 +310,59 @@ test("loadBusinessIdeas calls onError and rejects when fetch fails", async () =>
   assert.deepEqual(errors, [fetchError]);
 });
 
+test("loadCeoDigest calls /api/ceo-digest and returns digest", async () => {
+  const calls = [];
+  const callbacks = [];
+  const responseDigest = {
+    updatedAt: "2026-05-06T13:00:00.000Z",
+    rankedOpportunitySummary: "Top idea: Deal flow dashboard",
+    topIdeas: [
+      { title: "Deal flow dashboard", status: "promising" },
+    ],
+    newlyCreatedIdeas: [],
+    pausedOrKilledIdeas: [],
+    highestConfidenceOpportunity: { title: "Deal flow dashboard", confidence: 8 },
+    biggestRisk: { title: "Ops cleanup", risk: 7 },
+    recommendedNextAction: "Validate with one customer",
+  };
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve(mockResponse({ digest: responseDigest }));
+  };
+
+  const digest = await loadCeoDigest({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onDigest(item) {
+      callbacks.push(item);
+    },
+  });
+
+  assert.deepEqual(digest, responseDigest);
+  assert.deepEqual(callbacks, [responseDigest]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://test.local/api/ceo-digest");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadCeoDigest calls onError and rejects when fetch fails", async () => {
+  const fetchError = new Error("digest fetch down");
+  const errors = [];
+  const fetch = () => Promise.reject(fetchError);
+
+  await assert.rejects(
+    loadCeoDigest({
+      fetch,
+      onError(err) {
+        errors.push(err);
+      },
+    }),
+    /digest fetch down/,
+  );
+
+  assert.deepEqual(errors, [fetchError]);
+});
+
 test("loadDecisions calls /api/decisions with room filter", async () => {
   const calls = [];
   const callbacks = [];
@@ -394,6 +449,40 @@ test("mapBusinessIdeaForDisplay keeps empty idea state readable", () => {
   assert.equal(view.assignedAgent, "Unassigned");
   assert.equal(view.statusClass, "killed");
   assert.equal(view.nextAction, "No next action yet.");
+});
+
+test("mapCeoDigestForDisplay formats digest summary and empty state", () => {
+  const view = mapCeoDigestForDisplay({
+    updatedAt: "2026-05-06T13:00:00.000Z",
+    rankedOpportunitySummary: "Top idea: Deal flow dashboard",
+    topIdeas: [
+      { title: "Deal flow dashboard", status: "promising" },
+      { title: "Automation station", status: "building" },
+    ],
+    newlyCreatedIdeas: [
+      { title: "New idea", status: "researching" },
+    ],
+    pausedOrKilledIdeas: [
+      { title: "Paused idea", status: "paused" },
+    ],
+    highestConfidenceOpportunity: { title: "Deal flow dashboard", confidence: 8 },
+    biggestRisk: { title: "Ops cleanup", risk: 7 },
+    recommendedNextAction: "Validate with one customer",
+  });
+
+  assert.equal(view.rankedOpportunitySummary, "Top idea: Deal flow dashboard");
+  assert.deepEqual(view.topIdeas, [
+    "Deal flow dashboard · promising",
+    "Automation station · building",
+  ]);
+  assert.equal(view.highestConfidenceOpportunity, "Deal flow dashboard (8/10)");
+  assert.equal(view.biggestRisk, "Ops cleanup (7/10)");
+  assert.equal(view.recommendedNextAction, "Validate with one customer");
+
+  const empty = mapCeoDigestForDisplay();
+  assert.equal(empty.rankedOpportunitySummary, "No business ideas yet.");
+  assert.deepEqual(empty.topIdeas, []);
+  assert.equal(empty.recommendedNextAction, "Create the first idea.");
 });
 
 test("loadAgentGoals calls /api/agent-goals and returns goals", async () => {

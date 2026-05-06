@@ -1514,6 +1514,55 @@
       margin-top: 0.35rem;
     }
 
+    /* ── CEO Digest ── */
+    .digest-panel {
+      background: linear-gradient(180deg, #171009 0%, #100a06 100%);
+      border: 1px solid #3b2713;
+      border-radius: 8px;
+      padding: 0.65rem;
+    }
+
+    .digest-summary {
+      color: #e8cfaa;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 0.55rem;
+    }
+
+    .digest-grid {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .digest-block {
+      border-left: 2px solid #5a3e1b;
+      padding-left: 0.5rem;
+    }
+
+    .digest-label {
+      color: #9a7b56;
+      font-size: 0.65rem;
+      font-weight: 700;
+      margin-bottom: 0.18rem;
+      text-transform: uppercase;
+    }
+
+    .digest-list {
+      color: #cfb48b;
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+      font-size: 0.74rem;
+      line-height: 1.3;
+    }
+
+    .digest-line {
+      color: #cfb48b;
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+
     /* ── Goals Panel ── */
     .goal-list {
       display: flex;
@@ -1817,6 +1866,11 @@
           <div id="businessIdeas" class="idea-list"></div>
         </section>
 
+        <section class="digest-panel">
+          <h2>CEO Digest</h2>
+          <div id="ceoDigest"></div>
+        </section>
+
         <section class="plan-panel">
           <h2>Company Plan</h2>
           <div id="companyPlan"></div>
@@ -1847,6 +1901,7 @@
     const agentSelect = document.getElementById("agentSelect");
     const agentGoals = document.getElementById("agentGoals");
     const businessIdeas = document.getElementById("businessIdeas");
+    const ceoDigest = document.getElementById("ceoDigest");
     const companyPlan = document.getElementById("companyPlan");
     const decisionMemory = document.getElementById("decisionMemory");
     const error = document.getElementById("error");
@@ -1865,6 +1920,7 @@
     let loadedRooms = [];
     let currentTasks = [];
     let currentIdeas = [];
+    let currentCeoDigest = {};
     let currentMessages = [];
     let currentDecisions = [];
     let currentAgentGoals = [];
@@ -2370,6 +2426,95 @@
       });
     }
 
+    function renderCeoDigest(digest) {
+      currentCeoDigest = digest || {};
+      ceoDigest.textContent = "";
+
+      const view = WOYSApp.mapCeoDigestForDisplay(currentCeoDigest);
+
+      if (!currentCeoDigest.topIdeas || currentCeoDigest.topIdeas.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No digest yet.";
+        ceoDigest.appendChild(empty);
+        return;
+      }
+
+      const summary = document.createElement("div");
+      summary.className = "digest-summary";
+      summary.textContent = view.rankedOpportunitySummary;
+
+      const grid = document.createElement("div");
+      grid.className = "digest-grid";
+
+      const blocks = [
+        ["Top ideas", view.topIdeas],
+        ["New ideas", view.newlyCreatedIdeas],
+        ["Paused / killed", view.pausedOrKilledIdeas],
+      ];
+
+      blocks.forEach(([label, items]) => {
+        const block = document.createElement("div");
+        block.className = "digest-block";
+
+        const blockLabel = document.createElement("div");
+        blockLabel.className = "digest-label";
+        blockLabel.textContent = label;
+
+        const list = document.createElement("div");
+        list.className = "digest-list";
+
+        if (items.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "None yet.";
+          list.appendChild(empty);
+        } else {
+          items.forEach((item) => {
+            const line = document.createElement("div");
+            line.className = "digest-line";
+            line.textContent = item;
+            list.appendChild(line);
+          });
+        }
+
+        block.append(blockLabel, list);
+        grid.appendChild(block);
+      });
+
+      const ranking = document.createElement("div");
+      ranking.className = "digest-block";
+      ranking.innerHTML = "";
+
+      const confidenceLabel = document.createElement("div");
+      confidenceLabel.className = "digest-label";
+      confidenceLabel.textContent = "Highest confidence";
+
+      const confidenceValue = document.createElement("div");
+      confidenceValue.className = "digest-line";
+      confidenceValue.textContent = view.highestConfidenceOpportunity;
+
+      const riskLabel = document.createElement("div");
+      riskLabel.className = "digest-label";
+      riskLabel.textContent = "Biggest risk";
+
+      const riskValue = document.createElement("div");
+      riskValue.className = "digest-line";
+      riskValue.textContent = view.biggestRisk;
+
+      const actionLabel = document.createElement("div");
+      actionLabel.className = "digest-label";
+      actionLabel.textContent = "Next action";
+
+      const actionValue = document.createElement("div");
+      actionValue.className = "digest-line";
+      actionValue.textContent = view.recommendedNextAction;
+
+      ranking.append(confidenceLabel, confidenceValue, riskLabel, riskValue, actionLabel, actionValue);
+
+      ceoDigest.append(summary, grid, ranking);
+    }
+
     function renderPlanList(labelText, items) {
       const group = document.createElement("div");
       group.className = "plan-group";
@@ -2601,6 +2746,19 @@
       }).catch(() => {});
     }
 
+    function loadCeoDigest() {
+      return WOYSApp.loadCeoDigest({
+        onDigest(digest) {
+          renderCeoDigest(digest);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not load CEO digest.");
+        },
+      }).catch(() => {});
+    }
+
     function loadAgentGoals() {
       return WOYSApp.loadAgentGoals({
         onGoals(items) {
@@ -2723,7 +2881,7 @@
           }).catch(() => {});
         })
         .then(() => {
-          return Promise.all([loadMessages(), loadTasks(), loadBusinessIdeas(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
+          return Promise.all([loadMessages(), loadTasks(), loadBusinessIdeas(), loadCeoDigest(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]);
         })
         .catch(() => {})
         .finally(() => {
@@ -2764,7 +2922,7 @@
           setError("Could not update task.");
         },
       })
-        .then(() => Promise.all([loadTasks(), loadMessages(), loadBusinessIdeas(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]))
+        .then(() => Promise.all([loadTasks(), loadMessages(), loadBusinessIdeas(), loadCeoDigest(), loadCompanyPlan(), loadAgentGoals(), loadDecisionMemory()]))
         .catch(() => {})
         .finally(() => {
           button.disabled = false;
@@ -2775,6 +2933,7 @@
       loadMessages(),
       loadTasks(),
       loadBusinessIdeas(),
+      loadCeoDigest(),
       loadCompanyPlan(),
       loadAgentGoals(),
       loadDecisionMemory(),
@@ -2782,6 +2941,7 @@
     setInterval(loadMessages, 2000);
     setInterval(loadTasks, 4000);
     setInterval(loadBusinessIdeas, 5000);
+    setInterval(loadCeoDigest, 5000);
     setInterval(loadCompanyPlan, 5000);
     setInterval(loadAgentGoals, 5000);
     setInterval(loadDecisionMemory, 5000);
