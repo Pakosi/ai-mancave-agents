@@ -5,26 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WOYS Room</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       font-family: Arial, sans-serif;
-      background: #eef2f7;
+      background: #0a0704;
       margin: 0;
-      color: #172033;
+      color: #c8b08a;
     }
 
     main {
-      max-width: 72rem;
+      max-width: 74rem;
       margin: 0 auto;
       padding: 1.5rem;
     }
 
     h1 {
-      font-size: 1.75rem;
+      font-size: 1.8rem;
       margin: 0;
+      color: #d4a853;
+      font-family: Georgia, serif;
+      letter-spacing: 0.06em;
     }
 
     .toolbar {
@@ -42,14 +43,14 @@
     }
 
     .room-status {
-      color: #475569;
-      font-size: 0.82rem;
+      color: #d4a853;
+      font-size: 0.8rem;
       font-weight: 700;
       min-height: 1.2rem;
     }
 
     .room-brief {
-      color: #64748b;
+      color: #6b5430;
       font-size: 0.86rem;
       line-height: 1.35;
       margin: -0.35rem 0 0.9rem;
@@ -57,10 +58,10 @@
     }
 
     .room-notice {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
+      background: #1c1208;
+      border: 1px solid #5a3e1b;
       border-radius: 999px;
-      color: #475569;
+      color: #d4a853;
       font-size: 0.82rem;
       min-height: 1.9rem;
       opacity: 0;
@@ -78,166 +79,380 @@
       grid-template-columns: minmax(0, 1fr) 20rem;
     }
 
+    /* ── Room Scene ── */
     .room {
-      background: linear-gradient(#f8fafc 0 68%, #dbe7d4 68% 100%);
-      border: 1px solid #cbd5e1;
+      background: #0a0704;
+      border: 1px solid #3d2510;
       border-radius: 12px;
-      min-height: 31rem;
+      min-height: 34rem;
       overflow: hidden;
       position: relative;
     }
 
-    .room::before {
-      background: #e2e8f0;
-      content: "";
-      height: 1px;
-      left: 0;
+    .room-wall {
       position: absolute;
-      right: 0;
-      top: 68%;
+      top: 0; left: 0; right: 0;
+      height: 58%;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px, transparent 79px,
+          rgba(0,0,0,0.22) 79px, rgba(0,0,0,0.22) 81px
+        ),
+        linear-gradient(180deg, #0d0905 0%, #160e09 100%);
     }
 
-    .table {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 999px;
-      bottom: 5.5rem;
-      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.12);
-      height: 7rem;
-      left: 50%;
+    /* warm sconce glows */
+    .room-wall::before,
+    .room-wall::after {
+      content: '';
       position: absolute;
+      top: 0.8rem;
+      width: 4rem;
+      height: 4rem;
+      background: radial-gradient(ellipse, rgba(255,200,80,0.3) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .room-wall::before { left: 3rem; }
+    .room-wall::after  { right: 3rem; }
+
+    .room-floor {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 42%;
+      background: repeating-linear-gradient(
+        90deg,
+        #231408 0px, #2a1a0a 58px,
+        #1e1208 59px, #2a1a0a 60px
+      );
+    }
+
+    /* floor/wall seam */
+    .room-floor::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,
+        transparent 0%, #5a3e1b 20%,
+        #c8860a 50%, #5a3e1b 80%, transparent 100%);
+    }
+
+    /* ── Furniture ── */
+    .furn { position: absolute; }
+
+    /* bookshelf left */
+    .furn-shelf-l {
+      left: 1.5rem; top: 5%;
+      width: 3rem; height: 48%;
+      background: #1c1008;
+      border: 1px solid #3d2510;
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 3px;
+    }
+
+    /* bookshelf right */
+    .furn-shelf-r {
+      right: 1.5rem; top: 5%;
+      width: 3rem; height: 48%;
+      background: #1c1008;
+      border: 1px solid #3d2510;
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 3px;
+    }
+
+    .shelf-row {
+      flex: 1;
+      border-radius: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        #5a3e1b 0px, #4a2e10 5px,
+        #c8860a 5px, #b07020 8px,
+        #3d2510 8px, #5a3e1b 13px,
+        #1a3a5a 13px, #0a2a4a 17px,
+        #4a1a1a 17px, #3a0a0a 21px,
+        #2a4a1a 21px, #1a3a0a 25px
+      );
+    }
+
+    /* leather couch at back */
+    .furn-couch {
+      top: 54%; left: 50%;
       transform: translateX(-50%);
-      width: 58%;
+      width: 28%;
+      height: 2.2rem;
+      background: linear-gradient(180deg, #5a2c14 0%, #401d0a 100%);
+      border: 1px solid #6b3520;
+      border-radius: 5px 5px 0 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.4);
     }
 
+    /* couch back cushion */
+    .furn-couch::before {
+      content: '';
+      position: absolute;
+      top: -1.5rem; left: -0.4rem; right: -0.4rem;
+      height: 1.6rem;
+      background: linear-gradient(180deg, #6b3520 0%, #5a2c14 100%);
+      border: 1px solid #7a4528;
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+    }
+
+    /* desk */
+    .furn-desk {
+      bottom: 6.5rem; left: 50%;
+      transform: translateX(-50%);
+      width: 52%;
+      height: 4.5rem;
+      background: linear-gradient(180deg, #4a2e14 0%, #2d1a08 100%);
+      border-radius: 999px;
+      border: 1px solid #6b4522;
+      box-shadow: 0 6px 30px rgba(0,0,0,0.7),
+                  inset 0 1px 0 rgba(200,150,60,0.12);
+    }
+
+    /* desk top gloss line */
+    .furn-desk::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 12%; right: 12%;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent, rgba(200,150,60,0.28), transparent);
+    }
+
+    /* monitor glow above desk */
+    .furn-desk::after {
+      content: '';
+      position: absolute;
+      top: -3rem; left: 50%;
+      transform: translateX(-50%);
+      width: 5.5rem;
+      height: 3.2rem;
+      background: radial-gradient(ellipse,
+        rgba(30,100,200,0.5) 0%, transparent 70%);
+      border-radius: 6px;
+      animation: monitorFlicker 3.5s ease-in-out infinite;
+    }
+
+    /* rug under desk */
+    .furn-rug {
+      bottom: 4rem; left: 50%;
+      transform: translateX(-50%);
+      width: 66%;
+      height: 7.5rem;
+      background: radial-gradient(ellipse at center,
+        rgba(90,30,10,0.4) 0%,
+        rgba(50,15,5,0.15) 65%,
+        transparent 100%);
+      border-radius: 50%;
+    }
+
+    /* floor plant */
+    .furn-plant {
+      right: 4rem; bottom: 4.5rem;
+      width: 2.8rem; height: 4.5rem;
+    }
+
+    .furn-plant::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 1.8rem; height: 1.3rem;
+      background: linear-gradient(180deg, #3d2510 0%, #2d1a08 100%);
+      border-radius: 0 0 6px 6px;
+      border: 1px solid #5a3e1b;
+    }
+
+    .furn-plant::after {
+      content: '';
+      position: absolute;
+      bottom: 1rem; left: 50%;
+      transform: translateX(-50%);
+      width: 2.8rem; height: 3.6rem;
+      background: radial-gradient(ellipse at 45% 60%,
+        #1a5a1a 0%, #0f3a0f 50%, #0a2a0a 100%);
+      border-radius: 60% 60% 40% 40% / 70% 70% 30% 30%;
+      box-shadow: -7px 4px 0 #1a4a1a, 7px 2px 0 #0f3a0f;
+    }
+
+    /* ── Agent Nodes ── */
     .agent-node {
-      animation: agentIdle 4.8s ease-in-out infinite;
+      align-items: center;
+      animation: agentWalk 5.5s ease-in-out infinite;
+      display: flex;
+      flex-direction: column;
+      gap: 0.22rem;
       position: absolute;
       transform: translate(-50%, -50%);
-      width: 13rem;
+      width: 8rem;
+      z-index: 2;
     }
 
-    .agent-node:nth-child(2) {
-      animation-delay: 0.7s;
+    .agent-node:nth-child(2) { animation-delay: 0.9s; }
+    .agent-node:nth-child(3) { animation-delay: 1.8s; }
+    .agent-node:nth-child(4) { animation-delay: 2.7s; }
+    .agent-node:nth-child(5) { animation-delay: 3.4s; }
+    .agent-node:nth-child(6) { animation-delay: 0.5s; }
+    .agent-node:nth-child(7) { animation-delay: 1.4s; }
+    .agent-node:nth-child(8) { animation-delay: 4.1s; }
+
+    /* character figure */
+    .char-wrap {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      transition: filter 200ms ease, transform 200ms ease;
     }
 
-    .agent-node:nth-child(3) {
-      animation-delay: 1.4s;
+    .char-head {
+      border-radius: 50%;
+      width: 1.7rem;
+      height: 1.7rem;
+      border: 2px solid rgba(255,255,255,0.18);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      transition: transform 180ms ease, box-shadow 180ms ease;
     }
 
-    .agent-node.latest .avatar {
-      box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.18), 0 10px 24px rgba(37, 99, 235, 0.22);
-      transform: scale(1.1);
+    .char-body {
+      width: 2.3rem;
+      height: 2rem;
+      border-radius: 6px 6px 2px 2px;
+      opacity: 0.8;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+      transition: transform 180ms ease;
+    }
+
+    /* latest speaker — golden glow */
+    .agent-node.latest .char-wrap {
+      filter: drop-shadow(0 0 9px rgba(200,160,55,0.75));
+      transform: translateY(-2px);
+    }
+
+    .agent-node.latest .char-head {
+      border-color: rgba(212,168,83,0.7);
+      transform: scale(1.08);
     }
 
     .agent-node.latest .speech {
-      border-color: #2563eb;
+      border-color: #c8860a;
       opacity: 1;
-      transform: translateY(-0.2rem);
+      transform: translateY(-2px);
     }
 
-    .agent-node.thinking .avatar {
+    .agent-node.latest .speech::after {
+      border-top-color: #c8860a;
+    }
+
+    /* thinking agent */
+    .agent-node.thinking .char-head {
       animation: thinkingPulse 1.1s ease-in-out infinite;
-      box-shadow: 0 0 0 8px rgba(15, 23, 42, 0.1);
     }
 
+    /* ── Speech Bubble ── */
     .speech {
-      animation: bubbleIn 260ms ease-out;
-      background: #ffffff;
-      border: 1px solid #d1d5db;
+      animation: bubbleIn 270ms ease-out;
+      background: rgba(18,10,4,0.93);
+      border: 1px solid #3d2510;
       border-radius: 10px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
-      font-size: 0.88rem;
+      box-shadow: 0 5px 18px rgba(0,0,0,0.65);
+      color: #c8b08a;
+      font-size: 0.8rem;
       line-height: 1.35;
-      min-height: 4.25rem;
-      opacity: 0.58;
-      padding: 0.7rem;
+      min-height: 3.5rem;
+      opacity: 0.6;
+      padding: 0.55rem 0.65rem;
+      position: relative;
       transition: border-color 180ms ease, opacity 180ms ease, transform 180ms ease;
+      width: 100%;
+    }
+
+    /* bubble tail pointing down toward character */
+    .speech::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid #3d2510;
     }
 
     .speech.thinking {
-      color: #64748b;
+      color: #7a6045;
       font-style: italic;
       opacity: 1;
     }
 
-    .avatar-row {
-      align-items: center;
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-      margin-top: 0.6rem;
-    }
-
-    .avatar {
-      align-items: center;
-      border: 3px solid currentColor;
-      border-radius: 50%;
-      color: #334155;
-      display: flex;
-      font-weight: 700;
-      height: 3.5rem;
-      justify-content: center;
-      transition: box-shadow 180ms ease, transform 180ms ease;
-      width: 3.5rem;
-    }
-
+    /* ── Agent Labels ── */
     .agent-name {
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid #d1d5db;
+      background: rgba(8,5,2,0.9);
+      border: 1px solid #3d2510;
       border-radius: 999px;
-      font-size: 0.8rem;
+      color: #d4a853;
+      font-size: 0.73rem;
       font-weight: 700;
-      padding: 0.35rem 0.55rem;
+      padding: 0.18rem 0.42rem;
     }
 
     .agent-role {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: #5a4425;
+      font-size: 0.66rem;
       font-weight: 700;
-      margin-top: 0.25rem;
+      letter-spacing: 0.04em;
       text-align: center;
-    }
-
-    .you-panel {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      bottom: 1rem;
-      left: 1rem;
-      max-width: 18rem;
-      padding: 0.8rem;
-      position: absolute;
-    }
-
-    .you-label {
-      color: #475569;
-      font-size: 0.75rem;
-      font-weight: 700;
-      margin-bottom: 0.35rem;
       text-transform: uppercase;
     }
 
+    /* ── You Panel ── */
+    .you-panel {
+      background: rgba(10,6,2,0.9);
+      border: 1px solid #5a3e1b;
+      border-radius: 10px;
+      bottom: 1rem;
+      left: 1rem;
+      max-width: 17rem;
+      padding: 0.75rem;
+      position: absolute;
+      z-index: 3;
+    }
+
+    .you-label {
+      color: #d4a853;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+    }
+
+    /* ── Sidebar ── */
     .sidebar {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
 
-    .activity {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      min-height: 20rem;
-      padding: 1rem;
-    }
-
+    .activity,
     .goals-panel,
     .memory-panel,
     .plan-panel,
     .tasks-panel {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
+      background: #110b05;
+      border: 1px solid #3d2510;
       border-radius: 10px;
       padding: 1rem;
     }
@@ -247,38 +462,41 @@
     .memory-panel h2,
     .plan-panel h2,
     .tasks-panel h2 {
-      font-size: 1rem;
+      color: #d4a853;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
       margin: 0 0 0.75rem;
+      text-transform: uppercase;
     }
 
+    /* ── Plan Panel ── */
     .plan-objective {
-      color: #172033;
-      font-size: 0.88rem;
+      color: #e8d5b7;
+      font-size: 0.86rem;
       font-weight: 700;
       line-height: 1.35;
       margin-bottom: 0.8rem;
     }
 
     .phase-pill {
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
+      background: #2d1f0a;
+      border: 1px solid #c8860a;
       border-radius: 999px;
-      color: #3730a3;
+      color: #d4a853;
       display: inline-block;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 700;
       margin-bottom: 0.7rem;
-      padding: 0.25rem 0.5rem;
+      padding: 0.22rem 0.55rem;
       text-transform: uppercase;
     }
 
-    .plan-group {
-      margin-top: 0.7rem;
-    }
+    .plan-group { margin-top: 0.7rem; }
 
     .plan-label {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: #7a6045;
+      font-size: 0.68rem;
       font-weight: 700;
       margin-bottom: 0.3rem;
       text-transform: uppercase;
@@ -293,24 +511,21 @@
     }
 
     .plan-list li {
-      border-left: 2px solid #cbd5e1;
-      font-size: 0.82rem;
+      border-left: 2px solid #5a3e1b;
+      color: #a88a60;
+      font-size: 0.8rem;
       line-height: 1.3;
       list-style: none;
       padding-left: 0.5rem;
     }
 
-    .memory-section {
-      margin-top: 0.8rem;
-    }
-
-    .memory-section:first-child {
-      margin-top: 0;
-    }
+    /* ── Memory Panel ── */
+    .memory-section { margin-top: 0.8rem; }
+    .memory-section:first-child { margin-top: 0; }
 
     .memory-title {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: #7a6045;
+      font-size: 0.68rem;
       font-weight: 700;
       margin-bottom: 0.45rem;
       text-transform: uppercase;
@@ -323,30 +538,32 @@
     }
 
     .memory-item {
-      border-left: 2px solid #cbd5e1;
+      border-left: 2px solid #5a3e1b;
       padding-left: 0.55rem;
     }
 
     .memory-item-title {
-      font-size: 0.84rem;
+      color: #e8d5b7;
+      font-size: 0.82rem;
       font-weight: 700;
       line-height: 1.3;
     }
 
     .memory-item-summary {
-      color: #475569;
-      font-size: 0.8rem;
+      color: #7a6045;
+      font-size: 0.78rem;
       line-height: 1.3;
       margin-top: 0.2rem;
     }
 
     .memory-meta {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: #5a4025;
+      font-size: 0.68rem;
       font-weight: 700;
-      margin-top: 0.25rem;
+      margin-top: 0.2rem;
     }
 
+    /* ── Goals Panel ── */
     .goal-list {
       display: flex;
       flex-direction: column;
@@ -354,24 +571,26 @@
     }
 
     .goal-item {
-      border-left: 2px solid #cbd5e1;
+      border-left: 2px solid #5a3e1b;
       padding-left: 0.55rem;
     }
 
     .goal-title {
-      font-size: 0.84rem;
+      color: #e8d5b7;
+      font-size: 0.82rem;
       font-weight: 700;
       line-height: 1.3;
     }
 
     .goal-meta {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: #7a6045;
+      font-size: 0.68rem;
       font-weight: 700;
-      margin-top: 0.25rem;
+      margin-top: 0.2rem;
       text-transform: capitalize;
     }
 
+    /* ── Tasks Panel ── */
     .task-list {
       display: flex;
       flex-direction: column;
@@ -379,47 +598,56 @@
     }
 
     .task-item {
-      border: 1px solid #e2e8f0;
+      background: #1a1008;
+      border: 1px solid #3d2510;
       border-radius: 8px;
       padding: 0.7rem;
       transition: background 180ms ease, border-color 180ms ease;
     }
 
     .task-item.recent {
-      background: #ecfdf5;
+      background: #0a1f12;
       border-color: #10b981;
     }
 
     .task-title {
-      font-size: 0.9rem;
+      color: #e8d5b7;
+      font-size: 0.88rem;
       font-weight: 700;
       line-height: 1.3;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.3rem;
     }
 
     .task-meta {
-      color: #64748b;
-      font-size: 0.78rem;
-      margin-bottom: 0.55rem;
+      color: #7a6045;
+      font-size: 0.76rem;
+      margin-bottom: 0.5rem;
       text-transform: capitalize;
     }
 
     .task-blocked {
-      background: #fef2f2;
+      background: rgba(180,30,30,0.15);
       border-left: 3px solid #ef4444;
-      color: #b91c1c;
-      font-size: 0.76rem;
+      color: #f09090;
+      font-size: 0.74rem;
       margin-bottom: 0.45rem;
       padding: 0.3rem 0.5rem;
     }
 
     .task-action {
-      background: #0f766e;
-      font-size: 0.8rem;
-      padding: 0.5rem 0.65rem;
+      background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+      border: 0;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 700;
+      grid-column: unset;
+      padding: 0.45rem 0.65rem;
       width: 100%;
     }
 
+    /* ── Activity Feed ── */
     .activity-feed {
       display: flex;
       flex-direction: column;
@@ -429,34 +657,33 @@
     }
 
     .feed-item {
-      border-left: 3px solid #cbd5e1;
-      font-size: 0.88rem;
+      border-left: 3px solid #3d2510;
+      color: #9a7a52;
+      font-size: 0.84rem;
       line-height: 1.35;
       padding-left: 0.65rem;
     }
 
-    .feed-item.agent-host {
-      border-color: #10b981;
-    }
-
-    .feed-item.agent-assistant {
-      border-color: #3b82f6;
-    }
-
-    .feed-item.agent-sales {
-      border-color: #f97316;
-    }
+    .feed-item.agent-host      { border-color: #10b981; }
+    .feed-item.agent-assistant { border-color: #3b82f6; }
+    .feed-item.agent-sales     { border-color: #f97316; }
+    .feed-item.agent-strategist{ border-color: #7c3aed; }
+    .feed-item.agent-researcher{ border-color: #0891b2; }
+    .feed-item.agent-builder   { border-color: #dc2626; }
+    .feed-item.agent-analyst   { border-color: #64748b; }
+    .feed-item.agent-manager   { border-color: #d97706; }
 
     .feed-meta {
-      color: #64748b;
-      font-size: 0.75rem;
+      color: #5a4025;
+      font-size: 0.7rem;
       font-weight: 700;
       margin-bottom: 0.2rem;
     }
 
+    /* ── Form ── */
     form {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
+      background: #110b05;
+      border: 1px solid #3d2510;
       border-radius: 10px;
       display: grid;
       gap: 0.6rem;
@@ -465,99 +692,89 @@
     }
 
     input {
-      border: 1px solid #cbd5e1;
+      background: #1c1208;
+      border: 1px solid #3d2510;
       border-radius: 6px;
+      color: #e8d5b7;
       font: inherit;
       grid-column: 1 / -1;
       padding: 0.75rem;
     }
 
+    input::placeholder { color: #5a4025; }
+
     select {
-      border: 1px solid #cbd5e1;
+      background: #1c1208;
+      border: 1px solid #3d2510;
       border-radius: 6px;
+      color: #e8d5b7;
       font: inherit;
-      padding: 0.7rem;
+      padding: 0.65rem;
       width: 100%;
     }
 
     button {
-      background: #2563eb;
+      background: linear-gradient(135deg, #b8760a 0%, #d4a853 100%);
       border: 0;
       border-radius: 6px;
-      color: #fff;
+      color: #0a0704;
       cursor: pointer;
       font: inherit;
+      font-weight: 700;
       grid-column: 1 / -1;
       padding: 0.75rem 1rem;
+      transition: opacity 150ms ease;
     }
 
     button:disabled {
       cursor: not-allowed;
-      opacity: 0.6;
+      opacity: 0.5;
     }
 
     .error {
-      color: #b91c1c;
+      color: #ef4444;
       min-height: 1.4rem;
       margin-bottom: 0.75rem;
     }
 
     .empty {
-      color: #64748b;
-      font-size: 0.9rem;
+      color: #5a4025;
+      font-size: 0.88rem;
     }
 
-    @keyframes agentIdle {
-      0%, 100% {
-        margin-top: 0;
-      }
-
-      50% {
-        margin-top: -0.35rem;
-      }
+    /* ── Keyframes ── */
+    @keyframes agentWalk {
+      0%, 100% { margin-top: 0; margin-left: 0; }
+      30%       { margin-top: -5px; margin-left: -2px; }
+      70%       { margin-top: -3px; margin-left:  2px; }
     }
 
     @keyframes bubbleIn {
-      from {
-        opacity: 0;
-        transform: translateY(0.35rem);
-      }
-
-      to {
-        opacity: 0.58;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(0.3rem); }
+      to   { opacity: 0.6; transform: translateY(0); }
     }
 
     @keyframes thinkingPulse {
-      0%, 100% {
-        transform: scale(1);
-      }
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.12); }
+    }
 
-      50% {
-        transform: scale(1.08);
-      }
+    @keyframes monitorFlicker {
+      0%, 100% { opacity: 0.7; }
+      50%       { opacity: 1; }
     }
 
     @media (max-width: 860px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .room {
-        min-height: 38rem;
-      }
-
-      .agent-node {
-        width: 11rem;
-      }
+      .layout { grid-template-columns: 1fr; }
+      .room { min-height: 36rem; }
+      .agent-node { width: 7rem; }
     }
   </style>
 </head>
 <body>
   <main>
     <div class="toolbar">
-      <h1>WOYS Room</h1>
+      <h1>WOYS</h1>
       <div class="controls">
         <div id="activeRoom" class="room-status">Active room</div>
         <div id="roomNotice" class="room-notice" aria-live="polite"></div>
@@ -570,8 +787,30 @@
 
     <div class="layout">
       <section class="room" aria-label="Agent brainstorming room">
-        <div class="table"></div>
+        <div class="room-wall"></div>
+        <div class="room-floor"></div>
+
+        <div class="furn furn-shelf-l">
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+        </div>
+        <div class="furn furn-shelf-r">
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+          <div class="shelf-row"></div>
+        </div>
+        <div class="furn furn-couch"></div>
+        <div class="furn furn-rug"></div>
+        <div class="furn furn-desk"></div>
+        <div class="furn furn-plant"></div>
+
         <div id="roomAgents"></div>
+
         <div class="you-panel">
           <div class="you-label">You</div>
           <div id="youMessage" class="empty">No message yet.</div>
@@ -685,25 +924,28 @@
           speech.textContent = roomAgent.latestMessage;
         }
 
-        const avatarRow = document.createElement("div");
-        avatarRow.className = "avatar-row";
+        const charWrap = document.createElement("div");
+        charWrap.className = "char-wrap";
 
-        const avatar = document.createElement("div");
-        avatar.className = "avatar";
-        avatar.style.color = roomAgent.color;
-        avatar.textContent = roomAgent.label.slice(0, 1);
+        const charHead = document.createElement("div");
+        charHead.className = "char-head";
+        charHead.style.background = roomAgent.color;
+
+        const charBody = document.createElement("div");
+        charBody.className = "char-body";
+        charBody.style.background = roomAgent.color;
+
+        charWrap.append(charHead, charBody);
 
         const name = document.createElement("div");
         name.className = "agent-name";
         name.textContent = roomAgent.name;
 
-        avatarRow.append(avatar, name);
-
         const role = document.createElement("div");
         role.className = "agent-role";
         role.textContent = roomAgent.role;
 
-        node.append(speech, avatarRow, role);
+        node.append(speech, charWrap, name, role);
         roomAgents.appendChild(node);
       });
     }
