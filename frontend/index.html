@@ -324,6 +324,7 @@
       gap: 0.22rem;
       position: absolute;
       transform: translate(-50%, -50%);
+      transition: left 1.4s ease-in-out, top 1.4s ease-in-out;
       width: 8.4rem;
       z-index: 2;
     }
@@ -567,6 +568,27 @@
       border-top-color: #c8860a;
     }
 
+    .agent-node.walking .char-torso {
+      animation: torsoBreathe 5.8s ease-in-out infinite, walkBob 0.7s ease-in-out infinite;
+    }
+
+    .agent-node.walking .char-legs {
+      animation: legsBalance 6.8s ease-in-out infinite, walkLegs 0.55s ease-in-out infinite;
+    }
+
+    .agent-node.walking .char-arm.left {
+      animation: walkArmLeft 0.55s ease-in-out infinite;
+    }
+
+    .agent-node.walking .char-arm.right {
+      animation: walkArmRight 0.55s ease-in-out infinite;
+    }
+
+    .agent-node.walking .char-glow {
+      opacity: 0.8;
+      filter: blur(0.8px);
+    }
+
     @keyframes idleFloat {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-1px) rotate(-0.2deg); }
@@ -625,6 +647,28 @@
         opacity: 1;
         filter: blur(0.5px);
       }
+    }
+
+    @keyframes walkBob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+
+    @keyframes walkLegs {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(0.02rem) rotate(-1.8deg); }
+      50% { transform: translateY(-0.03rem) rotate(1.8deg); }
+      75% { transform: translateY(0.02rem) rotate(-1.2deg); }
+    }
+
+    @keyframes walkArmLeft {
+      0%, 100% { transform: rotate(18deg) translateY(0); }
+      50% { transform: rotate(7deg) translateY(0.05rem); }
+    }
+
+    @keyframes walkArmRight {
+      0%, 100% { transform: rotate(-18deg) translateY(0); }
+      50% { transform: rotate(-7deg) translateY(0.05rem); }
     }
 
     /* ── Speech Bubble ── */
@@ -1175,17 +1219,32 @@
       });
     }
 
+    function applyMotionToNode(node, roomAgent, index, now) {
+      const motion = WOYSApp.getHQAgentMotionState(roomAgent, {
+        phase: currentRhythm.phase || "observe",
+        now,
+        index,
+      });
+
+      node.style.left = motion.left;
+      node.style.top = motion.top;
+      node.style.zIndex = String(motion.zIndex);
+      node.classList.toggle("walking", motion.isWalking);
+    }
+
     function renderRoom(items) {
       const newestAgentMessage = WOYSApp.getNewestAgentMessage(items);
+      const now = Date.now();
 
       roomAgents.textContent = "";
       youMessage.textContent = WOYSApp.getLatestUserMessage(items) || "No message yet.";
 
-      loadedAgents.forEach(agent => {
+      loadedAgents.forEach((agent, index) => {
         const thinkingAgentId = manualThinkingAgentId || autonomousThinkingAgentId;
         const roomAgent = WOYSApp.mapAgentForRoom(agent, items);
         const node = document.createElement("div");
         node.className = "agent-node";
+        node.dataset.agentId = roomAgent.id;
 
         if (newestAgentMessage && newestAgentMessage.agentId === roomAgent.id) {
           node.classList.add("latest");
@@ -1194,9 +1253,6 @@
         if (thinkingAgentId === roomAgent.id) {
           node.classList.add("thinking");
         }
-
-        node.style.left = roomAgent.position.left;
-        node.style.top = roomAgent.position.top;
 
         const speech = document.createElement("div");
         speech.className = "speech";
@@ -1242,10 +1298,10 @@
         charLegs.className = "char-legs";
 
         const leftLeg = document.createElement("div");
-        leftLeg.className = "char-leg";
+        leftLeg.className = "char-leg left";
 
         const rightLeg = document.createElement("div");
-        rightLeg.className = "char-leg";
+        rightLeg.className = "char-leg right";
 
         const leftFoot = document.createElement("div");
         leftFoot.className = "char-foot";
@@ -1256,6 +1312,7 @@
         charLegs.append(leftLeg, rightLeg);
 
         charWrap.append(charGlow, charHead, charShoulders, charTorso, charArms, charLegs);
+        applyMotionToNode(node, roomAgent, index, now);
 
         const name = document.createElement("div");
         name.className = "agent-name";
@@ -1267,6 +1324,25 @@
 
         node.append(speech, charWrap, name, role);
         roomAgents.appendChild(node);
+      });
+    }
+
+    function updateRoomMotion() {
+      if (loadedAgents.length === 0 || roomAgents.children.length === 0) {
+        return;
+      }
+
+      const now = Date.now();
+
+      loadedAgents.forEach((agent, index) => {
+        const node = roomAgents.querySelector(`[data-agent-id="${agent.id}"]`);
+
+        if (!node) {
+          return;
+        }
+
+        const roomAgent = WOYSApp.mapAgentForRoom(agent, currentMessages);
+        applyMotionToNode(node, roomAgent, index, now);
       });
     }
 
@@ -1760,6 +1836,7 @@
     setInterval(loadCompanyPlan, 5000);
     setInterval(loadAgentGoals, 5000);
     setInterval(loadDecisionMemory, 5000);
+    setInterval(updateRoomMotion, 1200);
   </script>
 </body>
 </html>

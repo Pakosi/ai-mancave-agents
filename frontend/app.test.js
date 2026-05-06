@@ -11,6 +11,7 @@ const {
   getLatestUserMessage,
   getNewestAgentMessage,
   getHQLayoutConfig,
+  getHQAgentMotionState,
   getRoomActivityView,
   getSelectedRoom,
   getAgentCharacterStyle,
@@ -859,6 +860,24 @@ test("getAgentCharacterStyle returns a distinct fixed style per agent", () => {
     accent: "#ffe3ba",
     shadow: "#261006",
   });
+});
+
+test("getHQAgentMotionState returns a patrol motion for the host", () => {
+  const motion = getHQAgentMotionState({ id: "host" }, {
+    phase: "plan",
+    now: 1000,
+    index: 0,
+  });
+
+  assert.equal(motion.isWalking, true);
+  assert.match(motion.left, /%$/);
+  assert.match(motion.top, /%$/);
+  assert.equal(motion.zIndex > 100, true);
+  assert.deepEqual(motion, getHQAgentMotionState({ id: "host" }, {
+    phase: "plan",
+    now: 1000,
+    index: 0,
+  }));
 });
 
 test("getNewestAgentMessage returns latest agent message", () => {

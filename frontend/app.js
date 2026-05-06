@@ -662,6 +662,275 @@
     };
   }
 
+  const agentMotionRoutes = {
+    host: {
+      cycleMs: 24000,
+      observe: [
+        { left: 18, top: 45 },
+        { left: 24, top: 39 },
+        { left: 32, top: 43 },
+        { left: 22, top: 50 },
+      ],
+      plan: [
+        { left: 18, top: 45 },
+        { left: 29, top: 38 },
+        { left: 44, top: 34 },
+        { left: 25, top: 48 },
+      ],
+      execute: [
+        { left: 18, top: 45 },
+        { left: 25, top: 43 },
+        { left: 35, top: 41 },
+        { left: 21, top: 47 },
+      ],
+      review: [
+        { left: 18, top: 45 },
+        { left: 27, top: 39 },
+        { left: 40, top: 42 },
+        { left: 23, top: 48 },
+      ],
+    },
+    assistant: {
+      cycleMs: 30000,
+      observe: [
+        { left: 50, top: 32 },
+        { left: 47, top: 30 },
+        { left: 53, top: 33 },
+      ],
+      plan: [
+        { left: 50, top: 32 },
+        { left: 48, top: 29 },
+        { left: 52, top: 34 },
+      ],
+      execute: [
+        { left: 50, top: 32 },
+        { left: 47, top: 31 },
+        { left: 53, top: 33 },
+      ],
+      review: [
+        { left: 50, top: 32 },
+        { left: 49, top: 30 },
+        { left: 51, top: 33 },
+      ],
+    },
+    sales: {
+      cycleMs: 32000,
+      observe: [
+        { left: 78, top: 50 },
+        { left: 75, top: 48 },
+        { left: 81, top: 52 },
+      ],
+      plan: [
+        { left: 78, top: 50 },
+        { left: 74, top: 47 },
+        { left: 80, top: 51 },
+      ],
+      execute: [
+        { left: 78, top: 50 },
+        { left: 76, top: 49 },
+        { left: 81, top: 52 },
+      ],
+      review: [
+        { left: 78, top: 50 },
+        { left: 75, top: 49 },
+        { left: 79, top: 52 },
+      ],
+    },
+    strategist: {
+      cycleMs: 30000,
+      observe: [
+        { left: 30, top: 25 },
+        { left: 27, top: 28 },
+        { left: 33, top: 24 },
+      ],
+      plan: [
+        { left: 30, top: 25 },
+        { left: 24, top: 21 },
+        { left: 35, top: 26 },
+      ],
+      execute: [
+        { left: 30, top: 25 },
+        { left: 28, top: 27 },
+        { left: 32, top: 24 },
+      ],
+      review: [
+        { left: 30, top: 25 },
+        { left: 26, top: 23 },
+        { left: 34, top: 25 },
+      ],
+    },
+    researcher: {
+      cycleMs: 32000,
+      observe: [
+        { left: 66, top: 24 },
+        { left: 62, top: 27 },
+        { left: 70, top: 23 },
+      ],
+      plan: [
+        { left: 66, top: 24 },
+        { left: 63, top: 21 },
+        { left: 69, top: 26 },
+      ],
+      execute: [
+        { left: 66, top: 24 },
+        { left: 64, top: 26 },
+        { left: 69, top: 23 },
+      ],
+      review: [
+        { left: 66, top: 24 },
+        { left: 63, top: 25 },
+        { left: 68, top: 22 },
+      ],
+    },
+    builder: {
+      cycleMs: 30000,
+      observe: [
+        { left: 31, top: 62 },
+        { left: 28, top: 65 },
+        { left: 35, top: 61 },
+      ],
+      plan: [
+        { left: 31, top: 62 },
+        { left: 27, top: 60 },
+        { left: 34, top: 64 },
+      ],
+      execute: [
+        { left: 31, top: 62 },
+        { left: 29, top: 64 },
+        { left: 34, top: 61 },
+      ],
+      review: [
+        { left: 31, top: 62 },
+        { left: 29, top: 63 },
+        { left: 33, top: 60 },
+      ],
+    },
+    analyst: {
+      cycleMs: 32000,
+      observe: [
+        { left: 65, top: 62 },
+        { left: 62, top: 65 },
+        { left: 68, top: 60 },
+      ],
+      plan: [
+        { left: 65, top: 62 },
+        { left: 61, top: 60 },
+        { left: 69, top: 64 },
+      ],
+      execute: [
+        { left: 65, top: 62 },
+        { left: 63, top: 64 },
+        { left: 68, top: 61 },
+      ],
+      review: [
+        { left: 65, top: 62 },
+        { left: 62, top: 63 },
+        { left: 67, top: 60 },
+      ],
+    },
+    manager: {
+      cycleMs: 28000,
+      observe: [
+        { left: 50, top: 48 },
+        { left: 47, top: 45 },
+        { left: 53, top: 49 },
+      ],
+      plan: [
+        { left: 50, top: 48 },
+        { left: 49, top: 43 },
+        { left: 54, top: 50 },
+      ],
+      execute: [
+        { left: 50, top: 48 },
+        { left: 48, top: 46 },
+        { left: 52, top: 49 },
+      ],
+      review: [
+        { left: 50, top: 48 },
+        { left: 48, top: 47 },
+        { left: 52, top: 45 },
+      ],
+    },
+    default: {
+      cycleMs: 24000,
+      observe: [
+        { left: 50, top: 50 },
+        { left: 49, top: 49 },
+        { left: 51, top: 51 },
+      ],
+      plan: [
+        { left: 50, top: 50 },
+        { left: 49, top: 48 },
+        { left: 51, top: 52 },
+      ],
+      execute: [
+        { left: 50, top: 50 },
+        { left: 49, top: 50 },
+        { left: 51, top: 49 },
+      ],
+      review: [
+        { left: 50, top: 50 },
+        { left: 49, top: 49 },
+        { left: 51, top: 50 },
+      ],
+    },
+  };
+
+  function parsePercent(value) {
+    return Number.parseFloat(String(value).replace("%", "")) || 0;
+  }
+
+  function formatPercent(value) {
+    return `${Math.max(0, Math.min(100, value)).toFixed(1).replace(/\.0$/, "")}%`;
+  }
+
+  function interpolatePoint(start, end, progress) {
+    return {
+      left: start.left + ((end.left - start.left) * progress),
+      top: start.top + ((end.top - start.top) * progress),
+    };
+  }
+
+  function getHQAgentMotionState(agent, options = {}) {
+    const phase = options.phase || "observe";
+    const now = options.now || Date.now();
+    const orderIndex = options.index || 0;
+    const routes = agentMotionRoutes[agent.id] || agentMotionRoutes.default;
+    const route = routes[phase] || routes.observe || agentMotionRoutes.default.observe;
+    const cycleMs = routes.cycleMs || 24000;
+    const offset = (agent.id.length * 937) + (orderIndex * 791);
+    const routePoints = route.length > 1 ? route : agentMotionRoutes.default.observe;
+    const segmentCount = routePoints.length - 1;
+
+    if (segmentCount <= 0) {
+      const home = agentRoomPositions[agent.id] || agentRoomPositions.manager;
+
+      return {
+        left: home.left,
+        top: home.top,
+        zIndex: Math.round(100 + parsePercent(home.top)),
+        isWalking: false,
+      };
+    }
+
+    const elapsed = (now + offset) % cycleMs;
+    const segmentMs = cycleMs / segmentCount;
+    const segmentIndex = Math.min(segmentCount - 1, Math.floor(elapsed / segmentMs));
+    const segmentProgress = (elapsed % segmentMs) / segmentMs;
+    const eased = segmentProgress * segmentProgress * (3 - (2 * segmentProgress));
+    const start = routePoints[segmentIndex];
+    const end = routePoints[(segmentIndex + 1) % routePoints.length];
+    const point = interpolatePoint(start, end, eased);
+    const isWalking = segmentProgress > 0.08 && segmentProgress < 0.92;
+
+    return {
+      left: formatPercent(point.left),
+      top: formatPercent(point.top),
+      zIndex: Math.round(100 + point.top),
+      isWalking,
+    };
+  }
+
   function mapAgentForRoom(agent, messages = []) {
     const latestMessage = [...messages]
       .reverse()
@@ -718,6 +987,7 @@
     mapAgentGoalForDisplay,
     mapAgentForRoom,
     getAgentCharacterStyle,
+    getHQAgentMotionState,
     mapCompanyPlanForDisplay,
     mapDecisionForDisplay,
     mapMemoryEventForDisplay,
