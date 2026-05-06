@@ -16,6 +16,28 @@ const statusWeights = {
   killed: -10,
 };
 
+const ideaCategoryByAgentId = {
+  sales: "Trading",
+  assistant: "AI Automation",
+  strategist: "Arbitrage",
+  researcher: "Niche Research",
+  builder: "MVP/Product",
+  analyst: "Risk/Scoring",
+  host: "Review / Ranking",
+  manager: "Review / Ranking",
+};
+
+const ideaTitleHintsByAgentId = {
+  sales: "Dealer revenue",
+  assistant: "Workflow automation",
+  strategist: "Opportunity spread",
+  researcher: "Niche discovery",
+  builder: "MVP prototype",
+  analyst: "Risk model",
+  host: "Idea ranking",
+  manager: "Idea review",
+};
+
 const maxTextLength = 260;
 
 function createEmptyBusinessIdeas() {
@@ -201,6 +223,168 @@ function getBusinessIdeaScore(idea) {
   );
 }
 
+function getBusinessIdeaCategoryForAgent(agentId) {
+  return ideaCategoryByAgentId[agentId] || "General";
+}
+
+function getBusinessIdeaTitleHintForAgent(agentId) {
+  return ideaTitleHintsByAgentId[agentId] || "Business idea";
+}
+
+function cleanFocus(value, fallback) {
+  const text = cleanText(value);
+
+  return text !== "" ? text : fallback;
+}
+
+function getBusinessIdeaFocus({ agent, roomName, topic, task, plan, goal }) {
+  const roomFocus = cleanFocus(roomName, "HQ");
+  const topicFocus = cleanFocus(topic, plan && plan.currentObjective ? plan.currentObjective : "new opportunity");
+  const taskFocus = task && task.title ? task.title : "";
+  const goalFocus = goal && goal.currentGoal ? goal.currentGoal : "";
+  const pieces = [taskFocus, goalFocus, topicFocus, roomFocus].filter(Boolean);
+  const headline = pieces[0] || "new opportunity";
+
+  return {
+    headline: headline.slice(0, 80),
+    description: `${agent.role}: ${topicFocus}. Current objective: ${plan.currentObjective}. ${taskFocus ? `Task focus: ${taskFocus}.` : ""}`.trim().slice(0, maxTextLength),
+    nextAction: taskFocus
+      ? `Move "${taskFocus}" one step forward`
+      : `Clarify the next move for ${topicFocus}`,
+  };
+}
+
+function getBusinessIdeaDraft({ agent, roomName, topic, task, plan, goal, rhythm }) {
+  const category = getBusinessIdeaCategoryForAgent(agent.id);
+  const focus = getBusinessIdeaFocus({ agent, roomName, topic, task, plan, goal });
+  const titleHint = getBusinessIdeaTitleHintForAgent(agent.id);
+  const baseConfidenceByAgent = {
+    sales: 7,
+    assistant: 6,
+    strategist: 6,
+    researcher: 5,
+    builder: 7,
+    analyst: 6,
+    host: 5,
+    manager: 5,
+  };
+  const baseProfitByAgent = {
+    sales: 8,
+    assistant: 7,
+    strategist: 7,
+    researcher: 5,
+    builder: 7,
+    analyst: 5,
+    host: 4,
+    manager: 4,
+  };
+  const baseRiskByAgent = {
+    sales: 4,
+    assistant: 4,
+    strategist: 5,
+    researcher: 3,
+    builder: 5,
+    analyst: 6,
+    host: 4,
+    manager: 4,
+  };
+  const baseDifficultyByAgent = {
+    sales: 4,
+    assistant: 4,
+    strategist: 5,
+    researcher: 5,
+    builder: 6,
+    analyst: 5,
+    host: 3,
+    manager: 4,
+  };
+  const baseStartupByAgent = {
+    sales: 4,
+    assistant: 3,
+    strategist: 3,
+    researcher: 2,
+    builder: 6,
+    analyst: 2,
+    host: 2,
+    manager: 3,
+  };
+  const phaseBias = {
+    observe: { confidence: -1, status: "researching" },
+    plan: { confidence: 0, status: "validating" },
+    execute: { confidence: 1, status: "building" },
+    review: { confidence: 1, status: "promising" },
+  }[rhythm.phase] || { confidence: 0, status: "researching" };
+
+  return {
+    title: `${category}: ${titleHint} ${focus.headline}`.slice(0, 80),
+    category,
+    description: focus.description,
+    profitPotential: baseProfitByAgent[agent.id] || 5,
+    startupCost: baseStartupByAgent[agent.id] || 4,
+    risk: baseRiskByAgent[agent.id] || 5,
+    difficulty: baseDifficultyByAgent[agent.id] || 5,
+    confidence: Math.min(10, Math.max(0, (baseConfidenceByAgent[agent.id] || 5) + phaseBias.confidence)),
+    status: phaseBias.status,
+    assignedAgentId: agent.id,
+    nextAction: focus.nextAction,
+    notes: `${agent.name} reviewed ${roomName}. ${goal && goal.currentGoal ? goal.currentGoal : plan.currentObjective}`.slice(0, maxTextLength),
+  };
+}
+
+function getBusinessIdeaPatch({ agent, currentIdea, task, plan, goal, rhythm }) {
+  const taskFocus = task && task.title ? task.title : "";
+  const goalFocus = goal && goal.currentGoal ? goal.currentGoal : "";
+  const currentStatus = currentIdea.status;
+  const nextStatusByPhase = {
+    observe: "researching",
+    plan: "validating",
+    execute: "building",
+    review: "promising",
+  };
+  const status = agent.id === "analyst"
+    ? (currentIdea.risk >= 7 ? "paused" : currentStatus)
+    : (nextStatusByPhase[rhythm.phase] || currentStatus);
+  const confidenceBump = {
+    observe: 0,
+    plan: 1,
+    execute: 2,
+    review: 1,
+  }[rhythm.phase] || 0;
+  const profitBump = agent.id === "sales" ? 1 : agent.id === "builder" ? 1 : 0;
+  const riskDrop = agent.id === "analyst" ? 1 : agent.id === "researcher" ? 1 : 0;
+  const difficultyDrop = agent.id === "builder" ? 1 : 0;
+  const nextAction = taskFocus
+    ? `Advance "${taskFocus}" into the next step`
+    : currentIdea.nextAction || `Refine ${currentIdea.category}`;
+  const notes = `${agent.name} updated ${currentIdea.title}. ${goalFocus || plan.currentObjective}`.trim();
+
+  return {
+    status,
+    confidence: Math.min(10, Math.max(0, currentIdea.confidence + confidenceBump)),
+    profitPotential: Math.min(10, Math.max(0, currentIdea.profitPotential + profitBump)),
+    risk: Math.min(10, Math.max(0, currentIdea.risk - riskDrop)),
+    difficulty: Math.min(10, Math.max(0, currentIdea.difficulty - difficultyDrop)),
+    nextAction: nextAction.slice(0, maxTextLength),
+    notes: notes.slice(0, maxTextLength),
+  };
+}
+
+function isImportantBusinessIdeaChange(previousIdea, updatedIdea) {
+  if (!previousIdea || !updatedIdea) {
+    return false;
+  }
+
+  if (previousIdea.status !== updatedIdea.status) {
+    return true;
+  }
+
+  const confidenceChange = Math.abs((updatedIdea.confidence || 0) - (previousIdea.confidence || 0));
+  const profitChange = Math.abs((updatedIdea.profitPotential || 0) - (previousIdea.profitPotential || 0));
+  const riskChange = Math.abs((updatedIdea.risk || 0) - (previousIdea.risk || 0));
+
+  return confidenceChange >= 2 || profitChange >= 2 || riskChange >= 2;
+}
+
 function toTimestamp(value) {
   const timestamp = Date.parse(value);
 
@@ -230,7 +414,11 @@ function rankBusinessIdeas(ideas) {
 module.exports = {
   createBusinessIdeaEntry,
   createEmptyBusinessIdeas,
+  getBusinessIdeaCategoryForAgent,
+  getBusinessIdeaDraft,
+  getBusinessIdeaPatch,
   getBusinessIdeaScore,
+  isImportantBusinessIdeaChange,
   normalizeBusinessIdeas,
   normalizeBusinessIdea,
   rankBusinessIdeas,

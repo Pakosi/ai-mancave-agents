@@ -461,6 +461,194 @@ test("GET /api/business-ideas returns ranked ideas", async (t) => {
   assert.equal(response.body.ideas[1].title, "Lower priority idea");
 });
 
+test("autonomous agents create business ideas", () => {
+  resetMessages();
+  app.locals.agentThoughtIndex = 0;
+
+  const result = app.locals.maybeUpdateBusinessIdeasForTest({
+    agent: {
+      id: "sales",
+      name: "Sales",
+      role: "Revenue specialist",
+    },
+    roomId: "auto",
+    topic: "dealer follow-up",
+    plan: app.locals.readCompanyPlanForTest(),
+    goal: null,
+    rhythm: app.locals.getOperatingRhythmForTest(0),
+  });
+
+  const ideas = app.locals.readBusinessIdeasForTest();
+  const messages = app.locals.readMessagesForTest();
+
+  assert.ok(result);
+  assert.equal(ideas.length, 1);
+  assert.equal(ideas[0].assignedAgentId, "sales");
+  assert.equal(ideas[0].category, "Trading");
+  assert.match(ideas[0].title, /Trading/);
+  assert.ok(messages.some((message) => message.message.startsWith("Idea created:")));
+});
+
+test("autonomous agents refine existing business ideas", () => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T10:00:00.000Z",
+      updatedAt: "2026-05-06T10:00:00.000Z",
+      title: "Trading: Dealer revenue funnel",
+      category: "Trading",
+      description: "Initial idea.",
+      profitPotential: 6,
+      startupCost: 3,
+      risk: 4,
+      difficulty: 4,
+      confidence: 5,
+      status: "researching",
+      assignedAgentId: "sales",
+      nextAction: "Talk to one dealer",
+      notes: "",
+    },
+  ]);
+  app.locals.agentThoughtIndex = 2;
+
+  const result = app.locals.maybeUpdateBusinessIdeasForTest({
+    agent: {
+      id: "sales",
+      name: "Sales",
+      role: "Revenue specialist",
+    },
+    roomId: "auto",
+    topic: "dealer revenue",
+    task: {
+      title: "Validate dealer offer",
+      description: "Talk to one dealer about pricing.",
+    },
+    plan: app.locals.readCompanyPlanForTest(),
+    goal: null,
+    rhythm: app.locals.getOperatingRhythmForTest(2),
+  });
+
+  const ideas = app.locals.readBusinessIdeasForTest();
+  const messages = app.locals.readMessagesForTest();
+
+  assert.ok(result);
+  assert.equal(ideas.length, 1);
+  assert.equal(ideas[0].status, "building");
+  assert.ok(ideas[0].confidence >= 6);
+  assert.match(ideas[0].nextAction, /Validate dealer offer|Advance/);
+  assert.ok(messages.some((message) => message.message.startsWith("Idea update:")));
+});
+
+test("host review behavior ranks and promotes top ideas", () => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T10:00:00.000Z",
+      updatedAt: "2026-05-06T10:00:00.000Z",
+      title: "Lower priority idea",
+      category: "General",
+      description: "Weak idea.",
+      profitPotential: 3,
+      startupCost: 6,
+      risk: 6,
+      difficulty: 5,
+      confidence: 3,
+      status: "validating",
+      assignedAgentId: "assistant",
+      nextAction: "Review later",
+      notes: "",
+    },
+    {
+      id: 2,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Strong idea",
+      category: "Trading",
+      description: "Better fit.",
+      profitPotential: 9,
+      startupCost: 2,
+      risk: 2,
+      difficulty: 3,
+      confidence: 8,
+      status: "researching",
+      assignedAgentId: "sales",
+      nextAction: "Validate demand",
+      notes: "",
+    },
+  ]);
+  app.locals.agentThoughtIndex = 3;
+
+  const result = app.locals.maybeUpdateBusinessIdeasForTest({
+    agent: {
+      id: "host",
+      name: "Host",
+      role: "Coordinator",
+    },
+    roomId: "main",
+    topic: "idea ranking",
+    plan: app.locals.readCompanyPlanForTest(),
+    goal: null,
+    rhythm: app.locals.getOperatingRhythmForTest(3),
+  });
+
+  const ideas = app.locals.readBusinessIdeasForTest();
+  const messages = app.locals.readMessagesForTest();
+  const topIdea = ideas.find((idea) => idea.title === "Strong idea");
+
+  assert.ok(result);
+  assert.ok(topIdea);
+  assert.equal(topIdea.status, "promising");
+  assert.match(topIdea.notes, /reviewed 2 ideas/i);
+  assert.ok(messages.some((message) => message.message.startsWith("Idea review:")));
+});
+
+test("important business idea changes create a feed message", () => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T10:00:00.000Z",
+      updatedAt: "2026-05-06T10:00:00.000Z",
+      title: "Arbitrage lead",
+      category: "Arbitrage",
+      description: "Initial idea.",
+      profitPotential: 5,
+      startupCost: 4,
+      risk: 5,
+      difficulty: 5,
+      confidence: 4,
+      status: "researching",
+      assignedAgentId: "strategist",
+      nextAction: "Refine angle",
+      notes: "",
+    },
+  ]);
+  app.locals.agentThoughtIndex = 4;
+
+  app.locals.maybeUpdateBusinessIdeasForTest({
+    agent: {
+      id: "strategist",
+      name: "Strategist",
+      role: "Planning lead",
+    },
+    roomId: "marketing",
+    topic: "arbitrage opportunity",
+    task: {
+      title: "Sharpen arbitrage idea",
+      description: "Find the spread.",
+    },
+    plan: app.locals.readCompanyPlanForTest(),
+    goal: null,
+    rhythm: app.locals.getOperatingRhythmForTest(0),
+  });
+
+  const messages = app.locals.readMessagesForTest();
+
+  assert.ok(messages.some((message) => message.message.startsWith("Idea update:") || message.message.startsWith("Idea created:")));
+});
+
 test("GET /api/decisions and /api/memory-events return decision log state", async (t) => {
   resetMessages();
   app.locals.writeDecisionLogForTest({
@@ -1640,9 +1828,10 @@ test("autonomous agent thought can advance a task and store update message", asy
   const messages = await getJson(server, "/api/messages?roomId=main");
 
   assert.equal(tasks.body.tasks[0].status, "in_progress");
-  assert.equal(messages.body.messages.length, 2);
-  assert.match(messages.body.messages[1].message, /Tighten sales offer/);
-  assert.match(messages.body.messages[1].message, /in progress/);
+  assert.ok(messages.body.messages.length >= 2);
+  assert.ok(messages.body.messages.some((message) => (
+    /Tighten sales offer/.test(message.message) && /in progress/.test(message.message)
+  )));
 });
 
 test("autonomous agent thoughts sometimes create room tasks", () => {

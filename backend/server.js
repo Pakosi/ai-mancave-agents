@@ -13,8 +13,15 @@ const {
   updateGoalForCoordinator,
 } = require("./agentGoals");
 const {
+  createEmptyBusinessIdeas,
+  createBusinessIdeaEntry,
+  getBusinessIdeaCategoryForAgent,
+  getBusinessIdeaDraft,
+  getBusinessIdeaPatch,
+  isImportantBusinessIdeaChange,
   normalizeBusinessIdeas,
   rankBusinessIdeas,
+  updateBusinessIdea,
 } = require("./businessIdeas");
 const {
   createDefaultCompanyPlan,
@@ -170,7 +177,7 @@ function writeAgentGoals(goals) {
 
 function readBusinessIdeas() {
   if (!fs.existsSync(app.locals.businessIdeasFile)) {
-    const ideas = [];
+    const ideas = createEmptyBusinessIdeas();
     writeJsonFile(app.locals.businessIdeasFile, ideas);
 
     return ideas;
@@ -998,6 +1005,15 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     topic,
     rhythm,
   });
+  maybeUpdateBusinessIdeas({
+    agent,
+    roomId: normalizedRoomId,
+    topic,
+    task: selectedTask,
+    plan: companyPlan,
+    goal: agentGoal,
+    rhythm,
+  });
 
   return storedMessage;
 }
@@ -1107,6 +1123,175 @@ function maybeUpdateAgentGoals({ agent, goals, roomId, topic, rhythm }) {
   }
 
   return result.updatedGoal;
+}
+
+function getBusinessIdeaForAgent(ideas, agent) {
+  const rankedIdeas = rankBusinessIdeas(ideas);
+  const assignedIdea = rankedIdeas.find((idea) => idea.assignedAgentId === agent.id);
+  const category = getBusinessIdeaCategoryForAgent(agent.id);
+  const categoryIdea = rankedIdeas.find((idea) => idea.category === category);
+
+  return assignedIdea || categoryIdea || rankedIdeas[0] || null;
+}
+
+function getBusinessIdeaFeedMessage(action, idea, agent) {
+  const suffix = idea.nextAction ? ` Next: ${idea.nextAction}.` : "";
+
+  return `${action}: "${idea.title}" for ${idea.category}. Status: ${idea.status}.${suffix} (${agent.name})`;
+}
+
+function maybeUpdateBusinessIdeas({ agent, roomId, topic, task, plan, goal, rhythm }) {
+  if (!agent) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const currentIdeas = readBusinessIdeas();
+  const messages = readMessages();
+  const isCoordinator = ["host", "manager"].includes(agent.id);
+
+  if (currentIdeas.length === 0) {
+    const draft = getBusinessIdeaDraft({
+      agent,
+      roomName: getRoomName(roomId),
+      topic,
+      task,
+      plan: plan || readCompanyPlan(),
+      goal,
+      rhythm,
+    });
+    const created = createBusinessIdeaEntry({
+      ideas: currentIdeas,
+      ...draft,
+      now,
+    });
+
+    if (!created.idea) {
+      return null;
+    }
+
+    writeBusinessIdeas(created.ideas);
+    storeAgentMessage({
+      agentId: agent.id,
+      sessionId: autonomousSessionId,
+      roomId,
+      message: getBusinessIdeaFeedMessage("Idea created", created.idea, agent),
+      messages,
+    });
+
+    return created.idea;
+  }
+
+  if (isCoordinator) {
+    if (rhythm.phase !== "review" && app.locals.agentThoughtIndex % 2 !== 0) {
+      return null;
+    }
+
+    const rankedIdeas = rankBusinessIdeas(currentIdeas);
+    const topIdea = rankedIdeas[0];
+
+    if (!topIdea) {
+      return null;
+    }
+
+    const promotedStatus = topIdea.status === "researching" || topIdea.status === "validating"
+      ? "promising"
+      : topIdea.status;
+    const reviewNote = `${agent.name} reviewed ${rankedIdeas.length} ideas. Top idea: ${topIdea.title}.`;
+    const updateResult = updateBusinessIdea({
+      ideas: currentIdeas,
+      ideaId: topIdea.id,
+      patch: {
+        status: promotedStatus,
+        notes: reviewNote,
+        nextAction: `Keep ${promotedStatus === "promising" ? "pushing" : "tracking"} ${topIdea.title}`,
+        confidence: Math.min(10, topIdea.confidence + (promotedStatus === "promising" ? 1 : 0)),
+      },
+      now,
+    });
+
+    if (!updateResult.idea) {
+      return null;
+    }
+
+    writeBusinessIdeas(updateResult.ideas);
+    storeAgentMessage({
+      agentId: agent.id,
+      sessionId: autonomousSessionId,
+      roomId,
+      message: getBusinessIdeaFeedMessage("Idea review", updateResult.idea, agent),
+      messages,
+    });
+
+    return updateResult.idea;
+  }
+
+  const targetIdea = getBusinessIdeaForAgent(currentIdeas, agent);
+
+  if (!targetIdea) {
+    const draft = getBusinessIdeaDraft({
+      agent,
+      roomName: getRoomName(roomId),
+      topic,
+      task,
+      plan: plan || readCompanyPlan(),
+      goal,
+      rhythm,
+    });
+    const created = createBusinessIdeaEntry({
+      ideas: currentIdeas,
+      ...draft,
+      now,
+    });
+
+    if (!created.idea) {
+      return null;
+    }
+
+    writeBusinessIdeas(created.ideas);
+    storeAgentMessage({
+      agentId: agent.id,
+      sessionId: autonomousSessionId,
+      roomId,
+      message: getBusinessIdeaFeedMessage("Idea created", created.idea, agent),
+      messages,
+    });
+
+    return created.idea;
+  }
+
+  const patch = getBusinessIdeaPatch({
+    agent,
+    currentIdea: targetIdea,
+    task,
+    plan: plan || readCompanyPlan(),
+    goal,
+    rhythm,
+  });
+  const updateResult = updateBusinessIdea({
+    ideas: currentIdeas,
+    ideaId: targetIdea.id,
+    patch,
+    now,
+  });
+
+  if (!updateResult.idea) {
+    return null;
+  }
+
+  writeBusinessIdeas(updateResult.ideas);
+
+  if (isImportantBusinessIdeaChange(targetIdea, updateResult.idea) || app.locals.agentThoughtIndex % 4 === 0) {
+    storeAgentMessage({
+      agentId: agent.id,
+      sessionId: autonomousSessionId,
+      roomId,
+      message: getBusinessIdeaFeedMessage("Idea update", updateResult.idea, agent),
+      messages,
+    });
+  }
+
+  return updateResult.idea;
 }
 
 function maybeAdvanceAutonomousTask({ agentId, sessionId, task, tasks, rhythm = getOperatingRhythm(app.locals.agentThoughtIndex) }) {
@@ -1550,5 +1735,6 @@ app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 app.locals.handoffTaskForTest = handoffTask;
 app.locals.findBestAgentForTaskForTest = findBestAgentForTask;
 app.locals.maybeHandoffAutonomousTaskForTest = maybeHandoffAutonomousTask;
+app.locals.maybeUpdateBusinessIdeasForTest = maybeUpdateBusinessIdeas;
 
 module.exports = app;
