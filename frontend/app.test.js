@@ -11,6 +11,7 @@ const {
   getLatestUserMessage,
   getNewestAgentMessage,
   getRoomActivityView,
+  getSelectedRoom,
   loadAgents,
   loadMessages,
   loadRooms,
@@ -430,11 +431,13 @@ test("mapAgentForOption maps backend agent for dropdown use", () => {
 
 test("mapRoomForOption maps backend room for dropdown use", () => {
   const option = mapRoomForOption({
+    brief: "Plan campaigns and content angles.",
     id: "marketing",
     name: "Marketing War Room",
   });
 
   assert.deepEqual(option, {
+    brief: "Plan campaigns and content angles.",
     value: "marketing",
     text: "Marketing War Room",
   });
@@ -609,6 +612,19 @@ test("getSelectedRoomId falls back when saved room is invalid", () => {
   ];
 
   assert.equal(getSelectedRoomId(rooms, storage), "main");
+});
+
+test("getSelectedRoom returns room with brief", () => {
+  const room = getSelectedRoom([
+    { id: "main", name: "Main Office", brief: "Coordinate the overall WOYS business." },
+    { id: "ops", name: "Operations Desk", brief: "Improve delivery systems." },
+  ], "ops");
+
+  assert.deepEqual(room, {
+    id: "ops",
+    name: "Operations Desk",
+    brief: "Improve delivery systems.",
+  });
 });
 
 test("getRoomActivityView shows active room and other room notice", () => {

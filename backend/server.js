@@ -145,18 +145,22 @@ const rooms = {
   main: {
     id: "main",
     name: "Main Office",
+    brief: "Coordinate the overall WOYS business, product direction, and agent teamwork.",
   },
   auto: {
     id: "auto",
     name: "Auto Sales Lab",
+    brief: "Develop dealership sales workflows, follow-up scripts, and buyer conversion ideas.",
   },
   marketing: {
     id: "marketing",
     name: "Marketing War Room",
+    brief: "Plan campaigns, content angles, positioning, and lead generation experiments.",
   },
   ops: {
     id: "ops",
     name: "Operations Desk",
+    brief: "Improve delivery systems, internal checklists, support flows, and repeatable operations.",
   },
 };
 
@@ -183,7 +187,8 @@ function getPublicAgents() {
 }
 
 function getPublicRooms() {
-  return Object.values(rooms).map(({ id, name }) => ({
+  return Object.values(rooms).map(({ id, name, brief }) => ({
+    brief,
     id,
     name,
   }));
@@ -191,6 +196,10 @@ function getPublicRooms() {
 
 function getRoomName(roomId) {
   return rooms[roomId] ? rooms[roomId].name : roomId;
+}
+
+function getRoomBrief(roomId) {
+  return rooms[roomId] ? rooms[roomId].brief : rooms.main.brief;
 }
 
 function getRoomMessages(messages, sessionId, roomId) {
@@ -357,6 +366,24 @@ function addTaskReference(reply, task) {
   return `${reply} For "${task.title}", the next move is clear.`;
 }
 
+function addRoomBriefCue(reply, roomId) {
+  const room = rooms[roomId] || rooms.main;
+
+  if (roomId === "auto") {
+    return `${reply} Keep it tied to dealer follow-up.`;
+  }
+
+  if (roomId === "marketing") {
+    return `${reply} Frame it as a campaign test.`;
+  }
+
+  if (roomId === "ops") {
+    return `${reply} Make it repeatable for operations.`;
+  }
+
+  return `${reply} Keep the team aligned on ${room.name}.`;
+}
+
 function getLatestMessageByRole(messages, role) {
   return [...messages]
     .reverse()
@@ -405,22 +432,23 @@ function createAgentThought(agentId, roomId = chooseNextThoughtRoom().id) {
     : chooseNextAgent(lastSpeakerId);
   const prompt = thoughtPrompts[app.locals.agentThoughtIndex % thoughtPrompts.length];
   const targetMessage = lastMessage || getLatestMessageByRole(contextMessages, "user");
-  const fallbackMessage = `${businessTopic} ${prompt}`;
+  const roomBrief = getRoomBrief(normalizedRoomId);
+  const fallbackMessage = `${businessTopic} ${roomBrief} ${prompt}`;
   const selectedMessage = selectedTask
     ? `${targetMessage ? targetMessage.message : fallbackMessage} Task focus: ${selectedTask.title}`
     : targetMessage ? targetMessage.message : fallbackMessage;
   const topic = updateTopicMemory(sessionId, normalizedRoomId, contextMessages);
   const variation = getAgentResponseMode(targetMessage);
-  const reply = addTaskReference(generateAgentReply({
+  const reply = addRoomBriefCue(addTaskReference(generateAgentReply({
     agent,
     message: selectedMessage,
     context: {
-      topic,
+      topic: roomBrief,
       messages: contextMessages,
       target: targetMessage,
       variation,
     },
-  }), selectedTask);
+  }), selectedTask), normalizedRoomId);
 
   app.locals.agentThoughtIndex += 1;
 
@@ -498,9 +526,10 @@ function maybeCreateAutonomousTask({ agentId, roomId, topic, message }) {
     return null;
   }
 
-  const cleanTopic = topic && topic !== "the current business idea" ? topic : "next room idea";
+  const roomBrief = getRoomBrief(roomId);
+  const cleanTopic = topic && topic !== "the current business idea" ? topic : roomBrief;
   const title = `Clarify ${cleanTopic}`.slice(0, 80);
-  const description = `Follow up on: ${message}`.slice(0, 160);
+  const description = `Use the room brief: ${roomBrief} Follow up on: ${message}`.slice(0, 180);
 
   return createTask({
     roomId,
@@ -553,6 +582,7 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
   const lastSpeakerId = lastMessage && lastMessage.role === "agent" ? lastMessage.agentId : null;
   const agent = chooseNextAgent(lastSpeakerId);
   const topic = updateTopicMemory(sessionId, roomId, contextMessages);
+  const roomBrief = getRoomBrief(roomId);
 
   app.locals.agentThoughtState = {
     isThinking: true,
@@ -560,7 +590,7 @@ function scheduleNextAgentThought(delay = getRandomThoughtDelay()) {
     sessionId,
     roomId,
     roomName: room.name,
-    topic,
+    topic: topic === "the current business idea" ? roomBrief : topic,
   };
 
   app.locals.agentThoughtTimer = setTimeout(() => {
@@ -727,14 +757,15 @@ app.post("/api/agents/:agentId/reply", (req, res) => {
   const allMessages = readMessages();
   const sessionMessages = getRoomMessages(allMessages, sessionId, roomId);
   const topic = updateTopicMemory(sessionId, roomId, sessionMessages);
-  const reply = generateAgentReply({
+  const roomBrief = getRoomBrief(roomId);
+  const reply = addRoomBriefCue(generateAgentReply({
     agent,
-    message,
+    message: `${message} Room brief: ${roomBrief}`,
     context: {
-      topic,
+      topic: roomBrief,
       messages: sessionMessages,
     },
-  });
+  }), roomId);
 
   storeAgentMessage({
     agentId,

@@ -216,12 +216,20 @@ test("GET /api/rooms returns public rooms", async (t) => {
   const response = await getJson(server, "/api/rooms");
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.body.rooms, [
+  assert.deepEqual(response.body.rooms.map((room) => ({
+    id: room.id,
+    name: room.name,
+  })), [
     { id: "main", name: "Main Office" },
     { id: "auto", name: "Auto Sales Lab" },
     { id: "marketing", name: "Marketing War Room" },
     { id: "ops", name: "Operations Desk" },
   ]);
+
+  for (const room of response.body.rooms) {
+    assert.equal(typeof room.brief, "string");
+    assert.ok(room.brief.length > 10);
+  }
 });
 
 test("POST /api/message stores a message and GET /api/messages returns it", async (t) => {
@@ -815,6 +823,31 @@ test("POST /api/agents/:agentId/reply stores messages in the requested room", as
   assert.deepEqual(mainMessages.body.messages, []);
 });
 
+test("POST /api/agents/:agentId/reply uses room brief context", async (t) => {
+  resetMessages();
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const auto = await postJson(server, "/api/agents/sales/reply", {
+    message: "what should we improve",
+    roomId: "auto",
+  });
+  const marketing = await postJson(server, "/api/agents/sales/reply", {
+    message: "what should we improve",
+    roomId: "marketing",
+  });
+
+  assert.equal(auto.statusCode, 200);
+  assert.equal(marketing.statusCode, 200);
+  assert.notEqual(auto.body.reply, marketing.body.reply);
+  assert.match(auto.body.reply, /dealer follow-up/);
+  assert.match(marketing.body.reply, /campaign test/);
+});
+
 test("autonomous agent thought stores an agent message", () => {
   resetMessages();
 
@@ -972,6 +1005,14 @@ test("autonomous agent thought references active room task", async (t) => {
   const thought = app.locals.createAgentThought(undefined, "main");
 
   assert.match(thought.message, /Map onboarding handoff/);
+});
+
+test("autonomous agent thought uses room brief context", () => {
+  resetMessages();
+
+  const thought = app.locals.createAgentThought(undefined, "marketing");
+
+  assert.match(thought.message, /campaign test/);
 });
 
 test("autonomous agent thought can advance a task and store update message", async (t) => {

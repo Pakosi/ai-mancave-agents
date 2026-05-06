@@ -349,9 +349,14 @@
 
   function mapRoomForOption(room) {
     return {
+      brief: room.brief,
       value: room.id,
       text: room.name,
     };
+  }
+
+  function getSelectedRoom(rooms = [], roomId) {
+    return rooms.find((room) => room.id === roomId) || null;
   }
 
   function getNextTaskStatus(status) {
@@ -452,6 +457,7 @@
     getSelectedAgentId,
     getSavedSelectedAgentId,
     getRoomActivityView,
+    getSelectedRoom,
     loadAgents,
     loadMessages,
     loadRooms,
