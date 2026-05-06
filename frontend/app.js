@@ -17,6 +17,18 @@
     });
   }
 
+  function fetchText(url, options, fetchImpl) {
+    const request = getFetch(fetchImpl);
+
+    return request(url, options).then((res) => {
+      if (!res.ok) {
+        throw new Error(`Request failed with status ${res.status}`);
+      }
+
+      return res.text();
+    });
+  }
+
   function getSessionId(storage) {
     const sessionStorage = storage || root.localStorage;
 
@@ -240,6 +252,46 @@
       });
   }
 
+  function loadBusinessIdeasExport(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchText(`${apiBaseUrl}/api/exports/business-ideas`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onExport) {
+          options.onExport(data);
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function loadBusinessIdeaExport(ideaId, options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchText(`${apiBaseUrl}/api/exports/business-ideas/${encodeURIComponent(ideaId)}`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onExport) {
+          options.onExport(data);
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
   function loadCeoDigest(options = {}) {
     const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
 
@@ -250,6 +302,26 @@
         }
 
         return data.digest;
+      })
+      .catch((err) => {
+        if (options.onError) {
+          options.onError(err);
+        }
+
+        throw err;
+      });
+  }
+
+  function loadCeoDigestExport(options = {}) {
+    const apiBaseUrl = options.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+    return fetchText(`${apiBaseUrl}/api/exports/ceo-digest`, undefined, options.fetch)
+      .then((data) => {
+        if (options.onExport) {
+          options.onExport(data);
+        }
+
+        return data;
       })
       .catch((err) => {
         if (options.onError) {
@@ -1602,7 +1674,10 @@
     loadAgents,
     loadAgentGoals,
     loadBusinessIdeas,
+    loadBusinessIdeasExport,
+    loadBusinessIdeaExport,
     loadCeoDigest,
+    loadCeoDigestExport,
     loadCompanyPlan,
     loadDecisions,
     loadMemoryEvents,

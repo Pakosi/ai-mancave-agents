@@ -7,11 +7,15 @@ const test = require("node:test");
 
 const {
   createBusinessIdeaEntry,
+  formatBusinessIdeaMarkdown,
+  formatBusinessIdeasMarkdown,
+  getBusinessIdeaById,
   rankBusinessIdeas,
   updateBusinessIdea,
 } = require("./businessIdeas");
 const {
   buildCeoDigest,
+  formatCeoDigestMarkdown,
 } = require("./ceoDigest");
 const {
   executeCommand,
@@ -123,6 +127,37 @@ function getJson(server, path) {
           } catch (err) {
             reject(err);
           }
+        });
+      },
+    );
+
+    req.on("error", reject);
+  });
+}
+
+function getText(server, path) {
+  const { port } = server.address();
+
+  return new Promise((resolve, reject) => {
+    const req = http.get(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path,
+      },
+      (res) => {
+        let body = "";
+
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () => {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body,
+          });
         });
       },
     );
@@ -469,6 +504,59 @@ test("GET /api/business-ideas returns ranked ideas", async (t) => {
   assert.equal(response.body.ideas[1].title, "Lower priority idea");
 });
 
+test("business idea markdown exports include list and single idea reports", () => {
+  const ideas = rankBusinessIdeas([
+    {
+      id: 1,
+      createdAt: "2026-05-06T09:00:00.000Z",
+      updatedAt: "2026-05-06T09:00:00.000Z",
+      title: "Lower priority idea",
+      category: "ops",
+      description: "Less attractive option.",
+      profitPotential: 2,
+      startupCost: 8,
+      risk: 6,
+      difficulty: 7,
+      confidence: 3,
+      status: "paused",
+      assignedAgentId: "assistant",
+      nextAction: "Review later",
+      notes: "",
+    },
+    {
+      id: 2,
+      createdAt: "2026-05-06T10:00:00.000Z",
+      updatedAt: "2026-05-06T10:00:00.000Z",
+      title: "Priority idea",
+      category: "sales",
+      description: "Better business fit.",
+      profitPotential: 9,
+      startupCost: 2,
+      risk: 2,
+      difficulty: 3,
+      confidence: 8,
+      status: "promising",
+      assignedAgentId: "sales",
+      nextAction: "Validate with one user",
+      notes: "Good candidate.",
+    },
+  ]);
+
+  const listMarkdown = formatBusinessIdeasMarkdown(ideas, [
+    { id: "sales", name: "Sales" },
+  ]);
+  const ideaMarkdown = formatBusinessIdeaMarkdown(ideas[0], [
+    { id: "sales", name: "Sales" },
+  ]);
+
+  assert.match(listMarkdown, /# WOYS Business Ideas/);
+  assert.match(listMarkdown, /1\. Priority idea/);
+  assert.match(listMarkdown, /Assigned Agent: Sales/);
+  assert.match(ideaMarkdown, /# Priority idea/);
+  assert.match(ideaMarkdown, /Assigned Agent: Sales/);
+  assert.equal(getBusinessIdeaById(ideas, 2).title, "Priority idea");
+});
+
 test("business idea digest generation ranks opportunities and summarizes signals", () => {
   const digest = buildCeoDigest({
     ideas: [
@@ -629,6 +717,87 @@ test("GET /api/ceo-digest returns digest summary", async (t) => {
   assert.equal(response.body.digest.topIdeas[0].title, "Auto idea");
   assert.equal(response.body.digest.highestConfidenceOpportunity.title, "Auto idea");
   assert.match(response.body.digest.recommendedNextAction, /Ship workflow/);
+});
+
+test("CEO digest markdown export includes ranked summary sections", () => {
+  const digest = buildCeoDigest({
+    ideas: [
+      {
+        id: 1,
+        createdAt: "2026-05-06T11:00:00.000Z",
+        updatedAt: "2026-05-06T11:00:00.000Z",
+        title: "Auto idea",
+        category: "AI Automation",
+        description: "Useful automation.",
+        profitPotential: 7,
+        startupCost: 3,
+        risk: 3,
+        difficulty: 4,
+        confidence: 7,
+        status: "building",
+        assignedAgentId: "assistant",
+        nextAction: "Ship workflow",
+        notes: "",
+      },
+    ],
+    decisions: [],
+    tasks: [],
+    memoryEvents: [],
+    now: "2026-05-06T13:00:00.000Z",
+  });
+
+  const markdown = formatCeoDigestMarkdown(digest);
+
+  assert.match(markdown, /# CEO Digest/);
+  assert.match(markdown, /## Top Ideas/);
+  assert.match(markdown, /## Recommended Next Action/);
+  assert.match(markdown, /Auto idea/);
+});
+
+test("GET /api/exports endpoints return markdown text", async (t) => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Auto idea",
+      category: "AI Automation",
+      description: "Useful automation.",
+      profitPotential: 7,
+      startupCost: 3,
+      risk: 3,
+      difficulty: 4,
+      confidence: 7,
+      status: "building",
+      assignedAgentId: "assistant",
+      nextAction: "Ship workflow",
+      notes: "",
+    },
+  ]);
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const digestResponse = await getText(server, "/api/exports/ceo-digest");
+  const ideasResponse = await getText(server, "/api/exports/business-ideas");
+  const ideaResponse = await getText(server, "/api/exports/business-ideas/1");
+
+  assert.equal(digestResponse.statusCode, 200);
+  assert.match(digestResponse.headers["content-type"], /text\/markdown/);
+  assert.match(digestResponse.body, /# CEO Digest/);
+
+  assert.equal(ideasResponse.statusCode, 200);
+  assert.match(ideasResponse.headers["content-type"], /text\/markdown/);
+  assert.match(ideasResponse.body, /# WOYS Business Ideas/);
+  assert.match(ideasResponse.body, /Auto idea/);
+
+  assert.equal(ideaResponse.statusCode, 200);
+  assert.match(ideaResponse.headers["content-type"], /text\/markdown/);
+  assert.match(ideaResponse.body, /# Auto idea/);
 });
 
 test("parseCommandText recognizes supported commands", () => {

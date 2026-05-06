@@ -16,9 +16,12 @@ const {
   createEmptyBusinessIdeas,
   createBusinessIdeaEntry,
   getBusinessIdeaCategoryForAgent,
+  getBusinessIdeaById,
   getBusinessIdeaDraft,
   getBusinessIdeaPatch,
   isImportantBusinessIdeaChange,
+  formatBusinessIdeaMarkdown,
+  formatBusinessIdeasMarkdown,
   normalizeBusinessIdeas,
   rankBusinessIdeas,
   updateBusinessIdea,
@@ -26,6 +29,7 @@ const {
 const {
   buildCeoDigest,
   createEmptyCeoDigest,
+  formatCeoDigestMarkdown,
 } = require("./ceoDigest");
 const {
   executeCommand,
@@ -92,6 +96,10 @@ function readJsonFile(filePath) {
 function writeJsonFile(filePath, items) {
   ensureJsonFile(filePath);
   fs.writeFileSync(filePath, `${JSON.stringify(items, null, 2)}\n`);
+}
+
+function sendMarkdown(res, markdown) {
+  return res.set("Content-Type", "text/markdown; charset=utf-8").send(`${markdown}\n`);
 }
 
 function readMessages() {
@@ -1532,6 +1540,33 @@ app.get("/api/business-ideas", (req, res) => {
 
 app.get("/api/ceo-digest", (req, res) => {
   res.json({ digest: refreshCeoDigest() });
+});
+
+app.get("/api/exports/ceo-digest", (req, res) => {
+  const digest = refreshCeoDigest();
+  const markdown = formatCeoDigestMarkdown(digest);
+
+  sendMarkdown(res, markdown);
+});
+
+app.get("/api/exports/business-ideas", (req, res) => {
+  const ideas = rankBusinessIdeas(readBusinessIdeas());
+  const markdown = formatBusinessIdeasMarkdown(ideas, getPublicAgents());
+
+  sendMarkdown(res, markdown);
+});
+
+app.get("/api/exports/business-ideas/:ideaId", (req, res) => {
+  const ideas = rankBusinessIdeas(readBusinessIdeas());
+  const idea = getBusinessIdeaById(ideas, req.params.ideaId);
+
+  if (!idea) {
+    return res.status(404).json({ error: "idea not found" });
+  }
+
+  const markdown = formatBusinessIdeaMarkdown(idea, getPublicAgents());
+
+  sendMarkdown(res, markdown);
 });
 
 app.post("/api/commands", (req, res) => {

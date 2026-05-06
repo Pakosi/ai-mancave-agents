@@ -10,7 +10,7 @@
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
 - Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, `backend/data/agent-goals.json`, and `backend/data/business-ideas.json`.
 - Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
-- API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, and `/api/operating-rhythm`.
+- API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, `/api/operating-rhythm`, and markdown export routes under `/api/exports/...`.
 
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
@@ -82,6 +82,10 @@
 - Supported commands include `summarize today`, `focus trading`, `focus automation`, `rank ideas`, `kill weak ideas`, and `prioritize [category]`.
 - Commands update company plan, agent goals, business ideas, CEO digest, and feed messages in a deterministic way.
 - The frontend routes command-like input through the command endpoint and shows a compact response under the input.
+
+## Exports
+- Markdown exports are available for the CEO digest, ranked business ideas, and single idea reports.
+- The frontend shows exported markdown in a compact sidebar panel and can copy the current export text.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.

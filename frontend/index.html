@@ -1326,6 +1326,7 @@
     .goals-panel,
     .ideas-panel,
     .memory-panel,
+    .exports-panel,
     .plan-panel,
     .tasks-panel {
       background: #110b05;
@@ -1338,6 +1339,7 @@
     .goals-panel h2,
     .ideas-panel h2,
     .memory-panel h2,
+    .exports-panel h2,
     .plan-panel h2,
     .tasks-panel h2 {
       color: #d4a853;
@@ -1346,6 +1348,36 @@
       letter-spacing: 0.07em;
       margin: 0 0 0.75rem;
       text-transform: uppercase;
+    }
+
+    .panel-title-row {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+    }
+
+    .mini-button,
+    .idea-export-button {
+      background: linear-gradient(135deg, #2d1f0a 0%, #5a3e1b 100%);
+      border: 1px solid rgba(212, 168, 83, 0.28);
+      border-radius: 999px;
+      color: #f3dfbb;
+      font-size: 0.64rem;
+      font-weight: 700;
+      grid-column: auto;
+      padding: 0.25rem 0.55rem;
+      text-transform: uppercase;
+    }
+
+    .mini-button:hover,
+    .idea-export-button:hover {
+      opacity: 0.92;
+    }
+
+    .mini-button:disabled,
+    .idea-export-button:disabled {
+      opacity: 0.5;
     }
 
     /* ── Plan Panel ── */
@@ -1526,12 +1558,24 @@
       margin-top: 0.35rem;
     }
 
+    .idea-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0.35rem;
+    }
+
     /* ── CEO Digest ── */
     .digest-panel {
       background: linear-gradient(180deg, #171009 0%, #100a06 100%);
       border: 1px solid #3b2713;
       border-radius: 8px;
       padding: 0.65rem;
+    }
+
+    .digest-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.45rem;
     }
 
     .digest-summary {
@@ -1573,6 +1617,35 @@
       color: #cfb48b;
       font-size: 0.74rem;
       line-height: 1.35;
+    }
+
+    .exports-panel {
+      padding-bottom: 0.75rem;
+    }
+
+    .export-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .export-markdown {
+      background: #0f0a06;
+      border: 1px solid #3d2510;
+      border-radius: 8px;
+      color: #e8d5b7;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      margin: 0;
+      max-height: 11rem;
+      overflow: auto;
+      padding: 0.65rem;
+      white-space: pre-wrap;
+    }
+
+    .export-markdown.empty {
+      color: #5a4025;
     }
 
     /* ── Goals Panel ── */
@@ -1868,6 +1941,17 @@
           <button id="sendButton" type="submit">Send into room</button>
         </form>
         <div id="commandResult" class="command-result empty">Commands will show here.</div>
+        <section class="exports-panel">
+          <h2 class="panel-title-row">
+            <span>Exports</span>
+            <button id="copyExportButton" class="mini-button" type="button">Copy</button>
+          </h2>
+          <div class="export-toolbar">
+            <button id="exportCeoDigestButton" class="mini-button" type="button">CEO digest</button>
+            <button id="exportBusinessIdeasButton" class="mini-button" type="button">Top ideas</button>
+          </div>
+          <pre id="exportMarkdown" class="export-markdown empty">Choose an export to view markdown.</pre>
+        </section>
 
         <section class="tasks-panel">
           <h2>Tasks</h2>
@@ -1875,12 +1959,18 @@
         </section>
 
         <section class="ideas-panel">
-          <h2>Business Ideas</h2>
+          <h2 class="panel-title-row">
+            <span>Business Ideas</span>
+            <button id="refreshIdeasExportButton" class="mini-button" type="button">Export</button>
+          </h2>
           <div id="businessIdeas" class="idea-list"></div>
         </section>
 
         <section class="digest-panel">
-          <h2>CEO Digest</h2>
+          <h2 class="panel-title-row">
+            <span>CEO Digest</span>
+            <button id="refreshDigestExportButton" class="mini-button" type="button">Export</button>
+          </h2>
           <div id="ceoDigest"></div>
         </section>
 
@@ -1918,6 +2008,12 @@
     const companyPlan = document.getElementById("companyPlan");
     const decisionMemory = document.getElementById("decisionMemory");
     const commandResult = document.getElementById("commandResult");
+    const exportMarkdown = document.getElementById("exportMarkdown");
+    const copyExportButton = document.getElementById("copyExportButton");
+    const exportCeoDigestButton = document.getElementById("exportCeoDigestButton");
+    const exportBusinessIdeasButton = document.getElementById("exportBusinessIdeasButton");
+    const refreshIdeasExportButton = document.getElementById("refreshIdeasExportButton");
+    const refreshDigestExportButton = document.getElementById("refreshDigestExportButton");
     const error = document.getElementById("error");
     const messageForm = document.getElementById("messageForm");
     const messageInput = document.getElementById("messageInput");
@@ -1950,6 +2046,27 @@
     function setCommandResult(message) {
       commandResult.textContent = message || "Commands will show here.";
       commandResult.classList.toggle("empty", !message);
+    }
+
+    function setExportMarkdown(text) {
+      const value = text || "";
+
+      exportMarkdown.textContent = value || "Choose an export to view markdown.";
+      exportMarkdown.classList.toggle("empty", !value);
+    }
+
+    function copyCurrentExport() {
+      const text = exportMarkdown.textContent || "";
+
+      if (!text || text === "Choose an export to view markdown.") {
+        return Promise.resolve();
+      }
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        return navigator.clipboard.writeText(text);
+      }
+
+      return Promise.resolve();
     }
 
     function formatTime(value) {
@@ -2439,8 +2556,19 @@
         next.className = "idea-next";
         next.textContent = `Next: ${view.nextAction}`;
 
+        const actions = document.createElement("div");
+        actions.className = "idea-actions";
+
+        const exportButton = document.createElement("button");
+        exportButton.className = "idea-export-button";
+        exportButton.type = "button";
+        exportButton.dataset.ideaId = view.id;
+        exportButton.textContent = "Report";
+
+        actions.appendChild(exportButton);
+
         header.append(title, category);
-        ideaItem.append(header, meta, next);
+        ideaItem.append(header, meta, next, actions);
         businessIdeas.appendChild(ideaItem);
       });
     }
@@ -2765,6 +2893,36 @@
       }).catch(() => {});
     }
 
+    function showExportMarkdown(text) {
+      setExportMarkdown(text);
+    }
+
+    function loadBusinessIdeasExport() {
+      return WOYSApp.loadBusinessIdeasExport({
+        onExport(text) {
+          showExportMarkdown(text);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not export business ideas.");
+        },
+      }).catch(() => {});
+    }
+
+    function loadBusinessIdeaExport(ideaId) {
+      return WOYSApp.loadBusinessIdeaExport(ideaId, {
+        onExport(text) {
+          showExportMarkdown(text);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not export idea report.");
+        },
+      }).catch(() => {});
+    }
+
     function loadCeoDigest() {
       return WOYSApp.loadCeoDigest({
         onDigest(digest) {
@@ -2774,6 +2932,19 @@
         onError(err) {
           console.error(err);
           setError("Could not load CEO digest.");
+        },
+      }).catch(() => {});
+    }
+
+    function loadCeoDigestExport() {
+      return WOYSApp.loadCeoDigestExport({
+        onExport(text) {
+          showExportMarkdown(text);
+          setError("");
+        },
+        onError(err) {
+          console.error(err);
+          setError("Could not export CEO digest.");
         },
       }).catch(() => {});
     }
@@ -2953,6 +3124,39 @@
 
     agentSelect.addEventListener("change", () => {
       WOYSApp.saveSelectedAgentId(agentSelect.value);
+    });
+
+    copyExportButton.addEventListener("click", () => {
+      copyCurrentExport().catch((err) => {
+        console.error(err);
+        setError("Could not copy export.");
+      });
+    });
+
+    exportCeoDigestButton.addEventListener("click", () => {
+      loadCeoDigestExport();
+    });
+
+    exportBusinessIdeasButton.addEventListener("click", () => {
+      loadBusinessIdeasExport();
+    });
+
+    refreshIdeasExportButton.addEventListener("click", () => {
+      loadBusinessIdeasExport();
+    });
+
+    refreshDigestExportButton.addEventListener("click", () => {
+      loadCeoDigestExport();
+    });
+
+    businessIdeas.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-idea-id]");
+
+      if (!button) {
+        return;
+      }
+
+      loadBusinessIdeaExport(button.dataset.ideaId);
     });
 
     taskList.addEventListener("click", event => {

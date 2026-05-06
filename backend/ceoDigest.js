@@ -135,8 +135,77 @@ function buildCeoDigest({
   };
 }
 
+function formatIdeaSummaryLine(idea) {
+  if (!idea) {
+    return "";
+  }
+
+  return `- ${idea.title} (${idea.status}, confidence ${idea.confidence}/10, profit ${idea.profitPotential}/10)`;
+}
+
+function formatCeoDigestMarkdown(digest = createEmptyCeoDigest()) {
+  const normalizedDigest = digest && typeof digest === "object" ? digest : createEmptyCeoDigest();
+  const lines = [
+    "# CEO Digest",
+    "",
+    `Updated: ${normalizedDigest.updatedAt || new Date().toISOString()}`,
+    "",
+    "## Ranked Opportunity Summary",
+    normalizedDigest.rankedOpportunitySummary || "No business ideas yet.",
+    "",
+    "## Top Ideas",
+  ];
+
+  if (!Array.isArray(normalizedDigest.topIdeas) || normalizedDigest.topIdeas.length === 0) {
+    lines.push("- None yet.");
+  } else {
+    normalizedDigest.topIdeas.forEach((idea) => {
+      lines.push(formatIdeaSummaryLine(idea));
+    });
+  }
+
+  lines.push("", "## Newly Created Ideas");
+
+  if (!Array.isArray(normalizedDigest.newlyCreatedIdeas) || normalizedDigest.newlyCreatedIdeas.length === 0) {
+    lines.push("- None yet.");
+  } else {
+    normalizedDigest.newlyCreatedIdeas.forEach((idea) => {
+      lines.push(formatIdeaSummaryLine(idea));
+    });
+  }
+
+  lines.push("", "## Paused / Killed Ideas");
+
+  if (!Array.isArray(normalizedDigest.pausedOrKilledIdeas) || normalizedDigest.pausedOrKilledIdeas.length === 0) {
+    lines.push("- None yet.");
+  } else {
+    normalizedDigest.pausedOrKilledIdeas.forEach((idea) => {
+      lines.push(formatIdeaSummaryLine(idea));
+    });
+  }
+
+  lines.push(
+    "",
+    "## Highest Confidence Opportunity",
+    normalizedDigest.highestConfidenceOpportunity
+      ? `- ${normalizedDigest.highestConfidenceOpportunity.title} (${normalizedDigest.highestConfidenceOpportunity.confidence}/10)`
+      : "- None yet.",
+    "",
+    "## Biggest Risk",
+    normalizedDigest.biggestRisk
+      ? `- ${normalizedDigest.biggestRisk.title} (${normalizedDigest.biggestRisk.risk}/10)`
+      : "- None yet.",
+    "",
+    "## Recommended Next Action",
+    normalizedDigest.recommendedNextAction || "Create the first idea.",
+  );
+
+  return lines.join("\n");
+}
+
 module.exports = {
   buildCeoDigest,
   createEmptyCeoDigest,
+  formatCeoDigestMarkdown,
   summarizeIdea,
 };

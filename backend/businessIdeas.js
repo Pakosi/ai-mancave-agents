@@ -411,12 +411,92 @@ function rankBusinessIdeas(ideas) {
     });
 }
 
+function getAgentDisplayName(agentId, agents = []) {
+  if (!agentId) {
+    return "Unassigned";
+  }
+
+  const agent = agents.find((item) => item.id === agentId);
+
+  return agent ? agent.name : agentId;
+}
+
+function formatBusinessIdeaMarkdown(idea, agents = []) {
+  if (!idea) {
+    return "";
+  }
+
+  return [
+    `# ${idea.title}`,
+    "",
+    `- Category: ${idea.category}`,
+    `- Status: ${idea.status}`,
+    `- Assigned Agent: ${getAgentDisplayName(idea.assignedAgentId, agents)}`,
+    `- Confidence: ${idea.confidence}/10`,
+    `- Profit Potential: ${idea.profitPotential}/10`,
+    `- Startup Cost: ${idea.startupCost}/10`,
+    `- Risk: ${idea.risk}/10`,
+    `- Difficulty: ${idea.difficulty}/10`,
+    `- Next Action: ${idea.nextAction || "No next action yet."}`,
+    `- Notes: ${idea.notes || "None."}`,
+    "",
+    `- Created At: ${idea.createdAt}`,
+    `- Updated At: ${idea.updatedAt}`,
+  ].join("\n");
+}
+
+function formatBusinessIdeasMarkdown(ideas, agents = []) {
+  const rankedIdeas = rankBusinessIdeas(ideas);
+  const lines = [
+    "# WOYS Business Ideas",
+    "",
+    `Generated: ${new Date().toISOString()}`,
+    "",
+  ];
+
+  if (rankedIdeas.length === 0) {
+    lines.push("No business ideas yet.");
+    return lines.join("\n");
+  }
+
+  rankedIdeas.slice(0, 10).forEach((idea, index) => {
+    lines.push(
+      `## ${index + 1}. ${idea.title}`,
+      "",
+      `- Category: ${idea.category}`,
+      `- Status: ${idea.status}`,
+      `- Assigned Agent: ${getAgentDisplayName(idea.assignedAgentId, agents)}`,
+      `- Confidence: ${idea.confidence}/10`,
+      `- Profit Potential: ${idea.profitPotential}/10`,
+      `- Risk: ${idea.risk}/10`,
+      `- Difficulty: ${idea.difficulty}/10`,
+      `- Next Action: ${idea.nextAction || "No next action yet."}`,
+      "",
+    );
+  });
+
+  return lines.join("\n").trimEnd();
+}
+
+function getBusinessIdeaById(ideas, ideaId) {
+  const numericIdeaId = Number(ideaId);
+
+  if (!Number.isInteger(numericIdeaId) || numericIdeaId < 1) {
+    return null;
+  }
+
+  return normalizeBusinessIdeas(ideas).find((idea) => idea.id === numericIdeaId) || null;
+}
+
 module.exports = {
   createBusinessIdeaEntry,
   createEmptyBusinessIdeas,
+  formatBusinessIdeaMarkdown,
+  formatBusinessIdeasMarkdown,
   getBusinessIdeaCategoryForAgent,
   getBusinessIdeaDraft,
   getBusinessIdeaPatch,
+  getBusinessIdeaById,
   getBusinessIdeaScore,
   isImportantBusinessIdeaChange,
   normalizeBusinessIdeas,

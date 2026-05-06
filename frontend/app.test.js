@@ -20,7 +20,10 @@ const {
   loadAgents,
   loadAgentGoals,
   loadBusinessIdeas,
+  loadBusinessIdeasExport,
+  loadBusinessIdeaExport,
   loadCeoDigest,
+  loadCeoDigestExport,
   loadCompanyPlan,
   loadDecisions,
   loadMemoryEvents,
@@ -313,6 +316,54 @@ test("loadBusinessIdeas calls onError and rejects when fetch fails", async () =>
   assert.deepEqual(errors, [fetchError]);
 });
 
+test("loadBusinessIdeasExport calls export endpoint and returns markdown", async () => {
+  const calls = [];
+  const callbacks = [];
+  const markdown = "# WOYS Business Ideas\n\n- Priority idea";
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(markdown),
+    });
+  };
+
+  const exported = await loadBusinessIdeasExport({
+    apiBaseUrl: "http://test.local",
+    fetch,
+    onExport(text) {
+      callbacks.push(text);
+    },
+  });
+
+  assert.equal(exported, markdown);
+  assert.deepEqual(callbacks, [markdown]);
+  assert.equal(calls[0].url, "http://test.local/api/exports/business-ideas");
+  assert.equal(calls[0].options, undefined);
+});
+
+test("loadBusinessIdeaExport calls single idea export endpoint and returns markdown", async () => {
+  const calls = [];
+  const markdown = "# Priority idea";
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(markdown),
+    });
+  };
+
+  const exported = await loadBusinessIdeaExport(7, {
+    apiBaseUrl: "http://test.local",
+    fetch,
+  });
+
+  assert.equal(exported, markdown);
+  assert.equal(calls[0].url, "http://test.local/api/exports/business-ideas/7");
+});
+
 test("loadCeoDigest calls /api/ceo-digest and returns digest", async () => {
   const calls = [];
   const callbacks = [];
@@ -364,6 +415,28 @@ test("loadCeoDigest calls onError and rejects when fetch fails", async () => {
   );
 
   assert.deepEqual(errors, [fetchError]);
+});
+
+test("loadCeoDigestExport calls export endpoint and returns markdown", async () => {
+  const calls = [];
+  const markdown = "# CEO Digest";
+  const fetch = (url, options) => {
+    calls.push({ url, options });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(markdown),
+    });
+  };
+
+  const exported = await loadCeoDigestExport({
+    apiBaseUrl: "http://test.local",
+    fetch,
+  });
+
+  assert.equal(exported, markdown);
+  assert.equal(calls[0].url, "http://test.local/api/exports/ceo-digest");
+  assert.equal(calls[0].options, undefined);
 });
 
 test("parseCommandText and isCommandText recognize supported commands", () => {
