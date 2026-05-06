@@ -5,6 +5,11 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+const {
+  createBusinessIdeaEntry,
+  rankBusinessIdeas,
+  updateBusinessIdea,
+} = require("./businessIdeas");
 const app = require("./server");
 
 const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "woys-messages-"));
@@ -15,6 +20,7 @@ function resetMessages() {
   app.locals.companyPlanFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-company-plan.json`);
   app.locals.decisionLogFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-decision-log.json`);
   app.locals.agentGoalsFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-agent-goals.json`);
+  app.locals.businessIdeasFile = path.join(testDataDir, `${Date.now()}-${Math.random()}-business-ideas.json`);
   app.locals.agentThoughtIndex = 0;
   app.locals.agentThoughtState = {
     isThinking: false,
@@ -287,6 +293,172 @@ test("GET /api/company-plan returns shared planning state", async (t) => {
   assert.ok(Array.isArray(response.body.plan.nextRecommendedActions));
   assert.ok(Array.isArray(response.body.plan.recentDecisions));
   assert.equal(typeof response.body.plan.updatedAt, "string");
+});
+
+test("business ideas persist through file storage", () => {
+  resetMessages();
+
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T09:00:00.000Z",
+      updatedAt: "2026-05-06T09:15:00.000Z",
+      title: "Dealer follow-up workflow",
+      category: "sales",
+      description: "Structure the next customer follow-up step.",
+      profitPotential: 8,
+      startupCost: 3,
+      risk: 4,
+      difficulty: 4,
+      confidence: 7,
+      status: "validating",
+      assignedAgentId: "sales",
+      nextAction: "Interview one dealer",
+      notes: "Keep it lightweight.",
+    },
+  ]);
+
+  const ideas = app.locals.readBusinessIdeasForTest();
+
+  assert.equal(ideas.length, 1);
+  assert.equal(ideas[0].title, "Dealer follow-up workflow");
+  assert.equal(ideas[0].status, "validating");
+  assert.equal(ideas[0].assignedAgentId, "sales");
+});
+
+test("business idea helpers create, update, and rank ideas", () => {
+  const createdAt = "2026-05-06T10:00:00.000Z";
+  const updatedAt = "2026-05-06T10:05:00.000Z";
+
+  const created = createBusinessIdeaEntry({
+    ideas: [],
+    title: "Dealer follow-up workflow",
+    category: "sales",
+    description: "Create a repeatable follow-up path.",
+    profitPotential: 9,
+    startupCost: 2,
+    risk: 3,
+    difficulty: 3,
+    confidence: 8,
+    status: "researching",
+    assignedAgentId: "sales",
+    nextAction: "Interview one dealer",
+    notes: "Keep it lightweight.",
+    now: createdAt,
+  });
+
+  assert.equal(created.idea.id, 1);
+  assert.equal(created.idea.createdAt, createdAt);
+  assert.equal(created.idea.status, "researching");
+
+  const updated = updateBusinessIdea({
+    ideas: created.ideas,
+    ideaId: created.idea.id,
+    patch: {
+      status: "promising",
+      nextAction: "Draft a validation test",
+      notes: "Validation looks strong.",
+    },
+    now: updatedAt,
+  });
+
+  assert.equal(updated.idea.id, 1);
+  assert.equal(updated.idea.status, "promising");
+  assert.equal(updated.idea.updatedAt, updatedAt);
+  assert.equal(updated.idea.nextAction, "Draft a validation test");
+
+  const ranked = rankBusinessIdeas([
+    updated.idea,
+    {
+      id: 2,
+      createdAt: "2026-05-06T09:00:00.000Z",
+      updatedAt: "2026-05-06T09:00:00.000Z",
+      title: "Minor ops cleanup",
+      category: "ops",
+      description: "Small maintenance idea.",
+      profitPotential: 2,
+      startupCost: 7,
+      risk: 6,
+      difficulty: 5,
+      confidence: 3,
+      status: "paused",
+      assignedAgentId: "manager",
+      nextAction: "",
+      notes: "",
+    },
+    {
+      id: 3,
+      createdAt: "2026-05-06T11:00:00.000Z",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+      title: "Launch monitoring dashboard",
+      category: "product",
+      description: "High-value reporting idea.",
+      profitPotential: 10,
+      startupCost: 2,
+      risk: 2,
+      difficulty: 4,
+      confidence: 9,
+      status: "building",
+      assignedAgentId: "builder",
+      nextAction: "Ship first version",
+      notes: "",
+    },
+  ]);
+
+  assert.deepEqual(ranked.map((idea) => idea.id), [3, 1, 2]);
+});
+
+test("GET /api/business-ideas returns ranked ideas", async (t) => {
+  resetMessages();
+  app.locals.writeBusinessIdeasForTest([
+    {
+      id: 1,
+      createdAt: "2026-05-06T09:00:00.000Z",
+      updatedAt: "2026-05-06T09:00:00.000Z",
+      title: "Lower priority idea",
+      category: "ops",
+      description: "Less attractive option.",
+      profitPotential: 2,
+      startupCost: 8,
+      risk: 6,
+      difficulty: 7,
+      confidence: 3,
+      status: "paused",
+      assignedAgentId: "assistant",
+      nextAction: "Review later",
+      notes: "",
+    },
+    {
+      id: 2,
+      createdAt: "2026-05-06T10:00:00.000Z",
+      updatedAt: "2026-05-06T10:00:00.000Z",
+      title: "Priority idea",
+      category: "sales",
+      description: "Better business fit.",
+      profitPotential: 9,
+      startupCost: 2,
+      risk: 2,
+      difficulty: 3,
+      confidence: 8,
+      status: "promising",
+      assignedAgentId: "sales",
+      nextAction: "Validate with one user",
+      notes: "",
+    },
+  ]);
+
+  const server = await listen();
+
+  t.after(() => {
+    server.close();
+  });
+
+  const response = await getJson(server, "/api/business-ideas");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.ideas.length, 2);
+  assert.equal(response.body.ideas[0].title, "Priority idea");
+  assert.equal(response.body.ideas[1].title, "Lower priority idea");
 });
 
 test("GET /api/decisions and /api/memory-events return decision log state", async (t) => {

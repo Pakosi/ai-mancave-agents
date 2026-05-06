@@ -13,6 +13,10 @@ const {
   updateGoalForCoordinator,
 } = require("./agentGoals");
 const {
+  normalizeBusinessIdeas,
+  rankBusinessIdeas,
+} = require("./businessIdeas");
+const {
   createDefaultCompanyPlan,
   getPrimaryPlanFocus,
   normalizeCompanyPlan,
@@ -35,6 +39,7 @@ app.locals.tasksFile = path.join(__dirname, "data", "tasks.json");
 app.locals.companyPlanFile = path.join(__dirname, "data", "company-plan.json");
 app.locals.decisionLogFile = path.join(__dirname, "data", "decision-log.json");
 app.locals.agentGoalsFile = path.join(__dirname, "data", "agent-goals.json");
+app.locals.businessIdeasFile = path.join(__dirname, "data", "business-ideas.json");
 app.locals.agentThoughtIndex = 0;
 app.locals.agentThoughtState = {
   isThinking: false,
@@ -161,6 +166,27 @@ function writeAgentGoals(goals) {
   writeJsonFile(app.locals.agentGoalsFile, normalizedGoals);
 
   return normalizedGoals;
+}
+
+function readBusinessIdeas() {
+  if (!fs.existsSync(app.locals.businessIdeasFile)) {
+    const ideas = [];
+    writeJsonFile(app.locals.businessIdeasFile, ideas);
+
+    return ideas;
+  }
+
+  const ideas = normalizeBusinessIdeas(readJsonFile(app.locals.businessIdeasFile));
+  writeJsonFile(app.locals.businessIdeasFile, ideas);
+
+  return ideas;
+}
+
+function writeBusinessIdeas(ideas) {
+  const normalizedIdeas = normalizeBusinessIdeas(ideas);
+  writeJsonFile(app.locals.businessIdeasFile, normalizedIdeas);
+
+  return normalizedIdeas;
 }
 
 function getNextId(items) {
@@ -1258,6 +1284,10 @@ app.get("/api/company-plan", (req, res) => {
   res.json({ plan: readCompanyPlan() });
 });
 
+app.get("/api/business-ideas", (req, res) => {
+  res.json({ ideas: rankBusinessIdeas(readBusinessIdeas()) });
+});
+
 app.get("/api/decisions", (req, res) => {
   const roomId = getValidText(req.query.roomId);
   const log = readDecisionLog();
@@ -1507,12 +1537,14 @@ app.locals.getAgentThoughtActivity = getAgentThoughtActivity;
 app.locals.readAgentGoalsForTest = readAgentGoals;
 app.locals.readDecisionLogForTest = readDecisionLog;
 app.locals.readCompanyPlanForTest = readCompanyPlan;
+app.locals.readBusinessIdeasForTest = readBusinessIdeas;
 app.locals.readMessagesForTest = readMessages;
 app.locals.readTasksForTest = readTasks;
 app.locals.scheduleNextAgentThought = scheduleNextAgentThought;
 app.locals.selectRoomTaskForTest = selectRoomTask;
 app.locals.writeDecisionLogForTest = writeDecisionLog;
 app.locals.writeCompanyPlanForTest = writeCompanyPlan;
+app.locals.writeBusinessIdeasForTest = writeBusinessIdeas;
 app.locals.writeAgentGoalsForTest = writeAgentGoals;
 app.locals.startAgentThoughtLoop = startAgentThoughtLoop;
 app.locals.handoffTaskForTest = handoffTask;

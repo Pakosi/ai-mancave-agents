@@ -6,10 +6,11 @@
 - Company plan helpers: `backend/companyPlan.js`.
 - Decision and memory helpers: `backend/decisionLog.js`.
 - Agent goal and operating rhythm helpers: `backend/agentGoals.js`.
+- Business idea helpers: `backend/businessIdeas.js`.
 - Frontend: vanilla HTML/CSS/JS in `frontend/index.html` and `frontend/app.js`.
-- Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, and `backend/data/agent-goals.json`.
+- Persistence: JSON files in `backend/data/messages.json`, `backend/data/tasks.json`, `backend/data/company-plan.json`, `backend/data/decision-log.json`, `backend/data/agent-goals.json`, and `backend/data/business-ideas.json`.
 - Runtime rooms: `main`, `auto`, `marketing`, `ops`, each with a short room brief.
-- API includes `/api/company-plan`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, and `/api/operating-rhythm`.
+- API includes `/api/company-plan`, `/api/business-ideas`, `/api/decisions`, `/api/memory-events`, `/api/agent-goals`, and `/api/operating-rhythm`.
 
 ## Agents
 - Agents: `host`, `assistant`, `sales`, `strategist`, `researcher`, `builder`, `analyst`, `manager`.
@@ -67,6 +68,12 @@
 - `PATCH /api/tasks/:taskId` now also accepts `blockedReason` (string or null) to mark or unmark a task as blocked.
 - `PATCH /api/tasks/:taskId/handoff` allows manager or host to reassign a task; body: `{ actingAgentId, toAgentId, reason }`. Creates a feed entry and memory event.
 - Existing tasks without new fields are normalized on read via `normalizeTasks()`.
+
+## Business Ideas
+- Business ideas are JSON-backed backend records with title, category, description, viability scores, status, ownership, next action, and notes.
+- `backend/businessIdeas.js` provides create, update, normalize, and ranking helpers.
+- `GET /api/business-ideas` returns ranked ideas from the JSON store.
+- Phase 4A stops at the backend model; frontend cards are not added yet.
 
 ## Frontend
 - The agent selector is populated from `/api/agents` and includes specialized agents.
